@@ -1,0 +1,39 @@
+---
+output: github_document
+---
+
+```{r setup, include = FALSE}
+mus <- matrix(c(-1, -1, 
+                 1, 1, 
+                -1, 1), 3L, byrow = FALSE)
+
+n_per_grp <- 500L
+set.seed(42452652)
+sims <- lapply(1:nrow(mus), function(i){
+  mu <- mus[i, ]
+  X <- matrix(rnorm(n_per_grp * 2L), nrow = 2L)
+  Sig <- diag(c(.5^2, .25^2))
+  X <- t(crossprod(chol(Sig), X) + mu)
+  
+  data.frame(X, grp = i)
+})
+sims <- do.call(rbind, sims)
+
+plot(as.matrix(sims[, c("X1", "X2")]), col = sims$grp)
+
+X <- t(as.matrix(sims[, c("X1", "X2")]))
+out <- FKA:::test_KD_note(X, 20L)
+
+out$indices <- out$indices + 1L
+n_ele <- drop(out$n_elems)
+idx <- mapply(`:`, cumsum(c(1L, head(n_ele, -1))), cumsum(n_ele))
+stopifnot(all(sapply(idx, length) == n_ele))
+idx <- lapply(idx, function(i) out$indices[i])
+stopifnot(!anyDuplicated(unlist(idx)))
+
+grps <- lapply(idx, function(i) X[, i])
+
+borders <- lapply(grps, function(x) apply(x, 1, range))
+invisible(lapply(borders, function(b) 
+  rect(b[1, "X1"], b[1, "X2"], b[2, "X1"], b[2, "X2"])))
+```
