@@ -1,4 +1,4 @@
-#include "kd-tree.h"
+#include "kd-tree.hpp"
 #include <numeric>
 
 class row_order {
@@ -148,4 +148,22 @@ std::vector<const KD_note*> KD_note::get_leafs() const {
     out.push_back(lr);
 
   return out;
+}
+
+const KD_note& KD_note::get_left() const {
+#ifdef KFA_DEBUG
+  if(!left)
+    throw "get_*_node called on leaf note";
+#endif
+
+  return *left;
+}
+
+const KD_note& KD_note::get_right() const {
+#ifdef KFA_DEBUG
+  if(!right)
+    throw "get_*_node called on leaf note";
+#endif
+
+  return *right;
 }

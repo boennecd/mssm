@@ -6,9 +6,10 @@ output: github_document
 mus <- matrix(c(-1, -1, 
                  1, 1, 
                 -1, 1), 3L, byrow = FALSE)
+mus <- mus * .5
 
-n_per_grp <- 500L
-set.seed(42452652)
+n_per_grp <- 3000L
+set.seed(42452654)
 sims <- lapply(1:nrow(mus), function(i){
   mu <- mus[i, ]
   X <- matrix(rnorm(n_per_grp * 2L), nrow = 2L)
@@ -22,7 +23,7 @@ sims <- do.call(rbind, sims)
 plot(as.matrix(sims[, c("X1", "X2")]), col = sims$grp)
 
 X <- t(as.matrix(sims[, c("X1", "X2")]))
-out <- FKA:::test_KD_note(X, 20L)
+out <- FKA:::test_KD_note(X, 50L)
 
 out$indices <- out$indices + 1L
 n_ele <- drop(out$n_elems)
@@ -37,3 +38,19 @@ borders <- lapply(grps, function(x) apply(x, 1, range))
 invisible(lapply(borders, function(b) 
   rect(b[1, "X1"], b[1, "X2"], b[2, "X1"], b[2, "X2"])))
 ```
+
+```{r}
+ws <- exp(rnorm(ncol(X)))
+ws <- ws / sum(ws)
+
+microbenchmark::microbenchmark(
+  FKA:::FKA  (X = X, ws = ws, Y = X, N_min = 10L, eps = 1e-6), 
+  FKA:::naive(X = X, ws = ws, Y = X), times = 1L)
+o1 <- FKA:::FKA  (X = X, ws = ws, Y = X, N_min = 10L, eps = 1e-6)
+o2 <- FKA:::naive(X = X, ws = ws, Y = X)
+
+head(o1)
+head(o2)
+all.equal(o1, o2)
+```
+

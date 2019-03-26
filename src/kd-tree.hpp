@@ -1,3 +1,5 @@
+#ifndef KD_TREE_H
+#define KD_TREE_H
 #include <RcppArmadillo.h>
 
 class row_order;
@@ -12,6 +14,9 @@ public:
   bool is_leaf() const;
   const std::vector<arma::uword> &get_indices() const;
   std::vector<const KD_note*> get_leafs() const;
+  const KD_note& get_left () const;
+  const KD_note& get_right() const;
+
   friend KD_note get_KD_tree(const arma::mat&, const arma::uword);
 
 private:
@@ -20,3 +25,5 @@ private:
 };
 
 KD_note get_KD_tree(const arma::mat&, const arma::uword);
+
+#endif

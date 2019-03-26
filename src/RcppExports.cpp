@@ -6,15 +6,43 @@
 
 using namespace Rcpp;
 
+// FKA
+arma::vec FKA(const arma::mat& X, const arma::vec& ws, const arma::mat& Y, const arma::uword N_min, const double eps);
+RcppExport SEXP _FKA_FKA(SEXP XSEXP, SEXP wsSEXP, SEXP YSEXP, SEXP N_minSEXP, SEXP epsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type ws(wsSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< const arma::uword >::type N_min(N_minSEXP);
+    Rcpp::traits::input_parameter< const double >::type eps(epsSEXP);
+    rcpp_result_gen = Rcpp::wrap(FKA(X, ws, Y, N_min, eps));
+    return rcpp_result_gen;
+END_RCPP
+}
 // test_KD_note
-Rcpp::List test_KD_note(const arma::mat X, const arma::uword N_min);
+Rcpp::List test_KD_note(const arma::mat& X, const arma::uword N_min);
 RcppExport SEXP _FKA_test_KD_note(SEXP XSEXP, SEXP N_minSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
     Rcpp::traits::input_parameter< const arma::uword >::type N_min(N_minSEXP);
     rcpp_result_gen = Rcpp::wrap(test_KD_note(X, N_min));
+    return rcpp_result_gen;
+END_RCPP
+}
+// naive
+arma::vec naive(const arma::mat& X, const arma::vec ws, const arma::mat Y);
+RcppExport SEXP _FKA_naive(SEXP XSEXP, SEXP wsSEXP, SEXP YSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const arma::vec >::type ws(wsSEXP);
+    Rcpp::traits::input_parameter< const arma::mat >::type Y(YSEXP);
+    rcpp_result_gen = Rcpp::wrap(naive(X, ws, Y));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -22,7 +50,9 @@ END_RCPP
 RcppExport SEXP run_testthat_tests();
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_FKA_FKA", (DL_FUNC) &_FKA_FKA, 5},
     {"_FKA_test_KD_note", (DL_FUNC) &_FKA_test_KD_note, 2},
+    {"_FKA_naive", (DL_FUNC) &_FKA_naive, 3},
     {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 0},
     {NULL, NULL, 0}
 };
