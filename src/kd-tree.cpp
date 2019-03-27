@@ -100,10 +100,8 @@ row_order::index_partition row_order::get_split(
     std::vector<arma::uword> &indices, const arma::uword depth)
   {
     /* sort indices */
-    /* TODO: double check that this is modolus */
     const arma::uword inc = X.n_rows, row = depth_idx[depth % X.n_rows];
     const double * const x = X.begin();
-    /* TODO: sort each covariate once? */
     std::sort(
       indices.begin(), indices.end(), [&](arma::uword i1, arma::uword i2){
         return *(x + row + i1 * inc) < *(x + row + i2 * inc);
@@ -129,10 +127,6 @@ row_order::index_partition row_order::get_split(
     return out;
   }
 
-bool KD_note::is_leaf() const {
-  return (!left) and (!right);
-}
-
 const std::vector<arma::uword>& KD_note::get_indices() const {
   return *idx;
 }
@@ -151,7 +145,7 @@ std::vector<const KD_note*> KD_note::get_leafs() const {
 }
 
 const KD_note& KD_note::get_left() const {
-#ifdef KFA_DEBUG
+#ifdef FSKA_DEBUG
   if(!left)
     throw "get_*_node called on leaf note";
 #endif
@@ -160,7 +154,7 @@ const KD_note& KD_note::get_left() const {
 }
 
 const KD_note& KD_note::get_right() const {
-#ifdef KFA_DEBUG
+#ifdef FSKA_DEBUG
   if(!right)
     throw "get_*_node called on leaf note";
 #endif

@@ -1,3 +1,3 @@
-#' @useDynLib FKA, .registration = TRUE
+#' @useDynLib FSKA, .registration = TRUE
 #' @importFrom Rcpp sourceCpp
 NULL

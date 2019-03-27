@@ -1,7 +1,7 @@
 #ifndef KERNELS_H
 #define KERNELS_H
 
-#include <RcppArmadillo.h>
+#include "arma.hpp"
 
 struct mvariate {
   const double norm_const_log;
@@ -27,15 +27,14 @@ inline double log_sum_log(const arma::vec &ws, const double max_weight){
   return std::log(norm_constant) + max_weight;
 }
 
-inline double norm_square(const arma::vec &X, const arma::vec &Y){
-#ifdef KFA_DEBUG
+inline double norm_square(const double *d1, const double *d2, arma::uword N){
+#ifdef FSKA_DEBUG
   if(X.n_elem != Y.n_elem)
     throw "element dimensions do not match";
 #endif
-  const double *d2 = Y.begin();
-  double dist = 0.;
-  for(auto d1 : X){
-    double diff = d1 - *(d2++);
+  double  dist = 0.;
+  for(arma::uword i = 0; i < N; ++i, ++d1, ++d2){
+    double diff = *d1 - *d2;
     dist += diff * diff;
   }
 

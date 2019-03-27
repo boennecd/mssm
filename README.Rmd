@@ -1,30 +1,86 @@
 ---
-output: github_document
+output:
+  github_document:
+    pandoc_args: --webtex=https://chart.googleapis.com/chart?cht=tx&chl=
+bibliography: README.bib
 ---
 
-```{r setup, include = FALSE}
+## Fast Sum-Kernel Approximation
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  error = FALSE, cache = "./README-cache/", fig.path = "./README-fig/", 
+  echo = TRUE)
+options(digits = 4, scipen = 7)
+```
+
+This package contains a simple implementation of the dual-tree method like the one 
+suggested by @Gray03 and shown in @Klaas06. The problem we want to solve is
+the sum-kernel problem in @Klaas06. Particularly, we consider the situation 
+where we have $1,\dots,N_q$ query particles denoted by 
+$\{\vec Y_i\}_{i=1,\dots,N_q}$ and $1,\dots,N_s$ source particles denoted by
+$\{\vec X_j\}_{j=1,\dots,N_s}$. For each query particle, we want to compute 
+the weights 
+
+$$W_i = \frac{\tilde W_i}{\sum_{k = 1}^{N_q} \tilde W_i},\qquad \tilde W_i = \sum_{j=1}^{N_s} \bar W_j K(\vec Y_i, \vec X_j)$$
+
+where each source particle has an associated weight $\bar W_j$ and $K$ is 
+kernel. Computing the above is $\mathcal{O}(N_sN_q)$ which is major 
+bottleneck if $N_s$ and $N_q$ is large. However, one can use a 
+[k-d tree](https://en.wikipedia.org/wiki/K-d_tree) for the query particles
+and source particles and exploit that:
+
+- $W_j K(\vec Y_i, \vec X_j)$ is almost zero for some pairs of nodes in the 
+two k-d trees. 
+- $K(\cdot, \vec X_j)$ is almost identical for some nodes in the k-d tree 
+for the source particles. 
+
+Thus, a substantial amount of computation can be skipped or approximated 
+with e.g., the centroid in the source node with only a minor
+loss of precision. We start by defining a function to simulate the source 
+and query particles (we will let the two sets be identical for simplicity). 
+Further, we plot one draw of simulated points and illustrate the leafs in 
+the k-d tree.
+
+```{r sim_func}
+######
+# define function to simulate data
 mus <- matrix(c(-1, -1, 
                  1, 1, 
                 -1, 1), 3L, byrow = FALSE)
-mus <- mus * .5
+mus <- mus * .75
+Sig <- diag(c(.5^2, .25^2))
 
-n_per_grp <- 3000L
-set.seed(42452654)
-sims <- lapply(1:nrow(mus), function(i){
-  mu <- mus[i, ]
-  X <- matrix(rnorm(n_per_grp * 2L), nrow = 2L)
-  Sig <- diag(c(.5^2, .25^2))
-  X <- t(crossprod(chol(Sig), X) + mu)
+get_sims <- function(n_per_grp){
+  # simulate X
+  sims <- lapply(1:nrow(mus), function(i){
+    mu <- mus[i, ]
+    X <- matrix(rnorm(n_per_grp * 2L), nrow = 2L)
+    X <- t(crossprod(chol(Sig), X) + mu)
+    
+    data.frame(X, grp = i)
+  })
+  sims <- do.call(rbind, sims)
+  X <- t(as.matrix(sims[, c("X1", "X2")]))
   
-  data.frame(X, grp = i)
-})
-sims <- do.call(rbind, sims)
+  # simulate weights
+  ws <- exp(rnorm(ncol(X)))
+  ws <- ws / sum(ws)
+  
+  list(sims = sims, X = X, ws = ws)
+}
 
-plot(as.matrix(sims[, c("X1", "X2")]), col = sims$grp)
+#####
+# show example 
+set.seed(42452654)
+invisible(list2env(get_sims(5000L), environment()))
 
-X <- t(as.matrix(sims[, c("X1", "X2")]))
-out <- FKA:::test_KD_note(X, 50L)
+# plot points
+par(mar = c(5, 4, .5, .5))
+plot(as.matrix(sims[, c("X1", "X2")]), col = sims$grp + 1L)
 
+# find KD-tree and add borders 
+out <- FSKA:::test_KD_note(X, 50L)
 out$indices <- out$indices + 1L
 n_ele <- drop(out$n_elems)
 idx <- mapply(`:`, cumsum(c(1L, head(n_ele, -1))), cumsum(n_ele))
@@ -39,18 +95,72 @@ invisible(lapply(borders, function(b)
   rect(b[1, "X1"], b[1, "X2"], b[2, "X1"], b[2, "X2"])))
 ```
 
-```{r}
-ws <- exp(rnorm(ncol(X)))
-ws <- ws / sum(ws)
+Next, we compute the run-times for the previous examples and compare the 
+approximations of the un-normalized log weights, $\log \tilde W_i$, and 
+normalized weights, $W_i$.
 
+```{r comp_run_times, cache = 1}
+# run-times
 microbenchmark::microbenchmark(
-  FKA:::FKA  (X = X, ws = ws, Y = X, N_min = 10L, eps = 1e-6), 
-  FKA:::naive(X = X, ws = ws, Y = X), times = 1L)
-o1 <- FKA:::FKA  (X = X, ws = ws, Y = X, N_min = 10L, eps = 1e-6)
-o2 <- FKA:::naive(X = X, ws = ws, Y = X)
+  `dual tree` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 1e-3),
+  naive       = FSKA:::naive(X = X, ws = ws, Y = X), times = 10L)
 
-head(o1)
-head(o2)
+# The functions return the un-normalized log weights. We first compare
+# the result on this scale
+o1 <- FSKA:::FSKA  (X = X, ws = ws, Y = X, N_min = 10L, eps = 1e-3)
+o2 <- FSKA:::naive(X = X, ws = ws, Y = X)
+
 all.equal(o1, o2)
+par(mar = c(5, 4, .5, .5))
+hist(o1 - o2, breaks = 25, main = "", 
+     xlab = "Delta un-normalized log weights")
+
+# then we compare the normalized weights
+func <- function(x){
+  x_max <- max(x)
+  x <- exp(x - x_max)
+  x / sum(x)
+}
+
+o1 <- func(o1)
+o2 <- func(o2)
+all.equal(o1, o2)
+hist(o1 - o2, breaks = 25, main = "", xlab = "Delta normalized weights")
 ```
 
+Finally, we compare the run-times as function of $N = N_s = N_q$. The dashed 
+line is "naive" method and the continuous line is the dual-tree method.
+
+```{r run_times_N, cache = 1}
+Ns <- 2^(7:15)
+run_times <- lapply(Ns, function(N){
+  invisible(list2env(get_sims(N), environment()))
+  microbenchmark::microbenchmark(
+    `dual tree` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 1e-3),
+    naive       = FSKA:::naive(X = X, ws = ws, Y = X), times = 3L)
+})
+
+Ns_xtra <- 2^(16:20)
+run_times_xtra <- lapply(Ns_xtra, function(N){
+  invisible(list2env(get_sims(N), environment()))
+  microbenchmark::microbenchmark(
+    `dual tree` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 1e-3),
+    times = 3L)
+})
+```
+
+```{r plot_run_times_N}
+library(microbenchmark)
+meds <- t(sapply(run_times, function(x) summary(x, unit = "s")[, "median"]))
+meds_xtra <- 
+  sapply(run_times_xtra, function(x) summary(x, unit = "s")[, "median"])
+meds <- rbind(meds, cbind(meds_xtra, NA_real_))
+dimnames(meds) <- list(
+  N = c(Ns, Ns_xtra) * 3L, method = c("Dual tree", "Naive"))
+meds
+par(mar = c(5, 4, .5, .5))
+matplot(c(Ns, Ns_xtra) * 3L, meds, lty = 1:2, type = "l", log = "xy", 
+        ylab = "seconds", xlab = "N", col = "black")
+```
+
+# References

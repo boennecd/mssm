@@ -4,14 +4,32 @@
 #include <cmath>
 #include "kernals.hpp"
 
+#ifdef FSKA_PROF
+#include <gperftools/profiler.h>
+#include <iostream>
+#include <iomanip>
+#include <ctime>
+#include <sstream>
+#endif
+
 void comp_weights(
     arma::vec&, const source_node&, const query_node&, const arma::mat&,
     const arma::vec&, const arma::mat&, const double, const mvariate&);
 
 // [[Rcpp::export]]
-arma::vec FKA(
+arma::vec FSKA(
     const arma::mat &X, const arma::vec &ws, const arma::mat &Y,
     const arma::uword N_min, const double eps){
+#ifdef FSKA_PROF
+  std::stringstream ss;
+  auto t = std::time(nullptr);
+  auto tm = *std::localtime(&t);
+  ss << std::put_time(&tm, "profile-FSKA-%d-%m-%Y-%H-%M-%S.log");
+  Rcpp::Rcout << "Saving profile output to '" << ss.str() << "'" << std::endl;
+  const std::string s = ss.str();
+  ProfilerStart(s.c_str());
+#endif
+
   KD_note X_root = get_KD_tree(X, N_min);
   source_node X_root_source(X, ws, X_root);
 
@@ -27,6 +45,10 @@ arma::vec FKA(
   comp_weights(log_weights, X_root_source, Y_root_query, X, ws_log, Y, eps,
                kernal);
 
+#ifdef FSKA_PROF
+  ProfilerStop();
+#endif
+
   return log_weights;
 }
 
@@ -40,16 +62,18 @@ void comp_w_centroid
       return;
     }
 
-    const arma::uvec &idx = Y_node.node.get_indices();
+    const std::vector<arma::uword> &idx = Y_node.node.get_indices();
     const arma::vec &X_centroid = X_node.centroid;
     double x_weight_log = std::log(X_node.weight);
-    for(auto i : idx){
-      double dist = norm_square(X_centroid, Y.unsafe_col(i));
+    const double *xp = X_centroid.begin();
+    const arma::uword N = X_centroid.n_elem;
+    for(auto i = idx.begin(); i != idx.end(); ++i){
+      double dist = norm_square(xp, Y.colptr(*i), N);
       double new_term = kernal(dist, true) + x_weight_log;
-      if(std::isnan(log_weights[i]))
-        log_weights[i]  = new_term;
+      if(std::isnan(log_weights[*i]))
+        log_weights[*i]  = new_term;
       else
-        log_sum_log(log_weights[i], new_term);
+        log_sum_log(log_weights[*i], new_term);
     }
   }
 
@@ -58,20 +82,20 @@ void comp_all(
     const query_node &Y_node, const arma::mat &X, const arma::vec &ws_log,
     const arma::mat &Y, const mvariate &kernal)
   {
-#ifdef KFA_DEBUG
+#ifdef FSKA_DEBUG
     if(!X_node.node.is_leaf() or !Y_node.node.is_leaf())
       throw "comp_all called with non-leafs";
 #endif
 
-    const arma::uvec &idx_y = Y_node.node.get_indices(),
+    const std::vector<arma::uword> &idx_y = Y_node.node.get_indices(),
       &idx_x = X_node.node.get_indices();
-    arma::vec x_y_ws(idx_x.n_elem);
+    arma::vec x_y_ws(idx_x.size());
     for(auto i_y : idx_y){
-      const arma::vec &Y_col = Y.unsafe_col(i_y);
+      const arma::uword N = Y.n_rows;
       double max_log_w = std::numeric_limits<double>::lowest();
       double *x_y_ws_i = x_y_ws.begin();
       for(auto i_x : idx_x){
-        double dist = norm_square(X.unsafe_col(i_x), Y_col);
+        double dist = norm_square(X.colptr(i_x), Y.colptr(i_y), N);
         *x_y_ws_i = ws_log[i_x] + kernal(dist, true);
         if(*x_y_ws_i > max_log_w)
           max_log_w = *x_y_ws_i;
@@ -164,7 +188,7 @@ arma::vec set_centroid
   {
     if(snode.node.is_leaf()){
       arma::vec centroid(X.n_rows, arma::fill::zeros);
-      auto &indices = snode.node.get_indices();
+      const auto &indices = snode.node.get_indices();
       double sum_w = 0.;
       for(auto idx : indices){
         centroid += ws[idx] * X.unsafe_col(idx);
@@ -184,7 +208,7 @@ arma::vec set_centroid
 inline double set_weight(const source_node &snode, const arma::vec &ws)
   {
     if(snode.node.is_leaf()){
-      auto &indices = snode.node.get_indices();
+      const auto &indices = snode.node.get_indices();
       double weight = 0.;
       for(auto idx : indices)
         weight += ws[idx];
@@ -250,7 +274,7 @@ hyper_rectangle::hyper_rectangle(const arma::mat &X, const arma::uvec &idx)
 hyper_rectangle::hyper_rectangle
   (const hyper_rectangle &r1, const hyper_rectangle &r2)
   {
-#ifdef KFA_DEBUG
+#ifdef FSKA_DEBUG
     if(r1.borders.n_rows != r2.borders.n_rows or
          r1.borders.n_cols != r2.borders.n_cols)
       throw "dimension do not match";
@@ -271,7 +295,7 @@ hyper_rectangle::hyper_rectangle
 std::array<double, 2> hyper_rectangle::min_max_dist
   (const hyper_rectangle &other) const
   {
-#ifdef KFA_DEBUG
+#ifdef FSKA_DEBUG
   if(this->borders.n_rows != other.borders.n_rows or
        this->borders.n_cols != other.borders.n_cols)
     throw "dimension do not match";

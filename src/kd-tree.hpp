@@ -1,6 +1,6 @@
 #ifndef KD_TREE_H
 #define KD_TREE_H
-#include <RcppArmadillo.h>
+#include "arma.hpp"
 
 class row_order;
 
@@ -11,7 +11,9 @@ class KD_note {
   std::unique_ptr<KD_note> left;
   std::unique_ptr<KD_note> right;
 public:
-  bool is_leaf() const;
+  bool is_leaf() const {
+    return (!left) and (!right);
+  };
   const std::vector<arma::uword> &get_indices() const;
   std::vector<const KD_note*> get_leafs() const;
   const KD_note& get_left () const;
