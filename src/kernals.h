@@ -28,10 +28,6 @@ inline double log_sum_log(const arma::vec &ws, const double max_weight){
 }
 
 inline double norm_square(const double *d1, const double *d2, arma::uword N){
-#ifdef FSKA_DEBUG
-  if(X.n_elem != Y.n_elem)
-    throw "element dimensions do not match";
-#endif
   double  dist = 0.;
   for(arma::uword i = 0; i < N; ++i, ++d1, ++d2){
     double diff = *d1 - *d2;

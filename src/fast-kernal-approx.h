@@ -2,6 +2,10 @@
 #include <array>
 #include <mutex>
 
+#ifdef FSKA_DEBUG
+#include <iostream>
+#endif
+
 class hyper_rectangle {
   /* with borders for the hyper rectangle. Dims are 2 x [dim] */
   arma::mat borders;
@@ -11,6 +15,10 @@ public:
 
   /* first element is min and second element is max */
   std::array<double, 2> min_max_dist(const hyper_rectangle&) const;
+
+#ifdef FSKA_DEBUG
+  friend std::ostream& operator<<(std::ostream&, const hyper_rectangle&);
+#endif
 };
 
 class source_node {

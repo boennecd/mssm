@@ -9,7 +9,7 @@ test_that("'FSKA' gives the same", {
   ws <- ws / sum(ws)
   out <- FSKA:::FSKA(X = X, ws = ws, Y = X, N_min = 10L, eps = 1e-2,
                      n_threads = 2L)
-  # exact <- FSKA:::naive(X = X, ws = ws, Y = X)
+  # exact <- FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 2L)
   # all.equal(out, exact)
   # out <- out / sum(out)
   # exact <- exact / sum(exact)

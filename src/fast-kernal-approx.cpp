@@ -5,6 +5,7 @@
 #include "kernals.h"
 #include "thread_pool.h"
 #include <utility>
+#include <math.h>
 
 #ifdef FSKA_PROF
 #include <gperftools/profiler.h>
@@ -230,10 +231,6 @@ struct comp_all {
   }
 };
 
-
-/*   comp_weights(log_weights, X_root_source, Y_root_query, X, ws_log, Y, eps,
- kernal, pool, futures); */
-
 void comp_weights(
     arma::vec &log_weights, const source_node &X_node,
     const query_node &Y_node, const arma::mat &X,
@@ -357,7 +354,8 @@ source_node::source_node
   (const arma::mat &X, const arma::vec &ws, const KD_note &node):
   node(node), left(set_child(X, ws, node, true)),
   right(set_child(X, ws, node, false)), centroid(set_centroid(*this, X, ws)),
-  weight(set_weight(*this, ws)), borders(set_borders(*this, X)) { }
+  weight(set_weight(*this, ws)), borders(set_borders(*this, X))
+  { }
 
 
 
@@ -431,7 +429,7 @@ std::array<double, 2> hyper_rectangle::min_max_dist
     double &dmin = out[0L], &dmax = out[1L];
 
     const arma::mat &oborders = other.borders;
-    const arma::uword N = this->borders.n_rows;
+    const arma::uword N = this->borders.n_cols;
     for(unsigned int i = 0; i < N; ++i){
       /* min - max */
       dmin += std::pow(std::max(std::max(
@@ -445,3 +443,30 @@ std::array<double, 2> hyper_rectangle::min_max_dist
 
     return out;
   }
+
+#ifdef FSKA_DEBUG
+inline double round_to_digits(const double value, const unsigned int digits)
+{
+  if (value == 0.0)
+    return 0.0;
+
+  double factor = pow(10.0, digits - ceil(log10(fabs(value))));
+  return round(value * factor) / factor;
+}
+
+std::ostream& operator<<(std::ostream &os, const hyper_rectangle &rect){
+  constexpr unsigned int n_d = 3L;
+  const double *d = rect.borders.begin();
+  for(unsigned int i = 0; i < rect.borders.n_cols; ++i){
+    if(i > 0L)
+      os << " x ";
+    double x1 = *(d++), x2 = *(d++);
+    os << '[' << round_to_digits(x1, n_d) << ", " <<
+      round_to_digits(x2, n_d) << ']';
+
+  }
+  os << '\n';
+
+  return os;
+}
+#endif
