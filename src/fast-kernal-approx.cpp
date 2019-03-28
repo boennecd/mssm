@@ -1,8 +1,8 @@
-#include "fast-kernal-approx.h"
+#include "fast-kernel-approx.h"
 #include <limits>
 #include <math.h>
 #include <cmath>
-#include "kernals.h"
+#include "kernels.h"
 #include "thread_pool.h"
 #include <utility>
 #include <math.h>
@@ -82,13 +82,13 @@ arma::vec FSKA(
   query_node &Y_root_query = *Y_root.second;
 
   const arma::vec ws_log = arma::log(ws);
-  const mvariate kernal(X.n_rows);
+  const mvariate kernel(X.n_rows);
 
   arma::vec log_weights(Y.n_cols);
   log_weights.fill(std::numeric_limits<double>::quiet_NaN());
   std::vector<std::future<void> > futures;
   comp_weights(log_weights, X_root_source, Y_root_query, X, ws_log, Y, eps,
-               kernal, pool, futures);
+               kernel, pool, futures);
 
   while(!futures.empty()){
     futures.back().get();
@@ -107,21 +107,21 @@ struct comp_w_centroid {
   const source_node &X_node;
   const query_node &Y_node;
   const arma::mat &Y;
-  const mvariate &kernal;
+  const mvariate &kernel;
   const bool is_single_threaded;
 
   comp_w_centroid(
     arma::vec &log_weights, const source_node &X_node,
-    const query_node &Y_node, const arma::mat &Y, const mvariate &kernal,
+    const query_node &Y_node, const arma::mat &Y, const mvariate &kernel,
     const bool is_single_threaded):
   log_weights(log_weights), X_node(X_node), Y_node(Y_node), Y(Y),
-  kernal(kernal), is_single_threaded(is_single_threaded) { }
+  kernel(kernel), is_single_threaded(is_single_threaded) { }
 
   void operator()(){
     if(!Y_node.node.is_leaf()){
-      comp_w_centroid(log_weights, X_node, *Y_node.left , Y, kernal,
+      comp_w_centroid(log_weights, X_node, *Y_node.left , Y, kernel,
                       is_single_threaded)();
-      comp_w_centroid(log_weights, X_node, *Y_node.right, Y, kernal,
+      comp_w_centroid(log_weights, X_node, *Y_node.right, Y, kernel,
                       is_single_threaded)();
       return;
     }
@@ -140,7 +140,7 @@ struct comp_w_centroid {
     }
     for(auto i : idx){
       double dist = norm_square(xp, Y.colptr(i), N);
-      double new_term = kernal(dist, true) + x_weight_log;
+      double new_term = kernel(dist, true) + x_weight_log;
       if(!std::isnan(log_weights[i]))
         new_term = log_sum_log(log_weights[i], new_term);
       if(is_single_threaded){
@@ -170,15 +170,15 @@ struct comp_all {
   const arma::mat &X;
   const arma::vec &ws_log;
   const arma::mat &Y;
-  const mvariate &kernal;
+  const mvariate &kernel;
   const bool is_single_threaded;
 
   comp_all(
     arma::vec &log_weights, const source_node &X_node,
     const query_node &Y_node, const arma::mat &X, const arma::vec &ws_log,
-    const arma::mat &Y, const mvariate &kernal, const bool is_single_threaded):
+    const arma::mat &Y, const mvariate &kernel, const bool is_single_threaded):
     log_weights(log_weights), X_node(X_node), Y_node(Y_node), X(X),
-    ws_log(ws_log), Y(Y), kernal(kernal),
+    ws_log(ws_log), Y(Y), kernel(kernel),
     is_single_threaded(is_single_threaded) { }
 
   void operator()(){
@@ -203,7 +203,7 @@ struct comp_all {
       double *x_y_ws_i = x_y_ws.begin();
       for(auto i_x : idx_x){
         double dist = norm_square(X.colptr(i_x), Y.colptr(i_y), N);
-        *x_y_ws_i = ws_log[i_x] + kernal(dist, true);
+        *x_y_ws_i = ws_log[i_x] + kernel(dist, true);
         if(*x_y_ws_i > max_log_w)
           max_log_w = *x_y_ws_i;
 
@@ -235,16 +235,16 @@ void comp_weights(
     arma::vec &log_weights, const source_node &X_node,
     const query_node &Y_node, const arma::mat &X,
     const arma::vec &ws_log, const arma::mat &Y, const double eps,
-    const mvariate &kernal, thread_pool &pool,
+    const mvariate &kernel, thread_pool &pool,
     std::vector<std::future<void> > &futures)
   {
     auto dists = Y_node.borders.min_max_dist(X_node.borders);
-    double k_min = kernal(dists[1], false), k_max = kernal(dists[0], false);
+    double k_min = kernel(dists[1], false), k_max = kernel(dists[0], false);
     if(X_node.weight *
-       (k_max - k_min) / ((k_max + k_min) / 2. + 1e-16) < 2. * eps){
+        (k_max - k_min) / ((k_max + k_min) / 2. + 1e-16) < 2. * eps){
       futures.push_back(
         pool.submit(comp_w_centroid(
-            log_weights, X_node, Y_node, Y, kernal,
+            log_weights, X_node, Y_node, Y, kernel,
             pool.thread_count < 2L)));
 
       return;
@@ -253,7 +253,7 @@ void comp_weights(
     if(X_node.node.is_leaf() and Y_node.node.is_leaf()){
       futures.push_back(
         pool.submit(comp_all(
-          log_weights, X_node, Y_node, X, ws_log, Y, kernal,
+          log_weights, X_node, Y_node, X, ws_log, Y, kernel,
           pool.thread_count < 2L)));
       return;
     }
@@ -261,34 +261,34 @@ void comp_weights(
     if(!X_node.node.is_leaf() and  Y_node.node.is_leaf()){
       comp_weights(
         log_weights, *X_node.left ,  Y_node,
-        X, ws_log, Y, eps, kernal, pool, futures);
+        X, ws_log, Y, eps, kernel, pool, futures);
       comp_weights(
         log_weights, *X_node.right,  Y_node,
-        X, ws_log, Y, eps, kernal, pool, futures);
+        X, ws_log, Y, eps, kernel, pool, futures);
       return;
     }
     if( X_node.node.is_leaf() and !Y_node.node.is_leaf()){
       comp_weights(
         log_weights,  X_node     , *Y_node.left,
-        X, ws_log, Y, eps, kernal, pool, futures);
+        X, ws_log, Y, eps, kernel, pool, futures);
       comp_weights(
         log_weights,  X_node     , *Y_node.right,
-        X, ws_log, Y, eps, kernal, pool, futures);
+        X, ws_log, Y, eps, kernel, pool, futures);
       return;
     }
 
     comp_weights(
       log_weights, *X_node.left , *Y_node.left ,
-      X, ws_log, Y, eps, kernal, pool, futures);
+      X, ws_log, Y, eps, kernel, pool, futures);
     comp_weights(
       log_weights, *X_node.left , *Y_node.right,
-      X, ws_log, Y, eps, kernal, pool, futures);
+      X, ws_log, Y, eps, kernel, pool, futures);
     comp_weights(
       log_weights, *X_node.right, *Y_node.left ,
-      X, ws_log, Y, eps, kernal, pool, futures);
+      X, ws_log, Y, eps, kernel, pool, futures);
     comp_weights(
       log_weights, *X_node.right, *Y_node.right,
-      X, ws_log, Y, eps, kernal, pool, futures);
+      X, ws_log, Y, eps, kernel, pool, futures);
   }
 
 

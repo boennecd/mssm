@@ -1,5 +1,5 @@
-#include "fast-kernal-approx.h"
-#include "kernals.h"
+#include "fast-kernel-approx.h"
+#include "kernels.h"
 #include "thread_pool.h"
 
 #ifdef FSKA_PROF
