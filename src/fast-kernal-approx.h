@@ -1,5 +1,6 @@
 #include "kd-tree.hpp"
 #include <array>
+#include <mutex>
 
 class hyper_rectangle {
   /* with borders for the hyper rectangle. Dims are 2 x [dim] */
@@ -30,6 +31,7 @@ public:
   const std::unique_ptr<const query_node> left;
   const std::unique_ptr<const query_node> right;
   const hyper_rectangle borders;
+  const std::unique_ptr<std::mutex> idx_mutex;
 
   query_node(const arma::mat&, const KD_note&);
 };

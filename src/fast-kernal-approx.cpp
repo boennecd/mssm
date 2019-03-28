@@ -3,6 +3,7 @@
 #include <math.h>
 #include <cmath>
 #include "kernals.hpp"
+#include "thread_pool.h"
 
 #ifdef FSKA_PROF
 #include <gperftools/profiler.h>
@@ -14,12 +15,14 @@
 
 void comp_weights(
     arma::vec&, const source_node&, const query_node&, const arma::mat&,
-    const arma::vec&, const arma::mat&, const double, const mvariate&);
+    const arma::vec&, const arma::mat&, const double, const mvariate&,
+    thread_pool&, std::vector<std::future<void> >&);
 
 // [[Rcpp::export]]
 arma::vec FSKA(
     const arma::mat &X, const arma::vec &ws, const arma::mat &Y,
-    const arma::uword N_min, const double eps){
+    const arma::uword N_min, const double eps,
+    const unsigned int n_threads){
 #ifdef FSKA_PROF
   std::stringstream ss;
   auto t = std::time(nullptr);
@@ -39,11 +42,18 @@ arma::vec FSKA(
   arma::vec ws_log = arma::log(ws);
 
   mvariate kernal(X.n_rows);
+  thread_pool pool(n_threads);
+  std::vector<std::future<void> > futures;
 
   arma::vec log_weights(Y.n_cols);
   log_weights.fill(std::numeric_limits<double>::quiet_NaN());
   comp_weights(log_weights, X_root_source, Y_root_query, X, ws_log, Y, eps,
-               kernal);
+               kernal, pool, futures);
+
+  while(!futures.empty()){
+    futures.back().get();
+    futures.pop_back();
+  }
 
 #ifdef FSKA_PROF
   ProfilerStop();
@@ -52,13 +62,27 @@ arma::vec FSKA(
   return log_weights;
 }
 
-void comp_w_centroid
-  (arma::vec &log_weights, const source_node &X_node,
-   const query_node &Y_node, const arma::mat &Y, const mvariate &kernal)
-  {
+struct comp_w_centroid {
+  arma::vec &log_weights;
+  const source_node &X_node;
+  const query_node &Y_node;
+  const arma::mat &Y;
+  const mvariate &kernal;
+  const bool is_single_threaded;
+
+  comp_w_centroid(
+    arma::vec &log_weights, const source_node &X_node,
+    const query_node &Y_node, const arma::mat &Y, const mvariate &kernal,
+    const bool is_single_threaded):
+  log_weights(log_weights), X_node(X_node), Y_node(Y_node), Y(Y),
+  kernal(kernal), is_single_threaded(is_single_threaded) { }
+
+  void operator()(){
     if(!Y_node.node.is_leaf()){
-      comp_w_centroid(log_weights, X_node, *Y_node.left , Y, kernal);
-      comp_w_centroid(log_weights, X_node, *Y_node.right, Y, kernal);
+      comp_w_centroid(log_weights, X_node, *Y_node.left , Y, kernal,
+                      is_single_threaded)();
+      comp_w_centroid(log_weights, X_node, *Y_node.right, Y, kernal,
+                      is_single_threaded)();
       return;
     }
 
@@ -67,21 +91,62 @@ void comp_w_centroid
     double x_weight_log = std::log(X_node.weight);
     const double *xp = X_centroid.begin();
     const arma::uword N = X_centroid.n_elem;
-    for(auto i = idx.begin(); i != idx.end(); ++i){
-      double dist = norm_square(xp, Y.colptr(*i), N);
+
+    arma::vec out;
+    double *o = nullptr;
+    if(!is_single_threaded){
+      out.set_size(idx.size());
+      o = out.begin();
+    }
+    for(auto i : idx){
+      double dist = norm_square(xp, Y.colptr(i), N);
       double new_term = kernal(dist, true) + x_weight_log;
-      if(std::isnan(log_weights[*i]))
-        log_weights[*i]  = new_term;
+      if(is_single_threaded){
+        if(std::isnan(log_weights[i]))
+          log_weights[i]  = new_term;
+        else
+          log_sum_log(log_weights[i], new_term);
+
+        continue;
+      }
+
+      *(o++) = new_term;
+    }
+
+    if(is_single_threaded)
+      return;
+
+    o = out.begin();
+    std::lock_guard<std::mutex> guard(*Y_node.idx_mutex);
+    for(auto i : idx){
+      if(std::isnan(log_weights[i]))
+        log_weights[i]  = *(o++);
       else
-        log_sum_log(log_weights[*i], new_term);
+        log_sum_log(log_weights[i],  *(o++));
     }
   }
 
-void comp_all(
+};
+
+struct comp_all {
+  arma::vec &log_weights;
+  const source_node &X_node;
+  const query_node &Y_node;
+  const arma::mat &X;
+  const arma::vec &ws_log;
+  const arma::mat &Y;
+  const mvariate &kernal;
+  const bool is_single_threaded;
+
+  comp_all(
     arma::vec &log_weights, const source_node &X_node,
     const query_node &Y_node, const arma::mat &X, const arma::vec &ws_log,
-    const arma::mat &Y, const mvariate &kernal)
-  {
+    const arma::mat &Y, const mvariate &kernal, const bool is_single_threaded):
+    log_weights(log_weights), X_node(X_node), Y_node(Y_node), X(X),
+    ws_log(ws_log), Y(Y), kernal(kernal),
+    is_single_threaded(is_single_threaded) { }
+
+  void operator()(){
 #ifdef FSKA_DEBUG
     if(!X_node.node.is_leaf() or !Y_node.node.is_leaf())
       throw "comp_all called with non-leafs";
@@ -90,6 +155,13 @@ void comp_all(
     const std::vector<arma::uword> &idx_y = Y_node.node.get_indices(),
       &idx_x = X_node.node.get_indices();
     arma::vec x_y_ws(idx_x.size());
+
+    arma::vec out;
+    double *o = nullptr;
+    if(!is_single_threaded){
+      out.set_size(idx_x.size());
+      o = out.begin();
+    }
     for(auto i_y : idx_y){
       const arma::uword N = Y.n_rows;
       double max_log_w = std::numeric_limits<double>::lowest();
@@ -102,70 +174,95 @@ void comp_all(
 
         x_y_ws_i++;
       }
-
       double new_term = log_sum_log(x_y_ws, max_log_w);
+      if(is_single_threaded){
+        if(std::isnan(log_weights[i_y]))
+          log_weights[i_y] = new_term;
+        else
+          log_sum_log(log_weights[i_y], new_term);
+
+        continue;
+      }
+
+      *(o++) = new_term;
+    }
+
+    if(is_single_threaded)
+      return;
+
+    o = out.begin();
+    std::lock_guard<std::mutex> guard(*Y_node.idx_mutex);
+    for(auto i_y : idx_y){
       if(std::isnan(log_weights[i_y]))
-        log_weights[i_y] = new_term;
+        log_weights[i_y] = *(o++);
       else
-        log_sum_log(log_weights[i_y], new_term);
+        log_sum_log(log_weights[i_y], *(o++));
     }
   }
+};
+
+
+/*   comp_weights(log_weights, X_root_source, Y_root_query, X, ws_log, Y, eps,
+ kernal, pool, futures); */
 
 void comp_weights(
     arma::vec &log_weights, const source_node &X_node,
     const query_node &Y_node, const arma::mat &X,
     const arma::vec &ws_log, const arma::mat &Y, const double eps,
-    const mvariate &kernal)
+    const mvariate &kernal, thread_pool &pool,
+    std::vector<std::future<void> > &futures)
   {
     auto dists = Y_node.borders.min_max_dist(X_node.borders);
-    double k_max = kernal(dists[0], false);
-    if(X_node.weight * k_max < eps){
-      comp_w_centroid(log_weights, X_node, Y_node, Y, kernal);
-      return;
-    }
+    double k_min = kernal(dists[1], false), k_max = kernal(dists[0], false);
+    if(X_node.weight *
+       (k_max - k_min) / ((k_max + k_min) / 2. + 1e-16) < 2. * eps){
+      futures.push_back(
+        pool.submit(comp_w_centroid(
+            log_weights, X_node, Y_node, Y, kernal,
+            pool.thread_count < 2L)));
 
-    double k_min = kernal(dists[1], false);
-    if(X_node.weight * (k_max - k_min) < eps){
-      comp_w_centroid(log_weights, X_node, Y_node, Y, kernal);
       return;
     }
 
     if(X_node.node.is_leaf() and Y_node.node.is_leaf()){
-      comp_all(log_weights, X_node, Y_node, X, ws_log, Y, kernal);
+      futures.push_back(
+        pool.submit(comp_all(
+          log_weights, X_node, Y_node, X, ws_log, Y, kernal,
+          pool.thread_count < 2L)));
       return;
     }
 
     if(!X_node.node.is_leaf() and  Y_node.node.is_leaf()){
       comp_weights(
         log_weights, *X_node.left ,  Y_node,
-        X, ws_log, Y, eps, kernal);
+        X, ws_log, Y, eps, kernal, pool, futures);
       comp_weights(
         log_weights, *X_node.right,  Y_node,
-        X, ws_log, Y, eps, kernal);
+        X, ws_log, Y, eps, kernal, pool, futures);
       return;
     }
     if( X_node.node.is_leaf() and !Y_node.node.is_leaf()){
       comp_weights(
         log_weights,  X_node     , *Y_node.left,
-        X, ws_log, Y, eps, kernal);
+        X, ws_log, Y, eps, kernal, pool, futures);
       comp_weights(
         log_weights,  X_node     , *Y_node.right,
-        X, ws_log, Y, eps, kernal);
+        X, ws_log, Y, eps, kernal, pool, futures);
       return;
     }
 
     comp_weights(
       log_weights, *X_node.left , *Y_node.left ,
-      X, ws_log, Y, eps, kernal);
+      X, ws_log, Y, eps, kernal, pool, futures);
     comp_weights(
       log_weights, *X_node.left , *Y_node.right,
-      X, ws_log, Y, eps, kernal);
+      X, ws_log, Y, eps, kernal, pool, futures);
     comp_weights(
       log_weights, *X_node.right, *Y_node.left ,
-      X, ws_log, Y, eps, kernal);
+      X, ws_log, Y, eps, kernal, pool, futures);
     comp_weights(
       log_weights, *X_node.right, *Y_node.right,
-      X, ws_log, Y, eps, kernal);
+      X, ws_log, Y, eps, kernal, pool, futures);
   }
 
 
@@ -249,7 +346,8 @@ inline std::unique_ptr<const query_node> set_child_query
 
 query_node::query_node(const arma::mat &Y, const KD_note &node):
   node(node), left(set_child_query(Y, node, true)),
-  right(set_child_query(Y, node, false)), borders(set_borders(*this, Y)) { }
+  right(set_child_query(Y, node, false)), borders(set_borders(*this, Y)),
+  idx_mutex(new std::mutex()) { }
 
 
 

@@ -7,8 +7,8 @@
 using namespace Rcpp;
 
 // FSKA
-arma::vec FSKA(const arma::mat& X, const arma::vec& ws, const arma::mat& Y, const arma::uword N_min, const double eps);
-RcppExport SEXP _FSKA_FSKA(SEXP XSEXP, SEXP wsSEXP, SEXP YSEXP, SEXP N_minSEXP, SEXP epsSEXP) {
+arma::vec FSKA(const arma::mat& X, const arma::vec& ws, const arma::mat& Y, const arma::uword N_min, const double eps, const unsigned int n_threads);
+RcppExport SEXP _FSKA_FSKA(SEXP XSEXP, SEXP wsSEXP, SEXP YSEXP, SEXP N_minSEXP, SEXP epsSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -17,7 +17,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const arma::mat& >::type Y(YSEXP);
     Rcpp::traits::input_parameter< const arma::uword >::type N_min(N_minSEXP);
     Rcpp::traits::input_parameter< const double >::type eps(epsSEXP);
-    rcpp_result_gen = Rcpp::wrap(FSKA(X, ws, Y, N_min, eps));
+    Rcpp::traits::input_parameter< const unsigned int >::type n_threads(n_threadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(FSKA(X, ws, Y, N_min, eps, n_threads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -50,7 +51,7 @@ END_RCPP
 RcppExport SEXP run_testthat_tests();
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_FSKA_FSKA", (DL_FUNC) &_FSKA_FSKA, 5},
+    {"_FSKA_FSKA", (DL_FUNC) &_FSKA_FSKA, 6},
     {"_FSKA_test_KD_note", (DL_FUNC) &_FSKA_test_KD_note, 2},
     {"_FSKA_naive", (DL_FUNC) &_FSKA_naive, 3},
     {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 0},
