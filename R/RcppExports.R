@@ -9,7 +9,7 @@ test_KD_note <- function(X, N_min) {
     .Call(`_FSKA_test_KD_note`, X, N_min)
 }
 
-naive <- function(X, ws, Y) {
-    .Call(`_FSKA_naive`, X, ws, Y)
+naive <- function(X, ws, Y, n_threads) {
+    .Call(`_FSKA_naive`, X, ws, Y, n_threads)
 }
 

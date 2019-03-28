@@ -1,8 +1,8 @@
-#include "fast-kernal-approx.hpp"
+#include "fast-kernal-approx.h"
 #include <limits>
 #include <math.h>
 #include <cmath>
-#include "kernals.hpp"
+#include "kernals.h"
 #include "thread_pool.h"
 
 #ifdef FSKA_PROF
@@ -101,13 +101,12 @@ struct comp_w_centroid {
     for(auto i : idx){
       double dist = norm_square(xp, Y.colptr(i), N);
       double new_term = kernal(dist, true) + x_weight_log;
+      if(!std::isnan(log_weights[i]))
+        new_term = log_sum_log(log_weights[i], new_term);
       if(is_single_threaded){
-        if(std::isnan(log_weights[i]))
-          log_weights[i]  = new_term;
-        else
-          log_sum_log(log_weights[i], new_term);
-
+        log_weights[i]  = new_term;
         continue;
+
       }
 
       *(o++) = new_term;
@@ -118,12 +117,8 @@ struct comp_w_centroid {
 
     o = out.begin();
     std::lock_guard<std::mutex> guard(*Y_node.idx_mutex);
-    for(auto i : idx){
-      if(std::isnan(log_weights[i]))
-        log_weights[i]  = *(o++);
-      else
-        log_sum_log(log_weights[i],  *(o++));
-    }
+    for(auto i : idx)
+      log_weights[i] = *(o++);
   }
 
 };
@@ -175,13 +170,12 @@ struct comp_all {
         x_y_ws_i++;
       }
       double new_term = log_sum_log(x_y_ws, max_log_w);
+      if(!std::isnan(log_weights[i_y]))
+        new_term = log_sum_log(log_weights[i_y], new_term);
       if(is_single_threaded){
-        if(std::isnan(log_weights[i_y]))
           log_weights[i_y] = new_term;
-        else
-          log_sum_log(log_weights[i_y], new_term);
-
         continue;
+
       }
 
       *(o++) = new_term;
@@ -192,12 +186,8 @@ struct comp_all {
 
     o = out.begin();
     std::lock_guard<std::mutex> guard(*Y_node.idx_mutex);
-    for(auto i_y : idx_y){
-      if(std::isnan(log_weights[i_y]))
-        log_weights[i_y] = *(o++);
-      else
-        log_sum_log(log_weights[i_y], *(o++));
-    }
+    for(auto i_y : idx_y)
+      log_weights[i_y] = *(o++);
   }
 };
 

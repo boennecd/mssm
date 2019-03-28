@@ -98,8 +98,7 @@ invisible(lapply(borders, function(b)
 Next, we compute the run-times for the previous examples and compare the 
 approximations of the un-normalized log weights, $\log \tilde W_i$, and 
 normalized weights, $W_i$. The `n_threads` sets the number of threads to 
-use in the approximation method (one could easily implement the naive method 
-support parallel computation).
+use in the methods.
 
 ```{r comp_run_times, cache = 1}
 # run-times
@@ -108,13 +107,15 @@ microbenchmark::microbenchmark(
                                eps = 1e-3, n_threads = 1L),
   `dual tree 6` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, 
                                eps = 1e-3, n_threads = 6L),
-  naive         = FSKA:::naive(X = X, ws = ws, Y = X), times = 10L)
+  `naive 1`     = FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 1L),
+  `naive 6`     = FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 6L),
+  times = 10L)
 
 # The functions return the un-normalized log weights. We first compare
 # the result on this scale
 o1 <- FSKA:::FSKA  (X = X, ws = ws, Y = X, N_min = 10L, eps = 1e-3, 
                     n_threads = 1L)
-o2 <- FSKA:::naive(X = X, ws = ws, Y = X)
+o2 <- FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 6L)
 
 all.equal(o1, o2)
 par(mar = c(5, 4, .5, .5))
@@ -144,7 +145,8 @@ run_times <- lapply(Ns, function(N){
   microbenchmark::microbenchmark(
     `dual tree` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 1e-3, 
                                n_threads = 6L),
-    naive       = FSKA:::naive(X = X, ws = ws, Y = X), times = 3L)
+    naive       = FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 6L), 
+    times = 3L)
 })
 
 Ns_xtra <- 2^(16:20)

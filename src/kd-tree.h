@@ -1,6 +1,6 @@
 #ifndef KD_TREE_H
 #define KD_TREE_H
-#include "arma.hpp"
+#include "arma.h"
 
 class row_order;
 

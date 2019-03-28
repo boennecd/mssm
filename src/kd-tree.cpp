@@ -1,4 +1,4 @@
-#include "kd-tree.hpp"
+#include "kd-tree.h"
 #include <numeric>
 
 class row_order {

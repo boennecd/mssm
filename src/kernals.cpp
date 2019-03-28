@@ -1,4 +1,4 @@
-#include "kernals.hpp"
+#include "kernals.h"
 
 mvariate::mvariate(const arma::uword &dim):
   norm_const_log(-(double)dim / 2. * std::log(2. * M_PI)),

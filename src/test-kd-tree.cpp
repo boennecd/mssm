@@ -1,5 +1,5 @@
 #include <testthat.h>
-#include "fast-kernal-approx.hpp"
+#include "fast-kernal-approx.h"
 #include<array>
 
 context("Test KD-tree") {

@@ -35,15 +35,16 @@ BEGIN_RCPP
 END_RCPP
 }
 // naive
-arma::vec naive(const arma::mat& X, const arma::vec ws, const arma::mat Y);
-RcppExport SEXP _FSKA_naive(SEXP XSEXP, SEXP wsSEXP, SEXP YSEXP) {
+arma::vec naive(const arma::mat& X, const arma::vec ws, const arma::mat Y, unsigned int n_threads);
+RcppExport SEXP _FSKA_naive(SEXP XSEXP, SEXP wsSEXP, SEXP YSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
     Rcpp::traits::input_parameter< const arma::vec >::type ws(wsSEXP);
     Rcpp::traits::input_parameter< const arma::mat >::type Y(YSEXP);
-    rcpp_result_gen = Rcpp::wrap(naive(X, ws, Y));
+    Rcpp::traits::input_parameter< unsigned int >::type n_threads(n_threadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(naive(X, ws, Y, n_threads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -53,7 +54,7 @@ RcppExport SEXP run_testthat_tests();
 static const R_CallMethodDef CallEntries[] = {
     {"_FSKA_FSKA", (DL_FUNC) &_FSKA_FSKA, 6},
     {"_FSKA_test_KD_note", (DL_FUNC) &_FSKA_test_KD_note, 2},
-    {"_FSKA_naive", (DL_FUNC) &_FSKA_naive, 3},
+    {"_FSKA_naive", (DL_FUNC) &_FSKA_naive, 4},
     {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 0},
     {NULL, NULL, 0}
 };

@@ -1,4 +1,4 @@
-#include "kd-tree.hpp"
+#include "kd-tree.h"
 #include <array>
 #include <mutex>
 

@@ -1,7 +1,7 @@
 #ifndef KERNELS_H
 #define KERNELS_H
 
-#include "arma.hpp"
+#include "arma.h"
 
 struct mvariate {
   const double norm_const_log;
@@ -12,11 +12,11 @@ public:
   double operator()(const double, const bool) const;
 };
 
-inline void log_sum_log(double &old, const double new_term){
+inline double log_sum_log(double &old, const double new_term){
   double max = std::max(old, new_term);
   double d1 = std::exp(old - max), d2 = std::exp(new_term - max);
 
-  old = std::log(d1 + d2) + max;
+  return std::log(d1 + d2) + max;
 }
 
 inline double log_sum_log(const arma::vec &ws, const double max_weight){
