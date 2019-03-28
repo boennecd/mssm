@@ -2,7 +2,14 @@ Package: FSKA
 Type: Package
 Title: Fast Sum-Kernel Approximation
 Version: 0.1.0
-Author: Who wrote it
+Authors@R: c(
+  person("Benjamin", "Christoffersen", 
+         email = "boennecd@gmail.com", 
+         role = c("cre", "aut")), 
+  person("Anthony", "Williams", 
+         role = c("cph")),
+  person("Boost developers", 
+         role = c("cph")))
 Maintainer: The package maintainer <yourself@somewhere.net>
 Description: More about what it does (maybe more than one line)
     Use four spaces when indenting paragraphs within the Description.

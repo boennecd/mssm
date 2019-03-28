@@ -7,6 +7,8 @@ bibliography: README.bib
 
 ## Fast Sum-Kernel Approximation
 
+[![Build Status on Travis](https://travis-ci.org/boennecd/FSKA.svg?branch=master,osx)](https://travis-ci.org/boennecd/FSKA)
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
   error = FALSE, cache = "./README-cache/", fig.path = "./README-fig/", 
@@ -104,16 +106,16 @@ use in the methods.
 # run-times
 microbenchmark::microbenchmark(
   `dual tree 1` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, 
-                               eps = 1e-3, n_threads = 1L),
+                               eps = 5e-3, n_threads = 1L),
   `dual tree 6` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, 
-                               eps = 1e-3, n_threads = 6L),
+                               eps = 5e-3, n_threads = 6L),
   `naive 1`     = FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 1L),
   `naive 6`     = FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 6L),
   times = 10L)
 
 # The functions return the un-normalized log weights. We first compare
 # the result on this scale
-o1 <- FSKA:::FSKA  (X = X, ws = ws, Y = X, N_min = 10L, eps = 1e-3, 
+o1 <- FSKA:::FSKA  (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
                     n_threads = 1L)
 o2 <- FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 6L)
 
@@ -143,7 +145,7 @@ Ns <- 2^(7:15)
 run_times <- lapply(Ns, function(N){
   invisible(list2env(get_sims(N), environment()))
   microbenchmark::microbenchmark(
-    `dual tree` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 1e-3, 
+    `dual tree` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
                                n_threads = 6L),
     naive       = FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 6L), 
     times = 3L)
@@ -153,7 +155,7 @@ Ns_xtra <- 2^(16:20)
 run_times_xtra <- lapply(Ns_xtra, function(N){
   invisible(list2env(get_sims(N), environment()))
   microbenchmark::microbenchmark(
-    `dual tree` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 1e-3, 
+    `dual tree` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
                                n_threads = 6L),
     times = 3L)
 })

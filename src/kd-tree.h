@@ -19,6 +19,8 @@ public:
   const KD_note& get_left () const;
   const KD_note& get_right() const;
 
+  KD_note(KD_note&&) = default;
+
   friend KD_note get_KD_tree(const arma::mat&, const arma::uword);
 
 private:

@@ -4,6 +4,7 @@
 #include <cmath>
 #include "kernals.h"
 #include "thread_pool.h"
+#include <utility>
 
 #ifdef FSKA_PROF
 #include <gperftools/profiler.h>
@@ -17,6 +18,43 @@ void comp_weights(
     arma::vec&, const source_node&, const query_node&, const arma::mat&,
     const arma::vec&, const arma::mat&, const double, const mvariate&,
     thread_pool&, std::vector<std::future<void> >&);
+
+struct get_X_root {
+  using output_type =
+    std::pair<std::unique_ptr<KD_note>, std::unique_ptr<source_node>>;
+  const arma::mat &X;
+  const arma::vec &ws;
+  const arma::uword N_min;
+
+  get_X_root
+    (const arma::mat &X, const arma::vec &ws, const arma::uword N_min):
+    X(X), ws(ws), N_min(N_min) { }
+
+  output_type operator()(){
+    output_type out;
+    out.first.reset(new KD_note(get_KD_tree(X, N_min)));
+    out.second.reset(new source_node(X, ws, *out.first));
+    return out;
+  }
+};
+
+struct get_Y_root {
+  using output_type =
+    std::pair<std::unique_ptr<KD_note>, std::unique_ptr<query_node>>;
+  const arma::mat &Y;
+  const arma::uword N_min;
+
+  get_Y_root
+    (const arma::mat &Y, const arma::uword N_min):
+    Y(Y), N_min(N_min) { }
+
+  output_type operator()(){
+    output_type out;
+    out.first.reset(new KD_note(get_KD_tree(Y, N_min)));
+    out.second.reset(new query_node(Y, *out.first));
+    return out;
+  }
+};
 
 // [[Rcpp::export]]
 arma::vec FSKA(
@@ -32,21 +70,22 @@ arma::vec FSKA(
   const std::string s = ss.str();
   ProfilerStart(s.c_str());
 #endif
-
-  KD_note X_root = get_KD_tree(X, N_min);
-  source_node X_root_source(X, ws, X_root);
-
-  KD_note Y_root = get_KD_tree(Y, N_min);
-  query_node Y_root_query(Y, Y_root);
-
-  arma::vec ws_log = arma::log(ws);
-
-  mvariate kernal(X.n_rows);
   thread_pool pool(n_threads);
-  std::vector<std::future<void> > futures;
+
+  auto f1 = pool.submit(get_X_root(X, ws, N_min));
+  auto f2 = pool.submit(get_Y_root(X, N_min));
+
+  auto X_root = f1.get();
+  auto Y_root = f2.get();
+  source_node &X_root_source = *X_root.second;
+  query_node &Y_root_query = *Y_root.second;
+
+  const arma::vec ws_log = arma::log(ws);
+  const mvariate kernal(X.n_rows);
 
   arma::vec log_weights(Y.n_cols);
   log_weights.fill(std::numeric_limits<double>::quiet_NaN());
+  std::vector<std::future<void> > futures;
   comp_weights(log_weights, X_root_source, Y_root_query, X, ws_log, Y, eps,
                kernal, pool, futures);
 

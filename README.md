@@ -2,6 +2,8 @@
 Fast Sum-Kernel Approximation
 -----------------------------
 
+[![Build Status on Travis](https://travis-ci.org/boennecd/FSKA.svg?branch=master,osx)](https://travis-ci.org/boennecd/FSKA)
+
 This package contains a simple implementation of the dual-tree method like the one suggested by Gray and Moore (2003) and shown in Klaas et al. (2006). The problem we want to solve is the sum-kernel problem in Klaas et al. (2006). Particularly, we consider the situation where we have ![1,\\dots,N\_q](https://chart.googleapis.com/chart?cht=tx&chl=1%2C%5Cdots%2CN_q "1,\dots,N_q") query particles denoted by ![\\{\\vec Y\_i\\}\_{i=1,\\dots,N\_q}](https://chart.googleapis.com/chart?cht=tx&chl=%5C%7B%5Cvec%20Y_i%5C%7D_%7Bi%3D1%2C%5Cdots%2CN_q%7D "\{\vec Y_i\}_{i=1,\dots,N_q}") and ![1,\\dots,N\_s](https://chart.googleapis.com/chart?cht=tx&chl=1%2C%5Cdots%2CN_s "1,\dots,N_s") source particles denoted by ![\\{\\vec X\_j\\}\_{j=1,\\dots,N\_s}](https://chart.googleapis.com/chart?cht=tx&chl=%5C%7B%5Cvec%20X_j%5C%7D_%7Bj%3D1%2C%5Cdots%2CN_s%7D "\{\vec X_j\}_{j=1,\dots,N_s}"). For each query particle, we want to compute the weights
 
 ![W\_i = \\frac{\\tilde W\_i}{\\sum\_{k = 1}^{N\_q} \\tilde W\_i},\\qquad \\tilde W\_i = \\sum\_{j=1}^{N\_s} \\bar W\_j K(\\vec Y\_i, \\vec X\_j)](https://chart.googleapis.com/chart?cht=tx&chl=W_i%20%3D%20%5Cfrac%7B%5Ctilde%20W_i%7D%7B%5Csum_%7Bk%20%3D%201%7D%5E%7BN_q%7D%20%5Ctilde%20W_i%7D%2C%5Cqquad%20%5Ctilde%20W_i%20%3D%20%5Csum_%7Bj%3D1%7D%5E%7BN_s%7D%20%5Cbar%20W_j%20K%28%5Cvec%20Y_i%2C%20%5Cvec%20X_j%29 "W_i = \frac{\tilde W_i}{\sum_{k = 1}^{N_q} \tilde W_i},\qquad \tilde W_i = \sum_{j=1}^{N_s} \bar W_j K(\vec Y_i, \vec X_j)")
@@ -68,35 +70,38 @@ invisible(lapply(borders, function(b)
 
 ![](./README-fig/sim_func-1.png)
 
-Next, we compute the run-times for the previous examples and compare the approximations of the un-normalized log weights, ![\\log \\tilde W\_i](https://chart.googleapis.com/chart?cht=tx&chl=%5Clog%20%5Ctilde%20W_i "\log \tilde W_i"), and normalized weights, ![W\_i](https://chart.googleapis.com/chart?cht=tx&chl=W_i "W_i"). The `n_threads` sets the number of threads to use in the approximation method (one could easily implement the naive method support parallel computation).
+Next, we compute the run-times for the previous examples and compare the approximations of the un-normalized log weights, ![\\log \\tilde W\_i](https://chart.googleapis.com/chart?cht=tx&chl=%5Clog%20%5Ctilde%20W_i "\log \tilde W_i"), and normalized weights, ![W\_i](https://chart.googleapis.com/chart?cht=tx&chl=W_i "W_i"). The `n_threads` sets the number of threads to use in the methods.
 
 ``` r
 # run-times
 microbenchmark::microbenchmark(
   `dual tree 1` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, 
-                               eps = 1e-3, n_threads = 1L),
+                               eps = 5e-3, n_threads = 1L),
   `dual tree 6` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, 
-                               eps = 1e-3, n_threads = 6L),
-  naive         = FSKA:::naive(X = X, ws = ws, Y = X), times = 10L)
+                               eps = 5e-3, n_threads = 6L),
+  `naive 1`     = FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 1L),
+  `naive 6`     = FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 6L),
+  times = 10L)
 ```
 
     ## Unit: milliseconds
-    ##         expr    min     lq   mean median     uq    max neval
-    ##  dual tree 1  530.2  532.2  541.5  537.0  552.4  560.8    10
-    ##  dual tree 6  360.5  477.9  620.7  675.3  714.4  796.4    10
-    ##        naive 3089.3 3147.7 3239.8 3272.5 3320.0 3360.2    10
+    ##         expr     min      lq   mean  median      uq     max neval
+    ##  dual tree 1  147.39  148.56  149.5  149.30  150.80  151.61    10
+    ##  dual tree 6   48.11   48.48   50.5   49.68   51.91   54.74    10
+    ##      naive 1 3219.76 3232.27 3289.6 3288.16 3320.57 3379.32    10
+    ##      naive 6  608.22  613.32  623.5  620.13  630.06  653.22    10
 
 ``` r
 # The functions return the un-normalized log weights. We first compare
 # the result on this scale
-o1 <- FSKA:::FSKA  (X = X, ws = ws, Y = X, N_min = 10L, eps = 1e-3, 
+o1 <- FSKA:::FSKA  (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
                     n_threads = 1L)
-o2 <- FSKA:::naive(X = X, ws = ws, Y = X)
+o2 <- FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 6L)
 
 all.equal(o1, o2)
 ```
 
-    ## [1] "Mean relative difference: 0.0006629"
+    ## [1] "Mean relative difference: 0.001657"
 
 ``` r
 par(mar = c(5, 4, .5, .5))
@@ -119,7 +124,7 @@ o2 <- func(o2)
 all.equal(o1, o2)
 ```
 
-    ## [1] "Mean relative difference: 0.0005602"
+    ## [1] "Mean relative difference: 0.001448"
 
 ``` r
 hist(o1 - o2, breaks = 25, main = "", xlab = "Delta normalized weights")
@@ -134,16 +139,17 @@ Ns <- 2^(7:15)
 run_times <- lapply(Ns, function(N){
   invisible(list2env(get_sims(N), environment()))
   microbenchmark::microbenchmark(
-    `dual tree` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 1e-3, 
+    `dual tree` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
                                n_threads = 6L),
-    naive       = FSKA:::naive(X = X, ws = ws, Y = X), times = 3L)
+    naive       = FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 6L), 
+    times = 3L)
 })
 
 Ns_xtra <- 2^(16:20)
 run_times_xtra <- lapply(Ns_xtra, function(N){
   invisible(list2env(get_sims(N), environment()))
   microbenchmark::microbenchmark(
-    `dual tree` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 1e-3, 
+    `dual tree` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
                                n_threads = 6L),
     times = 3L)
 })
@@ -161,21 +167,21 @@ meds
 ```
 
     ##          method
-    ## N         Dual-tree      Naive
-    ##   384       0.01427   0.002136
-    ##   768       0.05601   0.008391
-    ##   1536      0.19884   0.033368
-    ##   3072      0.55536   0.142153
-    ##   6144      0.86816   0.535374
-    ##   12288     0.90936   2.094292
-    ##   24576     0.35816   8.327800
-    ##   49152     0.52883  33.389924
-    ##   98304     0.94832 133.103673
-    ##   196608    1.82977         NA
-    ##   393216    3.81140         NA
-    ##   786432    7.79603         NA
-    ##   1572864  18.98285         NA
-    ##   3145728  52.43355         NA
+    ## N         Dual-tree     Naive
+    ##   384       0.01421  0.001133
+    ##   768       0.04499  0.002970
+    ##   1536      0.07925  0.010202
+    ##   3072      0.09799  0.040351
+    ##   6144      0.04734  0.104167
+    ##   12288     0.04363  0.429403
+    ##   24576     0.07857  1.727491
+    ##   49152     0.17123  7.549566
+    ##   98304     0.31804 29.635493
+    ##   196608    0.67748        NA
+    ##   393216    1.52637        NA
+    ##   786432    3.25744        NA
+    ##   1572864   8.79037        NA
+    ##   3145728  24.06894        NA
 
 ``` r
 par(mar = c(5, 4, .5, .5))
