@@ -22,44 +22,87 @@ void comp_weights(
 
 struct get_X_root {
   using output_type =
-    std::pair<std::unique_ptr<KD_note>, std::unique_ptr<source_node>>;
-  const arma::mat &X;
-  const arma::vec &ws;
+    std::tuple<std::unique_ptr<KD_note>, std::unique_ptr<source_node>,
+               arma::uvec>;
+  arma::mat &X;
+  arma::vec &ws;
   const arma::uword N_min;
 
   get_X_root
-    (const arma::mat &X, const arma::vec &ws, const arma::uword N_min):
+    (arma::mat &X, arma::vec &ws, const arma::uword N_min):
     X(X), ws(ws), N_min(N_min) { }
 
+  /* the function computes the k-d tree and permutate the input matrix
+   * and weights. It returns a permutation vector to undo the permutation */
   output_type operator()(){
     output_type out;
-    out.first.reset(new KD_note(get_KD_tree(X, N_min)));
-    out.second.reset(new source_node(X, ws, *out.first));
+    auto &node = std::get<0>(out);
+    auto &snode = std::get<1>(out);
+    auto &old_idx = std::get<2>(out);
+
+    node.reset(new KD_note(get_KD_tree(X, N_min)));
+
+    /* make permutation to get original order */
+    arma::uvec new_idx = node->get_indices_parent();
+    old_idx.resize(X.n_cols);
+    std::iota(old_idx.begin(), old_idx.end(), 0L);
+    node->set_indices(old_idx);
+    arma::uword i = 0L;
+    for(auto n : new_idx)
+      old_idx[n] = i++;
+
+    /* permutate */
+    X = X.cols(new_idx);
+    ws = ws(new_idx);
+
+    snode.reset(new source_node(X, ws, *node));
+
     return out;
   }
 };
 
 struct get_Y_root {
   using output_type =
-    std::pair<std::unique_ptr<KD_note>, std::unique_ptr<query_node>>;
-  const arma::mat &Y;
+    std::tuple<std::unique_ptr<KD_note>, std::unique_ptr<query_node>,
+               arma::uvec>;
+  arma::mat &Y;
   const arma::uword N_min;
 
   get_Y_root
-    (const arma::mat &Y, const arma::uword N_min):
+    (arma::mat &Y, const arma::uword N_min):
     Y(Y), N_min(N_min) { }
 
+  /* the function computes the k-d tree and permutate the input matrix.
+   * It returns a permutation vector to undo the permutation */
   output_type operator()(){
     output_type out;
-    out.first.reset(new KD_note(get_KD_tree(Y, N_min)));
-    out.second.reset(new query_node(Y, *out.first));
+    auto &node  = std::get<0L>(out);
+    auto &snode = std::get<1L>(out);
+    auto &old_idx = std::get<2>(out);
+
+    node.reset(new KD_note(get_KD_tree(Y, N_min)));
+
+    /* make permutation to get original order */
+    arma::uvec new_idx = node->get_indices_parent();
+    old_idx.resize(Y.n_cols);
+    std::iota(old_idx.begin(), old_idx.end(), 0L);
+    node->set_indices(old_idx);
+    arma::uword i = 0L;
+    for(auto n : new_idx)
+      old_idx[n] = i++;
+
+    /* permutate */
+    Y = Y.cols(new_idx);
+
+    snode.reset(new query_node(Y, *node));
+
     return out;
   }
 };
 
 // [[Rcpp::export]]
 arma::vec FSKA(
-    const arma::mat &X, const arma::vec &ws, const arma::mat &Y,
+    arma::mat X, arma::vec ws, arma::mat Y,
     const arma::uword N_min, const double eps,
     const unsigned int n_threads){
 #ifdef FSKA_PROF
@@ -74,12 +117,13 @@ arma::vec FSKA(
   thread_pool pool(n_threads);
 
   auto f1 = pool.submit(get_X_root(X, ws, N_min));
-  auto f2 = pool.submit(get_Y_root(X, N_min));
+  auto f2 = pool.submit(get_Y_root(Y, N_min));
 
   auto X_root = f1.get();
   auto Y_root = f2.get();
-  source_node &X_root_source = *X_root.second;
-  query_node &Y_root_query = *Y_root.second;
+  source_node &X_root_source = *std::get<1L>(X_root);
+  query_node &Y_root_query   = *std::get<1L>(Y_root);
+  const arma::uvec &permu_vec = std::get<2L>(Y_root);
 
   const arma::vec ws_log = arma::log(ws);
   const mvariate kernel(X.n_rows);
@@ -99,7 +143,7 @@ arma::vec FSKA(
   ProfilerStop();
 #endif
 
-  return log_weights;
+  return log_weights(permu_vec);
 }
 
 struct comp_w_centroid {

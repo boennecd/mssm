@@ -25,7 +25,8 @@ KD_note get_KD_tree(const arma::mat &X, const arma::uword N_min){
 
 KD_note::KD_note(
   const arma::mat &X, const arma::uword N_min, idx_ptr &idx_in,
-  row_order *order, const arma::uword depth)
+  row_order *order, const arma::uword depth):
+  n_elem(idx_in ? idx_in->size() : X.n_cols)
   {
     std::unique_ptr<row_order> ord_ptr;
     if(!order){
@@ -128,7 +129,31 @@ row_order::index_partition row_order::get_split(
   }
 
 const std::vector<arma::uword>& KD_note::get_indices() const {
+#ifdef FSKA_DEBUG
+  if(!is_leaf())
+    throw "'get_indices' called on non-leaf";
+#endif
   return *idx;
+}
+
+std::vector<arma::uword> KD_note::get_indices_parent(){
+  if(is_leaf())
+    return get_indices();
+
+  std::vector<arma::uword> out(left->n_elem + right->n_elem);
+  get_indices_parent(out.data());
+
+  return out;
+}
+
+void KD_note::get_indices_parent(arma::uword *out){
+  if(is_leaf()){
+    memcpy(out, idx->data(), sizeof(arma::uword) * idx->size());
+    return;
+  }
+
+  left ->get_indices_parent(out);
+  right->get_indices_parent(out + left->n_elem);
 }
 
 std::vector<const KD_note*> KD_note::get_leafs() const {
@@ -160,4 +185,26 @@ const KD_note& KD_note::get_right() const {
 #endif
 
   return *right;
+}
+
+void KD_note::set_indices(arma::uvec &new_idx) {
+#ifdef FSKA_DEBUG
+  if(new_idx.n_elem != n_elem)
+    throw "indices length do not match with node size";
+#endif
+
+  if(is_leaf()){
+    const arma::uword *i = new_idx.begin();
+    for(auto &k : *idx)
+      k = *(i++);
+
+    return;
+  }
+
+  const arma::uword n_left = left->n_elem;
+  arma::uvec left_idx (new_idx.begin()         , n_left       , false);
+  arma::uvec right_idx(new_idx.begin() + n_left, right->n_elem, false);
+
+  left ->set_indices(left_idx);
+  right->set_indices(right_idx);
 }

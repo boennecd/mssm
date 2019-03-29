@@ -26,7 +26,7 @@ the weights
 
 $$W_i = \frac{\tilde W_i}{\sum_{k = 1}^{N_q} \tilde W_i},\qquad \tilde W_i = \sum_{j=1}^{N_s} \bar W_j K(\vec Y_i, \vec X_j)$$
 
-where each source particle has an associated weight $\bar W_j$ and $K$ is 
+where each source particle has an associated weight $\bar W_j$ and $K$ is a
 kernel. Computing the above is $\mathcal{O}(N_sN_q)$ which is major 
 bottleneck if $N_s$ and $N_q$ is large. However, one can use a 
 [k-d tree](https://en.wikipedia.org/wiki/K-d_tree) for the query particles
@@ -39,7 +39,9 @@ for the source particles.
 
 Thus, a substantial amount of computation can be skipped or approximated 
 with e.g., the centroid in the source node with only a minor
-loss of precision. We start by defining a function to simulate the source 
+loss of precision. The dual-tree approximation method is 
+$\mathcal{O}(N_s\log N_s)$ and $\mathcal{O}(N_q\log N_q)$.
+We start by defining a function to simulate the source 
 and query particles (we will let the two sets be identical for simplicity). 
 Further, we plot one draw of simulated points and illustrate the leafs in 
 the k-d tree.
@@ -138,16 +140,19 @@ hist(o1 - o2, breaks = 25, main = "", xlab = "Delta normalized weights")
 ```
 
 Finally, we compare the run-times as function of $N = N_s = N_q$. The dashed 
-line is "naive" method and the continuous line is the dual-tree method.
+line is "naive" method, the continuous line is the dual-tree method, and the 
+dotted line is dual-tree method using 1 thread.
 
 ```{r run_times_N, cache = 1}
 Ns <- 2^(7:15)
 run_times <- lapply(Ns, function(N){
   invisible(list2env(get_sims(N), environment()))
   microbenchmark::microbenchmark(
-    `dual tree` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
+    `dual-tree`   = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
                                n_threads = 6L),
-    naive       = FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 6L), 
+    naive         = FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 6L),
+    `dual-tree 1` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
+                               n_threads = 1L), 
     times = 3L)
 })
 
@@ -155,7 +160,7 @@ Ns_xtra <- 2^(16:20)
 run_times_xtra <- lapply(Ns_xtra, function(N){
   invisible(list2env(get_sims(N), environment()))
   microbenchmark::microbenchmark(
-    `dual tree` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
+    `dual-tree` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
                                n_threads = 6L),
     times = 3L)
 })
@@ -166,12 +171,12 @@ library(microbenchmark)
 meds <- t(sapply(run_times, function(x) summary(x, unit = "s")[, "median"]))
 meds_xtra <- 
   sapply(run_times_xtra, function(x) summary(x, unit = "s")[, "median"])
-meds <- rbind(meds, cbind(meds_xtra, NA_real_))
+meds <- rbind(meds, cbind(meds_xtra, NA_real_, NA_real_))
 dimnames(meds) <- list(
-  N = c(Ns, Ns_xtra) * 3L, method = c("Dual-tree", "Naive"))
+  N = c(Ns, Ns_xtra) * 3L, method = c("Dual-tree", "Naive", "Dual-tree 1"))
 meds
 par(mar = c(5, 4, .5, .5))
-matplot(c(Ns, Ns_xtra) * 3L, meds, lty = 1:2, type = "l", log = "xy", 
+matplot(c(Ns, Ns_xtra) * 3L, meds, lty = 1:3, type = "l", log = "xy", 
         ylab = "seconds", xlab = "N", col = "black")
 ```
 

@@ -8,12 +8,12 @@ This package contains a simple implementation of the dual-tree method like the o
 
 ![W\_i = \\frac{\\tilde W\_i}{\\sum\_{k = 1}^{N\_q} \\tilde W\_i},\\qquad \\tilde W\_i = \\sum\_{j=1}^{N\_s} \\bar W\_j K(\\vec Y\_i, \\vec X\_j)](https://chart.googleapis.com/chart?cht=tx&chl=W_i%20%3D%20%5Cfrac%7B%5Ctilde%20W_i%7D%7B%5Csum_%7Bk%20%3D%201%7D%5E%7BN_q%7D%20%5Ctilde%20W_i%7D%2C%5Cqquad%20%5Ctilde%20W_i%20%3D%20%5Csum_%7Bj%3D1%7D%5E%7BN_s%7D%20%5Cbar%20W_j%20K%28%5Cvec%20Y_i%2C%20%5Cvec%20X_j%29 "W_i = \frac{\tilde W_i}{\sum_{k = 1}^{N_q} \tilde W_i},\qquad \tilde W_i = \sum_{j=1}^{N_s} \bar W_j K(\vec Y_i, \vec X_j)")
 
-where each source particle has an associated weight ![\\bar W\_j](https://chart.googleapis.com/chart?cht=tx&chl=%5Cbar%20W_j "\bar W_j") and ![K](https://chart.googleapis.com/chart?cht=tx&chl=K "K") is kernel. Computing the above is ![\\mathcal{O}(N\_sN\_q)](https://chart.googleapis.com/chart?cht=tx&chl=%5Cmathcal%7BO%7D%28N_sN_q%29 "\mathcal{O}(N_sN_q)") which is major bottleneck if ![N\_s](https://chart.googleapis.com/chart?cht=tx&chl=N_s "N_s") and ![N\_q](https://chart.googleapis.com/chart?cht=tx&chl=N_q "N_q") is large. However, one can use a [k-d tree](https://en.wikipedia.org/wiki/K-d_tree) for the query particles and source particles and exploit that:
+where each source particle has an associated weight ![\\bar W\_j](https://chart.googleapis.com/chart?cht=tx&chl=%5Cbar%20W_j "\bar W_j") and ![K](https://chart.googleapis.com/chart?cht=tx&chl=K "K") is a kernel. Computing the above is ![\\mathcal{O}(N\_sN\_q)](https://chart.googleapis.com/chart?cht=tx&chl=%5Cmathcal%7BO%7D%28N_sN_q%29 "\mathcal{O}(N_sN_q)") which is major bottleneck if ![N\_s](https://chart.googleapis.com/chart?cht=tx&chl=N_s "N_s") and ![N\_q](https://chart.googleapis.com/chart?cht=tx&chl=N_q "N_q") is large. However, one can use a [k-d tree](https://en.wikipedia.org/wiki/K-d_tree) for the query particles and source particles and exploit that:
 
 -   ![W\_j K(\\vec Y\_i, \\vec X\_j)](https://chart.googleapis.com/chart?cht=tx&chl=W_j%20K%28%5Cvec%20Y_i%2C%20%5Cvec%20X_j%29 "W_j K(\vec Y_i, \vec X_j)") is almost zero for some pairs of nodes in the two k-d trees.
 -   ![K(\\cdot, \\vec X\_j)](https://chart.googleapis.com/chart?cht=tx&chl=K%28%5Ccdot%2C%20%5Cvec%20X_j%29 "K(\cdot, \vec X_j)") is almost identical for some nodes in the k-d tree for the source particles.
 
-Thus, a substantial amount of computation can be skipped or approximated with e.g., the centroid in the source node with only a minor loss of precision. We start by defining a function to simulate the source and query particles (we will let the two sets be identical for simplicity). Further, we plot one draw of simulated points and illustrate the leafs in the k-d tree.
+Thus, a substantial amount of computation can be skipped or approximated with e.g., the centroid in the source node with only a minor loss of precision. The dual-tree approximation method is ![\\mathcal{O}(N\_s\\log N\_s)](https://chart.googleapis.com/chart?cht=tx&chl=%5Cmathcal%7BO%7D%28N_s%5Clog%20N_s%29 "\mathcal{O}(N_s\log N_s)") and ![\\mathcal{O}(N\_q\\log N\_q)](https://chart.googleapis.com/chart?cht=tx&chl=%5Cmathcal%7BO%7D%28N_q%5Clog%20N_q%29 "\mathcal{O}(N_q\log N_q)"). We start by defining a function to simulate the source and query particles (we will let the two sets be identical for simplicity). Further, we plot one draw of simulated points and illustrate the leafs in the k-d tree.
 
 ``` r
 ######
@@ -85,11 +85,11 @@ microbenchmark::microbenchmark(
 ```
 
     ## Unit: milliseconds
-    ##         expr     min      lq   mean  median      uq     max neval
-    ##  dual tree 1  145.81  147.73  152.7  149.17  155.82  174.13    10
-    ##  dual tree 6   47.72   48.05   50.4   50.67   51.48   54.42    10
-    ##      naive 1 3270.26 3285.16 3344.0 3318.05 3355.55 3554.56    10
-    ##      naive 6  605.26  655.84  659.0  673.31  677.00  682.56    10
+    ##         expr     min     lq   mean  median      uq     max neval
+    ##  dual tree 1  143.66  150.3  168.8  178.14  182.72  184.56    10
+    ##  dual tree 6   49.21   53.4   59.1   59.79   64.96   68.01    10
+    ##      naive 1 3331.25 3477.1 3746.7 3583.03 3952.10 4956.91    10
+    ##      naive 6  899.69 1001.0 1204.5 1058.38 1233.17 2041.81    10
 
 ``` r
 # The functions return the un-normalized log weights. We first compare
@@ -132,16 +132,18 @@ hist(o1 - o2, breaks = 25, main = "", xlab = "Delta normalized weights")
 
 ![](./README-fig/comp_run_times-2.png)
 
-Finally, we compare the run-times as function of ![N = N\_s = N\_q](https://chart.googleapis.com/chart?cht=tx&chl=N%20%3D%20N_s%20%3D%20N_q "N = N_s = N_q"). The dashed line is "naive" method and the continuous line is the dual-tree method.
+Finally, we compare the run-times as function of ![N = N\_s = N\_q](https://chart.googleapis.com/chart?cht=tx&chl=N%20%3D%20N_s%20%3D%20N_q "N = N_s = N_q"). The dashed line is "naive" method, the continuous line is the dual-tree method, and the dotted line is dual-tree method using 1 thread.
 
 ``` r
 Ns <- 2^(7:15)
 run_times <- lapply(Ns, function(N){
   invisible(list2env(get_sims(N), environment()))
   microbenchmark::microbenchmark(
-    `dual tree` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
+    `dual-tree`   = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
                                n_threads = 6L),
-    naive       = FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 6L), 
+    naive         = FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 6L),
+    `dual-tree 1` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
+                               n_threads = 1L), 
     times = 3L)
 })
 
@@ -149,7 +151,7 @@ Ns_xtra <- 2^(16:20)
 run_times_xtra <- lapply(Ns_xtra, function(N){
   invisible(list2env(get_sims(N), environment()))
   microbenchmark::microbenchmark(
-    `dual tree` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
+    `dual-tree` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
                                n_threads = 6L),
     times = 3L)
 })
@@ -160,32 +162,32 @@ library(microbenchmark)
 meds <- t(sapply(run_times, function(x) summary(x, unit = "s")[, "median"]))
 meds_xtra <- 
   sapply(run_times_xtra, function(x) summary(x, unit = "s")[, "median"])
-meds <- rbind(meds, cbind(meds_xtra, NA_real_))
+meds <- rbind(meds, cbind(meds_xtra, NA_real_, NA_real_))
 dimnames(meds) <- list(
-  N = c(Ns, Ns_xtra) * 3L, method = c("Dual-tree", "Naive"))
+  N = c(Ns, Ns_xtra) * 3L, method = c("Dual-tree", "Naive", "Dual-tree 1"))
 meds
 ```
 
     ##          method
-    ## N         Dual-tree     Naive
-    ##   384       0.01480  0.001028
-    ##   768       0.04276  0.002852
-    ##   1536      0.08199  0.010767
-    ##   3072      0.09619  0.041890
-    ##   6144      0.02876  0.122937
-    ##   12288     0.04374  0.451057
-    ##   24576     0.08076  2.053091
-    ##   49152     0.20954  9.450988
-    ##   98304     0.32823 30.527333
-    ##   196608    0.69394        NA
-    ##   393216    1.52091        NA
-    ##   786432    3.31902        NA
-    ##   1572864   8.51493        NA
-    ##   3145728  22.69276        NA
+    ## N         Dual-tree      Naive Dual-tree 1
+    ##   384       0.01280  0.0008517    0.005507
+    ##   768       0.04334  0.0027334    0.013410
+    ##   1536      0.08089  0.0101636    0.024452
+    ##   3072      0.09936  0.0391011    0.039364
+    ##   6144      0.07646  0.1264993    0.064981
+    ##   12288     0.03825  0.3933558    0.114791
+    ##   24576     0.06918  1.6045451    0.225386
+    ##   49152     0.13776  7.2385596    0.457339
+    ##   98304     0.28872 31.4211350    0.969701
+    ##   196608    0.63847         NA          NA
+    ##   393216    1.36299         NA          NA
+    ##   786432    2.61335         NA          NA
+    ##   1572864   6.42626         NA          NA
+    ##   3145728  13.97194         NA          NA
 
 ``` r
 par(mar = c(5, 4, .5, .5))
-matplot(c(Ns, Ns_xtra) * 3L, meds, lty = 1:2, type = "l", log = "xy", 
+matplot(c(Ns, Ns_xtra) * 3L, meds, lty = 1:3, type = "l", log = "xy", 
         ylab = "seconds", xlab = "N", col = "black")
 ```
 

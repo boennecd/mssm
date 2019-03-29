@@ -7,14 +7,14 @@
 using namespace Rcpp;
 
 // FSKA
-arma::vec FSKA(const arma::mat& X, const arma::vec& ws, const arma::mat& Y, const arma::uword N_min, const double eps, const unsigned int n_threads);
+arma::vec FSKA(arma::mat X, arma::vec ws, arma::mat Y, const arma::uword N_min, const double eps, const unsigned int n_threads);
 RcppExport SEXP _FSKA_FSKA(SEXP XSEXP, SEXP wsSEXP, SEXP YSEXP, SEXP N_minSEXP, SEXP epsSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type ws(wsSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type ws(wsSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Y(YSEXP);
     Rcpp::traits::input_parameter< const arma::uword >::type N_min(N_minSEXP);
     Rcpp::traits::input_parameter< const double >::type eps(epsSEXP);
     Rcpp::traits::input_parameter< const unsigned int >::type n_threads(n_threadsSEXP);
