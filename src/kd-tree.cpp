@@ -110,7 +110,7 @@ row_order::index_partition row_order::get_split(
     /* copy first and second half */
     index_partition out;
 
-    std::size_t split_at = indices.size() / 2;
+    std::size_t split_at = indices.size() / 2L;
     out.left.reset (new std::vector<arma::uword>(split_at));
     out.right.reset(new std::vector<arma::uword>(indices.size() - split_at));
 

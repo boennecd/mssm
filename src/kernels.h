@@ -12,7 +12,7 @@ public:
   double operator()(const double, const bool) const;
 };
 
-inline double log_sum_log(double &old, const double new_term){
+inline double log_sum_log(const double old, const double new_term){
   double max = std::max(old, new_term);
   double d1 = std::exp(old - max), d2 = std::exp(new_term - max);
 

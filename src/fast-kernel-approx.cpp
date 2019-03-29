@@ -141,15 +141,16 @@ struct comp_w_centroid {
     for(auto i : idx){
       double dist = norm_square(xp, Y.colptr(i), N);
       double new_term = kernel(dist, true) + x_weight_log;
-      if(!std::isnan(log_weights[i]))
-        new_term = log_sum_log(log_weights[i], new_term);
-      if(is_single_threaded){
-        log_weights[i]  = new_term;
+      if(!is_single_threaded){
+        *(o++) = new_term;
         continue;
-
       }
 
-      *(o++) = new_term;
+      if(!std::isnan(log_weights[i]))
+        log_weights[i] = log_sum_log(log_weights[i], new_term);
+      else
+        log_weights[i] = new_term;
+
     }
 
     if(is_single_threaded)
@@ -157,8 +158,12 @@ struct comp_w_centroid {
 
     o = out.begin();
     std::lock_guard<std::mutex> guard(*Y_node.idx_mutex);
-    for(auto i : idx)
-      log_weights[i] = *(o++);
+    for(auto i : idx){
+      if(!std::isnan(log_weights[i]))
+        log_weights[i] = log_sum_log(log_weights[i], *(o++));
+      else
+        log_weights[i] = *(o++);
+    }
   }
 
 };
@@ -210,15 +215,17 @@ struct comp_all {
         x_y_ws_i++;
       }
       double new_term = log_sum_log(x_y_ws, max_log_w);
-      if(!std::isnan(log_weights[i_y]))
-        new_term = log_sum_log(log_weights[i_y], new_term);
-      if(is_single_threaded){
-          log_weights[i_y] = new_term;
+      if(!is_single_threaded){
+        *(o++) = new_term;
         continue;
 
       }
 
-      *(o++) = new_term;
+      if(!std::isnan(log_weights[i_y]))
+        log_weights[i_y] = log_sum_log(log_weights[i_y], new_term);
+      else
+        log_weights[i_y] = new_term;
+
     }
 
     if(is_single_threaded)
@@ -226,8 +233,13 @@ struct comp_all {
 
     o = out.begin();
     std::lock_guard<std::mutex> guard(*Y_node.idx_mutex);
-    for(auto i_y : idx_y)
-      log_weights[i_y] = *(o++);
+    for(auto i_y : idx_y){
+      if(!std::isnan(log_weights[i_y]))
+        log_weights[i_y] = log_sum_log(log_weights[i_y], *(o++));
+      else
+        log_weights[i_y] = *(o++);
+
+    }
   }
 };
 
@@ -240,6 +252,7 @@ void comp_weights(
   {
     auto dists = Y_node.borders.min_max_dist(X_node.borders);
     double k_min = kernel(dists[1], false), k_max = kernel(dists[0], false);
+
     if(X_node.weight *
         (k_max - k_min) / ((k_max + k_min) / 2. + 1e-16) < 2. * eps){
       futures.push_back(
