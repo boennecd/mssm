@@ -2,6 +2,32 @@
 #define KD_TREE_H
 #include "arma.h"
 
+#ifdef FSKA_DEBUG
+#include <iostream>
+#endif
+
+class hyper_rectangle {
+  /* with borders for the hyper rectangle. Dims are 2 x [dim] */
+  arma::mat borders;
+public:
+  hyper_rectangle(const arma::mat&, const arma::uvec&);
+  hyper_rectangle(const hyper_rectangle&, const hyper_rectangle&);
+
+  /* first element is min and second element is max */
+  std::array<double, 2> min_max_dist(const hyper_rectangle&) const;
+
+  const arma::mat& get_borders() const {
+    return borders;
+  };
+
+  void shrink(
+      const arma::mat&, const std::vector<arma::uword>&, const arma::uword);
+
+#ifdef FSKA_DEBUG
+  friend std::ostream& operator<<(std::ostream&, const hyper_rectangle&);
+#endif
+};
+
 class row_order;
 
 class KD_note {
@@ -28,7 +54,7 @@ public:
 
 private:
   KD_note(const arma::mat&, const arma::uword, idx_ptr&, row_order*,
-          const arma::uword);
+          const arma::uword, const hyper_rectangle*);
 
   void get_indices_parent(arma::uword *);
 };

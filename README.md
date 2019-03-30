@@ -59,7 +59,7 @@ n_ele <- drop(out$n_elems)
 idx <- mapply(`:`, cumsum(c(1L, head(n_ele, -1))), cumsum(n_ele))
 stopifnot(all(sapply(idx, length) == n_ele))
 idx <- lapply(idx, function(i) out$indices[i])
-stopifnot(!anyDuplicated(unlist(idx)))
+stopifnot(!anyDuplicated(unlist(idx)), length(unlist(idx)) == ncol(X))
 
 grps <- lapply(idx, function(i) X[, i])
 
@@ -85,11 +85,11 @@ microbenchmark::microbenchmark(
 ```
 
     ## Unit: milliseconds
-    ##         expr     min     lq   mean  median      uq     max neval
-    ##  dual tree 1  143.66  150.3  168.8  178.14  182.72  184.56    10
-    ##  dual tree 6   49.21   53.4   59.1   59.79   64.96   68.01    10
-    ##      naive 1 3331.25 3477.1 3746.7 3583.03 3952.10 4956.91    10
-    ##      naive 6  899.69 1001.0 1204.5 1058.38 1233.17 2041.81    10
+    ##         expr     min     lq    mean  median      uq    max neval
+    ##  dual tree 1  112.06  113.7  114.05  114.00  114.95  115.3    10
+    ##  dual tree 6   31.54   32.9   34.11   33.84   35.59   37.5    10
+    ##      naive 1 3228.51 3242.0 3258.36 3258.78 3270.01 3291.4    10
+    ##      naive 6  591.94  605.0  627.33  616.36  638.04  716.0    10
 
 ``` r
 # The functions return the un-normalized log weights. We first compare
@@ -101,11 +101,11 @@ o2 <- FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 6L)
 all.equal(o1, o2)
 ```
 
-    ## [1] "Mean relative difference: 0.001657"
+    ## [1] "Mean relative difference: 0.0015"
 
 ``` r
 par(mar = c(5, 4, .5, .5))
-hist(o1 - o2, breaks = 25, main = "", 
+hist((o1 - o2)/ abs((o1 + o2) / 2), breaks = 50, main = "", 
      xlab = "Delta un-normalized log weights")
 ```
 
@@ -124,10 +124,11 @@ o2 <- func(o2)
 all.equal(o1, o2)
 ```
 
-    ## [1] "Mean relative difference: 0.001448"
+    ## [1] "Mean relative difference: 0.0008531"
 
 ``` r
-hist(o1 - o2, breaks = 25, main = "", xlab = "Delta normalized weights")
+hist((o1 - o2)/ abs((o1 + o2) / 2), breaks = 50, main = "", 
+     xlab = "Delta un-normalized log weights")
 ```
 
 ![](./README-fig/comp_run_times-2.png)
@@ -170,20 +171,20 @@ meds
 
     ##          method
     ## N         Dual-tree      Naive Dual-tree 1
-    ##   384       0.01280  0.0008517    0.005507
-    ##   768       0.04334  0.0027334    0.013410
-    ##   1536      0.08089  0.0101636    0.024452
-    ##   3072      0.09936  0.0391011    0.039364
-    ##   6144      0.07646  0.1264993    0.064981
-    ##   12288     0.03825  0.3933558    0.114791
-    ##   24576     0.06918  1.6045451    0.225386
-    ##   49152     0.13776  7.2385596    0.457339
-    ##   98304     0.28872 31.4211350    0.969701
-    ##   196608    0.63847         NA          NA
-    ##   393216    1.36299         NA          NA
-    ##   786432    2.61335         NA          NA
-    ##   1572864   6.42626         NA          NA
-    ##   3145728  13.97194         NA          NA
+    ##   384       0.01341  0.0008045     0.00529
+    ##   768       0.04257  0.0028020     0.01418
+    ##   1536      0.07590  0.0103289     0.02291
+    ##   3072      0.08270  0.0395034     0.03428
+    ##   6144      0.07206  0.1071989     0.05398
+    ##   12288     0.03143  0.4850711     0.09752
+    ##   24576     0.05360  1.7199726     0.18629
+    ##   49152     0.10605  6.9812358     0.36645
+    ##   98304     0.19286 31.1321333     0.77592
+    ##   196608    0.39916         NA          NA
+    ##   393216    0.86169         NA          NA
+    ##   786432    1.80240         NA          NA
+    ##   1572864   3.66839         NA          NA
+    ##   3145728   8.10332         NA          NA
 
 ``` r
 par(mar = c(5, 4, .5, .5))

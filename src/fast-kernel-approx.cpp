@@ -114,6 +114,7 @@ arma::vec FSKA(
   const std::string s = ss.str();
   ProfilerStart(s.c_str());
 #endif
+
   thread_pool pool(n_threads);
 
   auto f1 = pool.submit(get_X_root(X, ws, N_min));
@@ -432,98 +433,3 @@ query_node::query_node(const arma::mat &Y, const KD_note &node):
   node(node), left(set_child_query(Y, node, true)),
   right(set_child_query(Y, node, false)), borders(set_borders(*this, Y)),
   idx_mutex(new std::mutex()) { }
-
-
-
-hyper_rectangle::hyper_rectangle(const arma::mat &X, const arma::uvec &idx)
-{
-  const arma::uword N = X.n_rows;
-  borders.set_size(2L, N);
-  borders.row(0L).fill(std::numeric_limits<double>::max());
-  borders.row(1L).fill(std::numeric_limits<double>::lowest());
-
-  for(auto i : idx){
-    const double *x = X.colptr(i);
-    for(unsigned int j = 0; j < N; ++j, ++x){
-      if(*x < borders(0L, j))
-        borders(0L, j) = *x;
-      if(*x >= borders(1L, j))
-        borders(1L, j) = *x;
-    }
-  }
-}
-
-hyper_rectangle::hyper_rectangle
-  (const hyper_rectangle &r1, const hyper_rectangle &r2)
-  {
-#ifdef FSKA_DEBUG
-    if(r1.borders.n_rows != r2.borders.n_rows or
-         r1.borders.n_cols != r2.borders.n_cols)
-      throw "dimension do not match";
-#endif
-    const arma::uword N = r1.borders.n_cols;
-    borders.set_size(2L, N);
-
-    double *b = borders.begin();
-    const double *x1 = r1.borders.begin(), *x2 = r2.borders.begin();
-    for(unsigned int i = 0; i < 2L * N; ++i, ++b, ++x1, ++x2)
-      if(i % 2L == 0L)
-        *b = std::min(*x1, *x2);
-      else
-        *b = std::max(*x1, *x2);
-  }
-
-
-std::array<double, 2> hyper_rectangle::min_max_dist
-  (const hyper_rectangle &other) const
-  {
-#ifdef FSKA_DEBUG
-  if(this->borders.n_rows != other.borders.n_rows or
-       this->borders.n_cols != other.borders.n_cols)
-    throw "dimension do not match";
-#endif
-    std::array<double, 2> out = { 0L, 0L};
-    double &dmin = out[0L], &dmax = out[1L];
-
-    const arma::mat &oborders = other.borders;
-    const arma::uword N = this->borders.n_cols;
-    for(unsigned int i = 0; i < N; ++i){
-      /* min - max */
-      dmin += std::pow(std::max(std::max(
-         borders(0L, i) - oborders(1L, i),
-        oborders(0L, i) -  borders(1L, i)), 0.), 2L);
-      /* max - min */
-      dmax += std::pow(std::max(
-         borders(1L, i) - oborders(0L, i),
-        oborders(1L, i) -  borders(0L, i)), 2L);
-    }
-
-    return out;
-  }
-
-#ifdef FSKA_DEBUG
-inline double round_to_digits(const double value, const unsigned int digits)
-{
-  if (value == 0.0)
-    return 0.0;
-
-  double factor = pow(10.0, digits - ceil(log10(fabs(value))));
-  return round(value * factor) / factor;
-}
-
-std::ostream& operator<<(std::ostream &os, const hyper_rectangle &rect){
-  constexpr unsigned int n_d = 3L;
-  const double *d = rect.borders.begin();
-  for(unsigned int i = 0; i < rect.borders.n_cols; ++i){
-    if(i > 0L)
-      os << " x ";
-    double x1 = *(d++), x2 = *(d++);
-    os << '[' << round_to_digits(x1, n_d) << ", " <<
-      round_to_digits(x2, n_d) << ']';
-
-  }
-  os << '\n';
-
-  return os;
-}
-#endif

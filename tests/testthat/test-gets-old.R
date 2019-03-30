@@ -1,5 +1,7 @@
 context("Test versus old results")
 
+formals(expect_known_value)$update <- FALSE
+
 test_that("'FSKA' gives the same", {
   set.seed(90638579)
   n <- 5000L

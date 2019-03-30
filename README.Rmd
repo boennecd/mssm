@@ -90,7 +90,7 @@ n_ele <- drop(out$n_elems)
 idx <- mapply(`:`, cumsum(c(1L, head(n_ele, -1))), cumsum(n_ele))
 stopifnot(all(sapply(idx, length) == n_ele))
 idx <- lapply(idx, function(i) out$indices[i])
-stopifnot(!anyDuplicated(unlist(idx)))
+stopifnot(!anyDuplicated(unlist(idx)), length(unlist(idx)) == ncol(X))
 
 grps <- lapply(idx, function(i) X[, i])
 
@@ -123,7 +123,7 @@ o2 <- FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 6L)
 
 all.equal(o1, o2)
 par(mar = c(5, 4, .5, .5))
-hist(o1 - o2, breaks = 25, main = "", 
+hist((o1 - o2)/ abs((o1 + o2) / 2), breaks = 50, main = "", 
      xlab = "Delta un-normalized log weights")
 
 # then we compare the normalized weights
@@ -136,7 +136,8 @@ func <- function(x){
 o1 <- func(o1)
 o2 <- func(o2)
 all.equal(o1, o2)
-hist(o1 - o2, breaks = 25, main = "", xlab = "Delta normalized weights")
+hist((o1 - o2)/ abs((o1 + o2) / 2), breaks = 50, main = "", 
+     xlab = "Delta un-normalized log weights")
 ```
 
 Finally, we compare the run-times as function of $N = N_s = N_q$. The dashed 

@@ -1,6 +1,6 @@
 #include <testthat.h>
 #include "fast-kernel-approx.h"
-#include<array>
+#include <array>
 
 context("Test KD-tree") {
   test_that("kd-tree splits as expected in 1D") {
