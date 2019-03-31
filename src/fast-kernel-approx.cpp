@@ -18,7 +18,7 @@
 void comp_weights(
     arma::vec&, const source_node&, const query_node&, const arma::mat&,
     const arma::vec&, const arma::mat&, const double, const mvariate&,
-    thread_pool&, std::vector<std::future<void> >&);
+    thread_pool&, std::list<std::future<void> >&);
 
 struct get_X_root {
   using output_type =
@@ -100,6 +100,9 @@ struct get_Y_root {
   }
 };
 
+constexpr unsigned int max_futures       = 30000L;
+constexpr unsigned int max_futures_clear = max_futures / 3L;
+
 // [[Rcpp::export]]
 arma::vec FSKA(
     arma::mat X, arma::vec ws, arma::mat Y,
@@ -131,7 +134,7 @@ arma::vec FSKA(
 
   arma::vec log_weights(Y.n_cols);
   log_weights.fill(std::numeric_limits<double>::quiet_NaN());
-  std::vector<std::future<void> > futures;
+  std::list<std::future<void> > futures;
   comp_weights(log_weights, X_root_source, Y_root_query, X, ws_log, Y, eps,
                kernel, pool, futures);
 
@@ -293,8 +296,31 @@ void comp_weights(
     const query_node &Y_node, const arma::mat &X,
     const arma::vec &ws_log, const arma::mat &Y, const double eps,
     const mvariate &kernel, thread_pool &pool,
-    std::vector<std::future<void> > &futures)
+    std::list<std::future<void> > &futures)
   {
+    if(futures.size() > max_futures){
+      std::size_t n_earsed = 0L;
+      std::future_status status;
+      constexpr std::chrono::milliseconds t_weight(1);
+      std::list<std::future<void> >::iterator it;
+      const std::list<std::future<void> >::const_iterator
+        end = futures.end();
+      while(n_earsed < max_futures_clear){
+        for(it = futures.begin(); it != end; ){
+          status = it->wait_for(t_weight);
+          if(status == std::future_status::ready){
+            it->get();
+            it = futures.erase(it);
+            n_earsed++;
+            if(n_earsed >= max_futures_clear)
+              break;
+
+          } else
+            ++it;
+        }
+      }
+    }
+
     auto dists = Y_node.borders.min_max_dist(X_node.borders);
     double k_min = kernel(dists[1], false), k_max = kernel(dists[0], false);
 

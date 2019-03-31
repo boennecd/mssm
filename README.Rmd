@@ -137,7 +137,7 @@ o1 <- func(o1)
 o2 <- func(o2)
 all.equal(o1, o2)
 hist((o1 - o2)/ abs((o1 + o2) / 2), breaks = 50, main = "", 
-     xlab = "Delta un-normalized log weights")
+     xlab = "Delta normalized log weights")
 ```
 
 Finally, we compare the run-times as function of $N = N_s = N_q$. The dashed 
