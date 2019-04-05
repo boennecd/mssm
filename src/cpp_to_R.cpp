@@ -4,11 +4,7 @@
 #include "utils.h"
 
 #ifdef MSSM_PROF
-#include <gperftools/profiler.h>
-#include <iostream>
-#include <iomanip>
-#include <ctime>
-#include <sstream>
+#include "profile.h"
 #endif
 
 // [[Rcpp::export]]
@@ -72,14 +68,9 @@ struct naive_inner_loop {
 arma::vec naive(const arma::mat &X, const arma::vec ws, const arma::mat Y,
                 unsigned int n_threads){
 #ifdef MSSM_PROF
-  std::stringstream ss;
-  auto t = std::time(nullptr);
-  auto tm = *std::localtime(&t);
-  ss << std::put_time(&tm, "profile-naive-%d-%m-%Y-%H-%M-%S.log");
-  Rcpp::Rcout << "Saving profile output to '" << ss.str() << "'" << std::endl;
-  const std::string s = ss.str();
-  ProfilerStart(s.c_str());
+  profiler prof("naive");
 #endif
+
 #ifdef MSSM_DEBUG
   if(n_threads < 1L or n_threads > Y.n_cols)
     Rcpp::stop("invalid 'n_threads'");
@@ -102,9 +93,18 @@ arma::vec naive(const arma::mat &X, const arma::vec ws, const arma::mat Y,
     futures.pop_back();
   }
 
-#ifdef MSSM_PROF
-  ProfilerStop();
-#endif
-
   return out;
+}
+
+// [[Rcpp::export]]
+arma::vec FSKA(
+    const arma::mat &X, const arma::vec &ws, const arma::mat &Y,
+    const arma::uword N_min, const double eps,
+    const unsigned int n_threads){
+  arma::mat X_cp = X, Y_cp = Y;
+  arma::vec ws_cp = ws;
+  const mvariate kernel(X.n_rows);
+  thread_pool pool(n_threads);
+
+  return FSKA_cpp(X_cp, Y_cp, ws_cp, N_min, eps, kernel, pool);
 }

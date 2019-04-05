@@ -6,22 +6,6 @@
 
 using namespace Rcpp;
 
-// FSKA
-arma::vec FSKA(arma::mat X, arma::vec ws, arma::mat Y, const arma::uword N_min, const double eps, const unsigned int n_threads);
-RcppExport SEXP _mssm_FSKA(SEXP XSEXP, SEXP wsSEXP, SEXP YSEXP, SEXP N_minSEXP, SEXP epsSEXP, SEXP n_threadsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type ws(wsSEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type Y(YSEXP);
-    Rcpp::traits::input_parameter< const arma::uword >::type N_min(N_minSEXP);
-    Rcpp::traits::input_parameter< const double >::type eps(epsSEXP);
-    Rcpp::traits::input_parameter< const unsigned int >::type n_threads(n_threadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(FSKA(X, ws, Y, N_min, eps, n_threads));
-    return rcpp_result_gen;
-END_RCPP
-}
 // test_KD_note
 Rcpp::List test_KD_note(const arma::mat& X, const arma::uword N_min);
 RcppExport SEXP _mssm_test_KD_note(SEXP XSEXP, SEXP N_minSEXP) {
@@ -48,13 +32,29 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// FSKA
+arma::vec FSKA(const arma::mat& X, const arma::vec& ws, const arma::mat& Y, const arma::uword N_min, const double eps, const unsigned int n_threads);
+RcppExport SEXP _mssm_FSKA(SEXP XSEXP, SEXP wsSEXP, SEXP YSEXP, SEXP N_minSEXP, SEXP epsSEXP, SEXP n_threadsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type ws(wsSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< const arma::uword >::type N_min(N_minSEXP);
+    Rcpp::traits::input_parameter< const double >::type eps(epsSEXP);
+    Rcpp::traits::input_parameter< const unsigned int >::type n_threads(n_threadsSEXP);
+    rcpp_result_gen = Rcpp::wrap(FSKA(X, ws, Y, N_min, eps, n_threads));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 RcppExport SEXP run_testthat_tests();
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_mssm_FSKA", (DL_FUNC) &_mssm_FSKA, 6},
     {"_mssm_test_KD_note", (DL_FUNC) &_mssm_test_KD_note, 2},
     {"_mssm_naive", (DL_FUNC) &_mssm_naive, 4},
+    {"_mssm_FSKA", (DL_FUNC) &_mssm_FSKA, 6},
     {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 0},
     {NULL, NULL, 0}
 };

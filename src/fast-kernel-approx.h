@@ -1,4 +1,6 @@
 #include "kd-tree.h"
+#include "kernels.h"
+#include "thread_pool.h"
 #include <array>
 #include <mutex>
 
@@ -24,3 +26,9 @@ public:
 
   query_node(const arma::mat&, const KD_note&);
 };
+
+/* Function to approximate O(N^2) computation. May permutate the first three
+ * arguments */
+arma::vec FSKA_cpp(
+    arma::mat&, arma::mat&, arma::vec&, const arma::uword,
+    const double, const trans_obj&, thread_pool&);

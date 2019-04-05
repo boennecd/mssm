@@ -10,11 +10,7 @@
 #include <functional>
 
 #ifdef MSSM_PROF
-#include <gperftools/profiler.h>
-#include <iostream>
-#include <iomanip>
-#include <ctime>
-#include <sstream>
+#include "profile.h"
 #endif
 
 using std::ref;
@@ -96,29 +92,19 @@ get_Y_root_output get_Y_root
 constexpr unsigned int max_futures       = 30000L;
 constexpr unsigned int max_futures_clear = max_futures / 3L;
 
-// [[Rcpp::export]]
-arma::vec FSKA(
-    arma::mat X, arma::vec ws, arma::mat Y,
-    const arma::uword N_min, const double eps,
-    const unsigned int n_threads){
+arma::vec FSKA_cpp(
+    arma::mat &X, arma::mat &Y, arma::vec &ws, const arma::uword N_min,
+    const double eps, const trans_obj &kernel, thread_pool &pool)
+{
 #ifdef MSSM_PROF
-  std::stringstream ss;
-  auto t = std::time(nullptr);
-  auto tm = *std::localtime(&t);
-  ss << std::put_time(&tm, "profile-FSKA-%d-%m-%Y-%H-%M-%S.log");
-  Rcpp::Rcout << "Saving profile output to '" << ss.str() << "'" << std::endl;
-  const std::string s = ss.str();
-  ProfilerStart(s.c_str());
+  profiler prof("FSKA_cpp");
 #endif
-
-  thread_pool pool(n_threads);
 
   auto f1 = pool.submit(std::bind(
     get_X_root, ref(X), ref(ws), N_min));
   auto f2 = pool.submit(std::bind(
     get_Y_root, ref(Y), N_min));
 
-  const mvariate kernel(X.n_rows);
   auto X_root = f1.get();
   /* do this __after__ weights are permutated */
   const arma::vec ws_log = arma::log(ws);
@@ -138,10 +124,6 @@ arma::vec FSKA(
     futures.back().get();
     futures.pop_back();
   }
-
-#ifdef MSSM_PROF
-  ProfilerStop();
-#endif
 
   return log_weights(permu_vec);
 }
