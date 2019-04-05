@@ -1,6 +1,6 @@
 library(testthat)
-library(FSKA)
+library(mssm)
 
 suppressWarnings(RNGversion("3.5.0"))
 
-test_check("FSKA")
+test_check("mssm")

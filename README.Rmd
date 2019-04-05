@@ -84,7 +84,7 @@ par(mar = c(5, 4, .5, .5))
 plot(as.matrix(sims[, c("X1", "X2")]), col = sims$grp + 1L)
 
 # find KD-tree and add borders 
-out <- FSKA:::test_KD_note(X, 50L)
+out <- mssm:::test_KD_note(X, 50L)
 out$indices <- out$indices + 1L
 n_ele <- drop(out$n_elems)
 idx <- mapply(`:`, cumsum(c(1L, head(n_ele, -1))), cumsum(n_ele))
@@ -107,19 +107,19 @@ use in the methods.
 ```{r comp_run_times, cache = 1}
 # run-times
 microbenchmark::microbenchmark(
-  `dual tree 1` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, 
+  `dual tree 1` = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, 
                                eps = 5e-3, n_threads = 1L),
-  `dual tree 6` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, 
+  `dual tree 6` = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, 
                                eps = 5e-3, n_threads = 6L),
-  `naive 1`     = FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 1L),
-  `naive 6`     = FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 6L),
+  `naive 1`     = mssm:::naive(X = X, ws = ws, Y = X, n_threads = 1L),
+  `naive 6`     = mssm:::naive(X = X, ws = ws, Y = X, n_threads = 6L),
   times = 10L)
 
 # The functions return the un-normalized log weights. We first compare
 # the result on this scale
-o1 <- FSKA:::FSKA  (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
+o1 <- mssm:::FSKA  (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
                     n_threads = 1L)
-o2 <- FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 6L)
+o2 <- mssm:::naive(X = X, ws = ws, Y = X, n_threads = 6L)
 
 all.equal(o1, o2)
 par(mar = c(5, 4, .5, .5))
@@ -149,10 +149,10 @@ Ns <- 2^(7:15)
 run_times <- lapply(Ns, function(N){
   invisible(list2env(get_sims(N), environment()))
   microbenchmark::microbenchmark(
-    `dual-tree`   = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
+    `dual-tree`   = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
                                n_threads = 6L),
-    naive         = FSKA:::naive(X = X, ws = ws, Y = X, n_threads = 6L),
-    `dual-tree 1` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
+    naive         = mssm:::naive(X = X, ws = ws, Y = X, n_threads = 6L),
+    `dual-tree 1` = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
                                n_threads = 1L), 
     times = 3L)
 })
@@ -161,7 +161,7 @@ Ns_xtra <- 2^(16:20)
 run_times_xtra <- lapply(Ns_xtra, function(N){
   invisible(list2env(get_sims(N), environment()))
   microbenchmark::microbenchmark(
-    `dual-tree` = FSKA:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
+    `dual-tree` = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
                                n_threads = 6L),
     times = 3L)
 })

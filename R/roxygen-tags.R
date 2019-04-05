@@ -1,14 +1,13 @@
-#' @useDynLib FSKA, .registration = TRUE
+#' @useDynLib mssm, .registration = TRUE
 #' @importFrom Rcpp sourceCpp
 NULL
 
 #' Fast Sum-Kernel Approximation
 #'
-#' @name FSKA-package
-#' @aliases FSKA
+#' @name mssm-package
+#' @aliases mssm
 #' @docType package
 #'
 #' @description
-#' Package with a small example of fast approximation of the sum-kernel
-#' problem. See the README.
+#' TODO: describe package
 NULL

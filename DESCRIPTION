@@ -1,4 +1,4 @@
-Package: FSKA
+Package: mssm
 Type: Package
 Title: Fast Sum-Kernel Approximation
 Version: 0.1.0

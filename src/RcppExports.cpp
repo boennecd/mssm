@@ -8,7 +8,7 @@ using namespace Rcpp;
 
 // FSKA
 arma::vec FSKA(arma::mat X, arma::vec ws, arma::mat Y, const arma::uword N_min, const double eps, const unsigned int n_threads);
-RcppExport SEXP _FSKA_FSKA(SEXP XSEXP, SEXP wsSEXP, SEXP YSEXP, SEXP N_minSEXP, SEXP epsSEXP, SEXP n_threadsSEXP) {
+RcppExport SEXP _mssm_FSKA(SEXP XSEXP, SEXP wsSEXP, SEXP YSEXP, SEXP N_minSEXP, SEXP epsSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -24,7 +24,7 @@ END_RCPP
 }
 // test_KD_note
 Rcpp::List test_KD_note(const arma::mat& X, const arma::uword N_min);
-RcppExport SEXP _FSKA_test_KD_note(SEXP XSEXP, SEXP N_minSEXP) {
+RcppExport SEXP _mssm_test_KD_note(SEXP XSEXP, SEXP N_minSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -36,7 +36,7 @@ END_RCPP
 }
 // naive
 arma::vec naive(const arma::mat& X, const arma::vec ws, const arma::mat Y, unsigned int n_threads);
-RcppExport SEXP _FSKA_naive(SEXP XSEXP, SEXP wsSEXP, SEXP YSEXP, SEXP n_threadsSEXP) {
+RcppExport SEXP _mssm_naive(SEXP XSEXP, SEXP wsSEXP, SEXP YSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -52,14 +52,14 @@ END_RCPP
 RcppExport SEXP run_testthat_tests();
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_FSKA_FSKA", (DL_FUNC) &_FSKA_FSKA, 6},
-    {"_FSKA_test_KD_note", (DL_FUNC) &_FSKA_test_KD_note, 2},
-    {"_FSKA_naive", (DL_FUNC) &_FSKA_naive, 4},
+    {"_mssm_FSKA", (DL_FUNC) &_mssm_FSKA, 6},
+    {"_mssm_test_KD_note", (DL_FUNC) &_mssm_test_KD_note, 2},
+    {"_mssm_naive", (DL_FUNC) &_mssm_naive, 4},
     {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 0},
     {NULL, NULL, 0}
 };
 
-RcppExport void R_init_FSKA(DllInfo *dll) {
+RcppExport void R_init_mssm(DllInfo *dll) {
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);
 }

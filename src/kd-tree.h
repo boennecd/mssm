@@ -2,7 +2,7 @@
 #define KD_TREE_H
 #include "arma.h"
 
-#ifdef FSKA_DEBUG
+#ifdef MSSM_DEBUG
 #include <iostream>
 #endif
 
@@ -23,7 +23,7 @@ public:
   void shrink(
       const arma::mat&, const std::vector<arma::uword>&, const arma::uword);
 
-#ifdef FSKA_DEBUG
+#ifdef MSSM_DEBUG
   friend std::ostream& operator<<(std::ostream&, const hyper_rectangle&);
 #endif
 };
@@ -32,12 +32,11 @@ class row_order;
 
 class KD_note {
   using idx_ptr = std::unique_ptr<std::vector<arma::uword> >;
-
-  const arma::uword n_elem;
   std::unique_ptr<std::vector<arma::uword> > idx;
   std::unique_ptr<KD_note> left;
   std::unique_ptr<KD_note> right;
 public:
+  const arma::uword n_elem;
   bool is_leaf() const {
     return (!left) and (!right);
   };

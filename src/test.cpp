@@ -1,8 +1,9 @@
 #include "fast-kernel-approx.h"
 #include "kernels.h"
 #include "thread_pool.h"
+#include "utils.h"
 
-#ifdef FSKA_PROF
+#ifdef MSSM_PROF
 #include <gperftools/profiler.h>
 #include <iostream>
 #include <iomanip>
@@ -56,8 +57,7 @@ struct naive_inner_loop {
       const double *y = Y.colptr(i);
       double max_weight = std::numeric_limits<double>::lowest();
       for(unsigned int j = 0; j < X.n_cols; ++j){
-        double dist = norm_square(X.colptr(j), y, N);
-        weights_inner[j] = ws_log[j] + kernel(dist, true);
+        weights_inner[j] = kernel(X.colptr(j), y, N, ws_log[j]);
         if(weights_inner[j] > max_weight)
           max_weight = weights_inner[j];
       }
@@ -71,7 +71,7 @@ struct naive_inner_loop {
 // [[Rcpp::export]]
 arma::vec naive(const arma::mat &X, const arma::vec ws, const arma::mat Y,
                 unsigned int n_threads){
-#ifdef FSKA_PROF
+#ifdef MSSM_PROF
   std::stringstream ss;
   auto t = std::time(nullptr);
   auto tm = *std::localtime(&t);
@@ -80,7 +80,7 @@ arma::vec naive(const arma::mat &X, const arma::vec ws, const arma::mat Y,
   const std::string s = ss.str();
   ProfilerStart(s.c_str());
 #endif
-#ifdef FSKA_DEBUG
+#ifdef MSSM_DEBUG
   if(n_threads < 1L or n_threads > Y.n_cols)
     Rcpp::stop("invalid 'n_threads'");
 #endif
@@ -102,7 +102,7 @@ arma::vec naive(const arma::mat &X, const arma::vec ws, const arma::mat Y,
     futures.pop_back();
   }
 
-#ifdef FSKA_PROF
+#ifdef MSSM_PROF
   ProfilerStop();
 #endif
 

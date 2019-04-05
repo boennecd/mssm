@@ -122,7 +122,7 @@ row_order::index_partition row_order::get_split(
   }
 
 const std::vector<arma::uword>& KD_note::get_indices() const {
-#ifdef FSKA_DEBUG
+#ifdef MSSM_DEBUG
   if(!is_leaf())
     throw "'get_indices' called on non-leaf";
 #endif
@@ -163,7 +163,7 @@ std::vector<const KD_note*> KD_note::get_leafs() const {
 }
 
 const KD_note& KD_note::get_left() const {
-#ifdef FSKA_DEBUG
+#ifdef MSSM_DEBUG
   if(!left)
     throw "get_*_node called on leaf note";
 #endif
@@ -172,7 +172,7 @@ const KD_note& KD_note::get_left() const {
 }
 
 const KD_note& KD_note::get_right() const {
-#ifdef FSKA_DEBUG
+#ifdef MSSM_DEBUG
   if(!right)
     throw "get_*_node called on leaf note";
 #endif
@@ -181,7 +181,7 @@ const KD_note& KD_note::get_right() const {
 }
 
 void KD_note::set_indices(arma::uvec &new_idx) {
-#ifdef FSKA_DEBUG
+#ifdef MSSM_DEBUG
   if(new_idx.n_elem != n_elem)
     throw "indices length do not match with node size";
 #endif
@@ -225,7 +225,7 @@ hyper_rectangle::hyper_rectangle(const arma::mat &X, const arma::uvec &idx)
 hyper_rectangle::hyper_rectangle
   (const hyper_rectangle &r1, const hyper_rectangle &r2)
 {
-#ifdef FSKA_DEBUG
+#ifdef MSSM_DEBUG
   if(r1.borders.n_rows != r2.borders.n_rows or
        r1.borders.n_cols != r2.borders.n_cols)
     throw "dimension do not match";
@@ -245,7 +245,7 @@ hyper_rectangle::hyper_rectangle
 std::array<double, 2> hyper_rectangle::min_max_dist
   (const hyper_rectangle &other) const
 {
-#ifdef FSKA_DEBUG
+#ifdef MSSM_DEBUG
   if(this->borders.n_rows != other.borders.n_rows or
        this->borders.n_cols != other.borders.n_cols)
     throw "dimension do not match";
@@ -269,7 +269,7 @@ std::array<double, 2> hyper_rectangle::min_max_dist
   return out;
 }
 
-#ifdef FSKA_DEBUG
+#ifdef MSSM_DEBUG
 inline double round_to_digits(const double value, const unsigned int digits)
 {
   if (value == 0.0)

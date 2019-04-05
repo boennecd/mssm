@@ -2,14 +2,14 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 FSKA <- function(X, ws, Y, N_min, eps, n_threads) {
-    .Call(`_FSKA_FSKA`, X, ws, Y, N_min, eps, n_threads)
+    .Call(`_mssm_FSKA`, X, ws, Y, N_min, eps, n_threads)
 }
 
 test_KD_note <- function(X, N_min) {
-    .Call(`_FSKA_test_KD_note`, X, N_min)
+    .Call(`_mssm_test_KD_note`, X, N_min)
 }
 
 naive <- function(X, ws, Y, n_threads) {
-    .Call(`_FSKA_naive`, X, ws, Y, n_threads)
+    .Call(`_mssm_naive`, X, ws, Y, n_threads)
 }
 

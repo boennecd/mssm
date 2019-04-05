@@ -1,7 +1,7 @@
-#ifndef ARMA_FSKA_H
-#define ARMA_FSKA_H
+#ifndef ARMA_MSSM_H
+#define ARMA_MSSM_H
 
-#ifndef FSKA_DEBUG
+#ifndef MSSM_DEBUG
 #define ARMA_NO_DEBUG
 #endif
 
