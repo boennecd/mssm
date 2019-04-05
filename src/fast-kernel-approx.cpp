@@ -2,8 +2,6 @@
 #include <limits>
 #include <math.h>
 #include <cmath>
-#include "kernels.h"
-#include "thread_pool.h"
 #include <utility>
 #include <math.h>
 #include "utils.h"
@@ -92,30 +90,31 @@ get_Y_root_output get_Y_root
 constexpr unsigned int max_futures       = 30000L;
 constexpr unsigned int max_futures_clear = max_futures / 3L;
 
-arma::vec FSKA_cpp(
-    arma::mat &X, arma::mat &Y, arma::vec &ws, const arma::uword N_min,
-    const double eps, const trans_obj &kernel, thread_pool &pool)
+FSKA_cpp_permutation FSKA_cpp(
+    arma::vec &log_weights, arma::mat &X, arma::mat &Y, arma::vec &ws_log,
+    const arma::uword N_min, const double eps, const trans_obj &kernel,
+    thread_pool &pool)
 {
+#ifdef MSSM_DEBUG
+  if(log_weights.n_elem != Y.n_cols)
+    throw std::invalid_argument(
+        "Dimensions of 'log_weights' and 'Y' do not match");
+#endif
+
 #ifdef MSSM_PROF
   profiler prof("FSKA_cpp");
 #endif
 
   auto f1 = pool.submit(std::bind(
-    get_X_root, ref(X), ref(ws), N_min));
+    get_X_root, ref(X), ref(ws_log), N_min));
   auto f2 = pool.submit(std::bind(
     get_Y_root, ref(Y), N_min));
 
   auto X_root = f1.get();
-  /* do this __after__ weights are permutated */
-  const arma::vec ws_log = arma::log(ws);
-
   auto Y_root = f2.get();
   source_node &X_root_source = *std::get<1L>(X_root);
   query_node &Y_root_query   = *std::get<1L>(Y_root);
-  const arma::uvec &permu_vec = std::get<2L>(Y_root);
 
-  arma::vec log_weights(Y.n_cols);
-  log_weights.fill(std::numeric_limits<double>::quiet_NaN());
   std::list<std::future<void> > futures;
   comp_weights(log_weights, X_root_source, Y_root_query, X, ws_log, Y, eps,
                kernel, pool, futures);
@@ -125,7 +124,8 @@ arma::vec FSKA_cpp(
     futures.pop_back();
   }
 
-  return log_weights(permu_vec);
+  return
+    { std::move(std::get<2L>(X_root)) , std::move(std::get<2L>(Y_root)) };
 }
 
 inline void set_func(double &o, const double n){
@@ -187,7 +187,8 @@ void comp_all(
 {
 #ifdef MSSM_DEBUG
   if(!X_node.node.is_leaf() or !Y_node.node.is_leaf())
-    throw "comp_all called with non-leafs";
+    throw std::domain_error(
+        "comp_all called with non-leafs");
 #endif
 
   const std::vector<arma::uword> &idx_y = Y_node.node.get_indices(),
@@ -276,9 +277,8 @@ void comp_weights(
       return;
     }
 
-    auto dists = Y_node.borders.min_max_dist(X_node.borders);
-    double k_min = std::exp(kernel(dists[1])),
-      k_max = std::exp(kernel(dists[0]));
+    auto log_dens = kernel(Y_node.borders, X_node.borders);
+    double k_min = std::exp(log_dens[0L]), k_max = std::exp(log_dens[1L]);
     if(X_node.weight *
         (k_max - k_min) / ((k_max + k_min) / 2. + 1e-16) < 2. * eps){
       auto task = std::bind(
@@ -361,8 +361,9 @@ arma::vec set_centroid
       const auto &indices = snode.node.get_indices();
       double sum_w = 0.;
       for(auto idx : indices){
-        centroid += ws[idx] * X.unsafe_col(idx);
-        sum_w += ws[idx];
+        const double w = std::exp(ws[idx]);
+        centroid += w * X.unsafe_col(idx);
+        sum_w += w;
       }
       centroid /= sum_w;
 
@@ -381,7 +382,7 @@ inline double set_weight(const source_node &snode, const arma::vec &ws)
       const auto &indices = snode.node.get_indices();
       double weight = 0.;
       for(auto idx : indices)
-        weight += ws[idx];
+        weight += std::exp(ws[idx]);
 
       return weight;
     }

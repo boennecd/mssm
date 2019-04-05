@@ -1,8 +1,9 @@
 #' @useDynLib mssm, .registration = TRUE
 #' @importFrom Rcpp sourceCpp
+#' @import nloptr
 NULL
 
-#' Fast Sum-Kernel Approximation
+#' Multivariate State Space Models
 #'
 #' @name mssm-package
 #' @aliases mssm

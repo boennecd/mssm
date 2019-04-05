@@ -7,7 +7,7 @@ bibliography: README.bib
 
 ## Fast Sum-Kernel Approximation
 
-[![Build Status on Travis](https://travis-ci.org/boennecd/FSKA.svg?branch=master,osx)](https://travis-ci.org/boennecd/FSKA)
+[![Build Status on Travis](https://travis-ci.org/boennecd/mssm.svg?branch=master,osx)](https://travis-ci.org/boennecd/mssm)
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(

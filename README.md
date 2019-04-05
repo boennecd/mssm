@@ -2,7 +2,7 @@
 Fast Sum-Kernel Approximation
 -----------------------------
 
-[![Build Status on Travis](https://travis-ci.org/boennecd/FSKA.svg?branch=master,osx)](https://travis-ci.org/boennecd/FSKA)
+[![Build Status on Travis](https://travis-ci.org/boennecd/mssm.svg?branch=master,osx)](https://travis-ci.org/boennecd/mssm)
 
 This package contains a simple implementation of the dual-tree method like the one suggested by Gray and Moore (2003) and shown in Klaas et al. (2006). The problem we want to solve is the sum-kernel problem in Klaas et al. (2006). Particularly, we consider the situation where we have ![1,\\dots,N\_q](https://chart.googleapis.com/chart?cht=tx&chl=1%2C%5Cdots%2CN_q "1,\dots,N_q") query particles denoted by ![\\{\\vec Y\_i\\}\_{i=1,\\dots,N\_q}](https://chart.googleapis.com/chart?cht=tx&chl=%5C%7B%5Cvec%20Y_i%5C%7D_%7Bi%3D1%2C%5Cdots%2CN_q%7D "\{\vec Y_i\}_{i=1,\dots,N_q}") and ![1,\\dots,N\_s](https://chart.googleapis.com/chart?cht=tx&chl=1%2C%5Cdots%2CN_s "1,\dots,N_s") source particles denoted by ![\\{\\vec X\_j\\}\_{j=1,\\dots,N\_s}](https://chart.googleapis.com/chart?cht=tx&chl=%5C%7B%5Cvec%20X_j%5C%7D_%7Bj%3D1%2C%5Cdots%2CN_s%7D "\{\vec X_j\}_{j=1,\dots,N_s}"). For each query particle, we want to compute the weights
 
@@ -86,10 +86,10 @@ microbenchmark::microbenchmark(
 
     ## Unit: milliseconds
     ##         expr     min      lq    mean  median      uq     max neval
-    ##  dual tree 1  112.57  114.18  115.33  115.21  116.07  119.81    10
-    ##  dual tree 6   32.42   33.04   34.23   33.99   35.39   36.34    10
-    ##      naive 1 3338.72 3384.65 3404.70 3409.12 3425.32 3458.12    10
-    ##      naive 6  658.21  664.05  698.99  674.62  709.50  802.56    10
+    ##  dual tree 1  111.85  112.40  112.86  112.75  113.11  114.48    10
+    ##  dual tree 6   32.58   34.91   36.02   36.59   37.15   38.01    10
+    ##      naive 1 3308.36 3342.19 3388.43 3358.70 3461.98 3483.82    10
+    ##      naive 6  594.51  614.89  660.92  651.02  682.50  771.70    10
 
 ``` r
 # The functions return the un-normalized log weights. We first compare
@@ -171,20 +171,20 @@ meds
 
     ##          method
     ## N         Dual-tree      Naive Dual-tree 1
-    ##   384      0.001167  0.0009767    0.003563
-    ##   768      0.002262  0.0029438    0.006597
-    ##   1536     0.004025  0.0109149    0.013038
-    ##   3072     0.008106  0.0441845    0.025871
-    ##   6144     0.018090  0.1096419    0.051310
-    ##   12288    0.033480  0.4550622    0.100881
-    ##   24576    0.055003  1.8461167    0.190143
-    ##   49152    0.099839  7.7704684    0.361776
-    ##   98304    0.212900 31.8908572    0.763513
-    ##   196608   0.435013         NA          NA
-    ##   393216   0.918098         NA          NA
-    ##   786432   1.739127         NA          NA
-    ##   1572864  3.538307         NA          NA
-    ##   3145728  7.892486         NA          NA
+    ##   384      0.001157  0.0008618    0.003414
+    ##   768      0.002216  0.0028597    0.007045
+    ##   1536     0.004065  0.0105496    0.012602
+    ##   3072     0.008660  0.0423697    0.026076
+    ##   6144     0.017038  0.1124853    0.050222
+    ##   12288    0.034687  0.4224781    0.099716
+    ##   24576    0.052429  1.7530345    0.185709
+    ##   49152    0.114945  7.9728915    0.379697
+    ##   98304    0.218306 30.1068421    0.741415
+    ##   196608   0.405312         NA          NA
+    ##   393216   0.797138         NA          NA
+    ##   786432   1.642707         NA          NA
+    ##   1572864  3.736736         NA          NA
+    ##   3145728  8.227259         NA          NA
 
 ``` r
 par(mar = c(5, 4, .5, .5))

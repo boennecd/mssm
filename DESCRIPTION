@@ -1,6 +1,6 @@
 Package: mssm
 Type: Package
-Title: Fast Sum-Kernel Approximation
+Title: Multivariate State Space Models
 Version: 0.1.0
 Authors@R: c(
   person("Benjamin", "Christoffersen", 
@@ -10,18 +10,18 @@ Authors@R: c(
          role = c("cph")),
   person("Boost developers", 
          role = c("cph")))
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
+Description: TODO: what does this package do?
 License: GPL-2
 Encoding: UTF-8
 LazyData: true
 LinkingTo: 
     Rcpp, 
     RcppArmadillo, 
-    testthat
+    testthat, 
+    nloptr (>= 1.2.0)
 Imports: 
-    Rcpp
+    Rcpp, 
+    nloptr (>= 1.2.0)
 RoxygenNote: 6.1.1
 SystemRequirements: C++11
 Suggests: 

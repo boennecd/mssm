@@ -1,6 +1,9 @@
 #include "kd-tree.h"
 #include <numeric>
 
+using std::domain_error;
+using std::invalid_argument;
+
 class row_order {
   using idx_ptr = std::unique_ptr<std::vector<arma::uword> >;
 
@@ -124,7 +127,7 @@ row_order::index_partition row_order::get_split(
 const std::vector<arma::uword>& KD_note::get_indices() const {
 #ifdef MSSM_DEBUG
   if(!is_leaf())
-    throw "'get_indices' called on non-leaf";
+    throw domain_error("'get_indices' called on non-leaf");
 #endif
   return *idx;
 }
@@ -165,7 +168,7 @@ std::vector<const KD_note*> KD_note::get_leafs() const {
 const KD_note& KD_note::get_left() const {
 #ifdef MSSM_DEBUG
   if(!left)
-    throw "get_*_node called on leaf note";
+    throw domain_error("get_*_node called on leaf note");
 #endif
 
   return *left;
@@ -174,7 +177,7 @@ const KD_note& KD_note::get_left() const {
 const KD_note& KD_note::get_right() const {
 #ifdef MSSM_DEBUG
   if(!right)
-    throw "get_*_node called on leaf note";
+    throw domain_error("get_*_node called on leaf note");
 #endif
 
   return *right;
@@ -183,7 +186,7 @@ const KD_note& KD_note::get_right() const {
 void KD_note::set_indices(arma::uvec &new_idx) {
 #ifdef MSSM_DEBUG
   if(new_idx.n_elem != n_elem)
-    throw "indices length do not match with node size";
+    throw invalid_argument("indices length do not match with node size");
 #endif
 
   if(is_leaf()){
@@ -228,7 +231,7 @@ hyper_rectangle::hyper_rectangle
 #ifdef MSSM_DEBUG
   if(r1.borders.n_rows != r2.borders.n_rows or
        r1.borders.n_cols != r2.borders.n_cols)
-    throw "dimension do not match";
+    throw invalid_argument("dimension do not match");
 #endif
   const arma::uword N = r1.borders.n_cols;
   borders.set_size(2L, N);
@@ -248,7 +251,7 @@ std::array<double, 2> hyper_rectangle::min_max_dist
 #ifdef MSSM_DEBUG
   if(this->borders.n_rows != other.borders.n_rows or
        this->borders.n_cols != other.borders.n_cols)
-    throw "dimension do not match";
+    throw invalid_argument("dimension do not match");
 #endif
   std::array<double, 2> out = { 0L, 0L};
   double &dmin = out[0L], &dmax = out[1L];

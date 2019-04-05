@@ -1,6 +1,4 @@
 #include "fast-kernel-approx.h"
-#include "kernels.h"
-#include "thread_pool.h"
 #include "utils.h"
 
 #ifdef MSSM_PROF
@@ -35,7 +33,7 @@ struct naive_inner_loop {
   const arma::uword i_start, i_end;
   const arma::vec &ws_log;
   const arma::mat &X, &Y;
-  const mvariate &kernel;
+  const trans_obj &kernel;
   arma::vec &out;
 
   arma::vec weights_inner;
@@ -44,7 +42,7 @@ struct naive_inner_loop {
   naive_inner_loop
     (const arma::uword i_start, const arma::uword i_end,
      const arma::vec &ws_log, const arma::mat &X, const arma::mat &Y,
-     const mvariate &kernel, arma::vec &out):
+     const trans_obj &kernel, arma::vec &out):
     i_start(i_start), i_end(i_end), ws_log(ws_log), X(X), Y(Y),
     kernel(kernel), out(out), weights_inner(X.n_cols), N(Y.n_rows) { }
 
@@ -77,7 +75,7 @@ arma::vec naive(const arma::mat &X, const arma::vec ws, const arma::mat Y,
 #endif
 
   thread_pool pool(n_threads);
-  mvariate kernel(X.n_rows);
+  mvs_norm kernel(X.n_rows);
   arma::vec ws_log = arma::log(ws), out(Y.n_cols);
   std::vector<std::future<void> > futures;
   arma::uword inc = Y.n_cols / n_threads + 1L, start = 0L, end = 0L;
@@ -102,9 +100,12 @@ arma::vec FSKA(
     const arma::uword N_min, const double eps,
     const unsigned int n_threads){
   arma::mat X_cp = X, Y_cp = Y;
-  arma::vec ws_cp = ws;
-  const mvariate kernel(X.n_rows);
+  arma::vec ws_cp = arma::log(ws);
+  const mvs_norm kernel(X.n_rows);
   thread_pool pool(n_threads);
+  arma::vec out(Y.n_cols, arma::fill::none);
+  out.fill(std::numeric_limits<double>::quiet_NaN());
 
-  return FSKA_cpp(X_cp, Y_cp, ws_cp, N_min, eps, kernel, pool);
+  auto perm = FSKA_cpp(out, X_cp, Y_cp, ws_cp, N_min, eps, kernel, pool);
+  return out(perm.Y_perm);
 }
