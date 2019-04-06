@@ -1,5 +1,6 @@
 #include "fast-kernel-approx.h"
 #include "utils.h"
+#include "dists.h"
 
 #ifdef MSSM_PROF
 #include "profile.h"
@@ -108,4 +109,27 @@ arma::vec FSKA(
 
   auto perm = FSKA_cpp(out, X_cp, Y_cp, ws_cp, N_min, eps, kernel, pool);
   return out(perm.Y_perm);
+}
+
+// [[Rcpp::export]]
+arma::mat sample_mv_normal
+  (const arma::uword N, const arma::mat &Q, const arma::vec &mu)
+{
+  arma::mat out(Q.n_cols, N);
+  mv_norm mv(Q, mu);
+  mv.sample(out);
+
+  return out;
+}
+
+// [[Rcpp::export]]
+arma::mat sample_mv_tdist
+  (const arma::uword N, const arma::mat &Q, const arma::vec &mu,
+   const double nu)
+{
+  arma::mat out(Q.n_cols, N);
+  mv_tdist dt(Q, mu, nu);
+  dt.sample(out);
+
+  return out;
 }

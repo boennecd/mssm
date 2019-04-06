@@ -87,8 +87,8 @@ get_Y_root_output get_Y_root
   return out;
 }
 
-constexpr unsigned int max_futures       = 30000L;
-constexpr unsigned int max_futures_clear = max_futures / 3L;
+static constexpr unsigned int max_futures       = 30000L;
+static constexpr unsigned int max_futures_clear = max_futures / 3L;
 
 FSKA_cpp_permutation FSKA_cpp(
     arma::vec &log_weights, arma::mat &X, arma::mat &Y, arma::vec &ws_log,

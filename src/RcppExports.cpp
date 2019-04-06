@@ -48,6 +48,33 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// sample_mv_normal
+arma::mat sample_mv_normal(const arma::uword N, const arma::mat& Q, const arma::vec& mu);
+RcppExport SEXP _mssm_sample_mv_normal(SEXP NSEXP, SEXP QSEXP, SEXP muSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::uword >::type N(NSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type Q(QSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type mu(muSEXP);
+    rcpp_result_gen = Rcpp::wrap(sample_mv_normal(N, Q, mu));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sample_mv_tdist
+arma::mat sample_mv_tdist(const arma::uword N, const arma::mat& Q, const arma::vec& mu, const double nu);
+RcppExport SEXP _mssm_sample_mv_tdist(SEXP NSEXP, SEXP QSEXP, SEXP muSEXP, SEXP nuSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::uword >::type N(NSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type Q(QSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< const double >::type nu(nuSEXP);
+    rcpp_result_gen = Rcpp::wrap(sample_mv_tdist(N, Q, mu, nu));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 RcppExport SEXP run_testthat_tests();
 
@@ -55,7 +82,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_mssm_test_KD_note", (DL_FUNC) &_mssm_test_KD_note, 2},
     {"_mssm_naive", (DL_FUNC) &_mssm_naive, 4},
     {"_mssm_FSKA", (DL_FUNC) &_mssm_FSKA, 6},
-    {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 0},
+    {"_mssm_sample_mv_normal", (DL_FUNC) &_mssm_sample_mv_normal, 3},
+    {"_mssm_sample_mv_tdist", (DL_FUNC) &_mssm_sample_mv_tdist, 4},
+    {"run_testthat_tests",     (DL_FUNC) &run_testthat_tests,     0},
     {NULL, NULL, 0}
 };
 

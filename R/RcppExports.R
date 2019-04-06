@@ -13,3 +13,11 @@ FSKA <- function(X, ws, Y, N_min, eps, n_threads) {
     .Call(`_mssm_FSKA`, X, ws, Y, N_min, eps, n_threads)
 }
 
+sample_mv_normal <- function(N, Q, mu) {
+    .Call(`_mssm_sample_mv_normal`, N, Q, mu)
+}
+
+sample_mv_tdist <- function(N, Q, mu, nu) {
+    .Call(`_mssm_sample_mv_tdist`, N, Q, mu, nu)
+}
+
