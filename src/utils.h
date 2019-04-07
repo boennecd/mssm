@@ -1,6 +1,7 @@
 #ifndef MSSM_UTILS_H
 #define MSSM_UTILS_H
 #include "arma.h"
+#include <mutex>
 
 inline double log_sum_log(const double old, const double new_term){
   double max = std::max(old, new_term);
@@ -28,8 +29,18 @@ inline double norm_square(const double *d1, const double *d2, arma::uword N){
 }
 
 class chol_decomp {
+public:
+  /* original matrix */
+  const arma::mat X;
+
+private:
   /* upper triangular matrix R */
   const arma::mat chol_;
+  std::unique_ptr<std::once_flag> is_inv_set =
+    std::unique_ptr<std::once_flag>(new std::once_flag());
+  std::unique_ptr<arma::mat> inv_ =
+    std::unique_ptr<arma::mat>(new arma::mat());
+
 public:
   /* computes R in the decomposition X = R^\top R */
   chol_decomp(const arma::mat&);
@@ -40,10 +51,17 @@ public:
   arma::mat solve_half(const arma::mat&) const;
   arma::vec solve_half(const arma::vec&) const;
 
+  /* Return X^{-1}Z */
+  void solve(arma::mat&) const;
+  arma::mat solve(const arma::mat&) const;
+  arma::vec solve(const arma::vec&) const;
+
   /* Computes Z^\top X */
   void mult(arma::mat &X) const {
     X = chol_.t() * X;
   }
+
+  const arma::mat& get_inv() const;
 
   /* returns the log determinant */
   const double log_det() const {
@@ -54,5 +72,8 @@ public:
     return out;
   }
 };
+
+/* wrapper for dsyr. Only updates the upper half */
+void arma_dsyr(arma::mat&, const arma::vec&, const double);
 
 #endif

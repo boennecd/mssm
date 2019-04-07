@@ -1,11 +1,11 @@
 #include <testthat.h>
 #include "kd-tree.h"
 #include <array>
+#include "utils-test.h"
 
 context("Test KD-tree") {
   test_that("kd-tree splits as expected in 1D") {
-    std::array<double, 4> dat = { 4., 1., 2., 3.};
-    arma::mat X(dat.begin(), 1L, 4L, false);
+    auto X = create_mat<1L, 4L>({ 4., 1., 2., 3. });
 
     {
       KD_note note = get_KD_tree(X, 10L);
@@ -26,16 +26,14 @@ context("Test KD-tree") {
         std::vector<arma::uword> idx = left.get_indices();
         std::sort(idx.begin(), idx.end());
         std::array<arma::uword, 2L> expected = {1L, 2L};
-        for(unsigned int i = 0; i < 2L; ++i)
-          expect_true(idx[i] == expected[i]);
+        expect_true(is_all_equal(idx, expected));
       }
       {
         auto &right = note.get_right();
         std::vector<arma::uword> idx = right.get_indices();
         std::sort(idx.begin(), idx.end());
         std::array<arma::uword, 2L> expected = {0L, 3L};
-        for(unsigned int i = 0; i < 2L; ++i)
-          expect_true(idx[i] == expected[i]);
+        expect_true(is_all_equal(idx, expected));
       }
     }
   }
@@ -44,17 +42,10 @@ context("Test KD-tree") {
 context("Test hyper_rectangle") {
   test_that("hyper_rectangle gives expected result in 2D") {
     /* [0, 1] x [0, 1] */
-    std::array<double, 6L> d1 = { 0, 0,
-                                .5, 0,
-                                 1, 1};
+    auto X1 = create_mat<2L, 3L>({ 0, 0, .5, 0, 1, 1});
     /* [2, 5] x [2, 4] */
-    std::array<double, 6L> d2 = {  3,  3,
-                                   5,  4,
-                                   2,  2};
-    arma::mat X1(d1.begin(), 2L, 3L, false),
-              X2(d2.begin(), 2L, 3L, false);
-    std::array<arma::uword, 6L> d3 = { 0L, 1L, 2L };
-    arma::uvec idx(d3.begin(), 3L, false);
+    auto X2 = create_mat<2L, 3L>({ 3,  3, 5,  4, 2,  2});
+    auto idx = create_vec<3L, arma::uvec::fixed>({ 0L, 1L, 2L });
 
     hyper_rectangle r1(X1, idx), r2(X2, idx);
 
