@@ -6,3 +6,15 @@ particle_cloud::particle_cloud
   particles(dim_particle, N_particles, arma::fill::none),
   stats(dim_stats, N_particles, arma::fill::none), ws(N_particles),
   ws_normalized(N_particles) { }
+
+arma::vec particle_cloud::get_cloud_mean() const {
+  arma::vec out(dim_particle(), arma::fill::zeros);
+  const arma::uword n_particles = N_particles();
+  const double *w;
+  arma::uword i;
+  for(i = 0, w = ws_normalized.cbegin();
+      i < n_particles; ++i, ++w)
+    out += std::exp(*w) * particles.col(i);
+
+  return out;
+}

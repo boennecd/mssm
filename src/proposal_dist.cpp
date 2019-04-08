@@ -9,16 +9,16 @@ inline double mode_objective(
   cdist_vec *data = (cdist_vec*) data_in;
   arma::vec state(x, n);
 
-  cdist::compute what;
+  comp_out what;
   std::unique_ptr<arma::vec> gr(nullptr);
   const bool do_grad = grad;
   if(do_grad){
     gr.reset(new arma::vec(grad, n, false));
     gr->zeros();
-    what = cdist::compute::gradient;
+    what = gradient;
 
   } else
-    what = cdist::compute::log_densty;
+    what = log_densty;
 
   double o = 0.;
   std::unique_ptr<arma::vec> gr_new(nullptr);
@@ -62,6 +62,7 @@ mode_approximation_output mode_approximation
     opt = nlopt_create(NLOPT_LD_SLSQP, n);
     nlopt_set_max_objective(opt, mode_objective, &cdists);
     nlopt_set_ftol_rel(opt, ftol_rel);
+    nlopt_set_maxeval(opt, 10000L);
 
     double minf;
     int nlopt_result_code = nlopt_optimize(opt, val.memptr(), &minf);
@@ -72,7 +73,7 @@ mode_approximation_output mode_approximation
   arma::vec g(n, arma::fill::zeros);
   arma::mat H(n, n, arma::fill::zeros);
   for(auto c : cdists)
-    c->log_density_state(val, &g, &H, cdist::compute::Hessian);
+    c->log_density_state(val, &g, &H, Hessian);
 
   arma::mat vCov = -H.i();
   if(covar_fac != 1.)

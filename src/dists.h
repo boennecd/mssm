@@ -5,27 +5,43 @@
 #include "kd-tree.h"
 #include <array>
 
-#define MIN(a,b) (((a)<(b))?(a):(b))
-#define MAX(a,b) (((a)>(b))?(a):(b))
-
 using std::logic_error;
 using std::invalid_argument;
 using std::log;
 using std::exp;
+
+enum comp_out { log_densty, gradient, Hessian };
+
+inline void gaurd_new_comp_out(const comp_out what){
+#ifdef MSSM_DEBUG
+  if(what != log_densty and what != gradient and what != Hessian)
+    throw std::logic_error("Unkown 'comp_out'");
+#endif
+}
 
 /* class to compute conditional densities */
 class cdist {
 public:
   virtual ~cdist() = default;
 
-  enum compute { log_densty, gradient, Hessian };
-
   /* gets the dimension of the state vector */
   virtual arma::uword state_dim() const = 0;
+  /* gets statistics dimension for state statistics */
+  virtual arma::uword state_stat_dim(const comp_out) const = 0;
+  /* gets statistics dimension for observation statistics */
+  virtual arma::uword obs_stat_dim(const comp_out) const = 0;
+  /* gets dimension of statistics */
+  arma::uword stat_dim(const comp_out what) const {
+    return state_stat_dim(what) + obs_stat_dim(what);
+  }
   /* computes the density and gradient and/or Hessian w.r.t. the state
    * vector if requested. */
   virtual double log_density_state
-    (const arma::vec&, arma::vec*, arma::mat*, const compute) const = 0;
+    (const arma::vec&, arma::vec*, arma::mat*, const comp_out) const = 0;
+  double log_density_state(const arma::vec &state) const
+  {
+    return log_density_state(state, nullptr, nullptr, log_densty);
+  }
 };
 
 /* class for porposal distributions */
@@ -56,8 +72,9 @@ public:
 
 inline void check_input_mv_log_density_state
   (const arma::uword dim, const arma::vec *mu, const arma::vec &x,
-   const arma::vec *gr, const arma::mat *H, const cdist::compute what)
+   const arma::vec *gr, const arma::mat *H, const comp_out what)
 {
+  gaurd_new_comp_out(what);
 #ifdef MSSM_DEBUG
   if(!mu)
     throw invalid_argument("'mu' not set");
@@ -65,10 +82,10 @@ inline void check_input_mv_log_density_state
     throw invalid_argument(
         "invalid 'x' (" + std::to_string(x.n_elem) + " and " +
           std::to_string(mu->n_elem) + " elements)");
-  if((what == cdist::gradient or what == cdist::Hessian) and
+  if((what == gradient or what == Hessian) and
        (!gr or gr->n_elem != dim))
     throw invalid_argument("invalid 'gr'");
-  if(what == cdist::Hessian and (!H or H->n_rows != dim or H->n_cols != dim))
+  if(what == Hessian and (!H or H->n_rows != dim or H->n_cols != dim))
     throw invalid_argument("invalid 'H'");
 #endif
 }
@@ -109,7 +126,7 @@ public:
   }
 
   double log_density_state
-  (const arma::vec &x, arma::vec *gr, arma::mat *H, const compute what)
+  (const arma::vec &x, arma::vec *gr, arma::mat *H, const comp_out what)
   const override
   {
     check_input_mv_log_density_state(state_dim(), mu.get(), x, gr, H, what);
@@ -117,6 +134,13 @@ public:
       throw logic_error("'mvs_norm': not implemented");
 
     return this->operator()(x.begin(), mu->begin(), x.n_elem, 0.);
+  }
+
+  arma::uword state_stat_dim(const comp_out) const override {
+    throw logic_error("not implemented");
+  }
+  arma::uword obs_stat_dim(const comp_out) const override {
+    throw logic_error("not implemented");
   }
 };
 
@@ -160,9 +184,10 @@ public:
   }
 
   double log_density_state
-  (const arma::vec &x, arma::vec *gr, arma::mat *H, const compute what)
+  (const arma::vec &x, arma::vec *gr, arma::mat *H, const comp_out what)
   const override
   {
+    gaurd_new_comp_out(what);
     check_input_mv_log_density_state(state_dim(), mu.get(), x, gr, H, what);
     if(what == gradient or what == Hessian){
       const arma::vec diff = *mu - x; /* account for - later */
@@ -177,7 +202,7 @@ public:
   void sample(arma::mat&) const override;
 
   double log_prop_dens(const arma::vec &x) const override {
-    return log_density_state(x, nullptr, nullptr, cdist::log_densty);
+    return log_density_state(x, nullptr, nullptr, log_densty);
   }
 
   const arma::mat& mean(){
@@ -188,7 +213,74 @@ public:
 
   arma::mat vCov() const {
     return chol_.X;
-  };
+  }
+
+  arma::uword state_stat_dim(const comp_out) const override {
+    throw logic_error("not implemented");
+  }
+  arma::uword obs_stat_dim(const comp_out) const override {
+    throw logic_error("not implemented");
+  }
+};
+
+/* multivariate normal distribution with y ~ N(Fx, Q) */
+class mv_norm_reg final : public cdist, public trans_obj {
+  const arma::mat &F;
+  const chol_decomp chol_;
+  const arma::uword dim;
+  const double norm_const_log =
+    -(double)dim / 2. * std::log(2. * M_PI) - .5 * chol_.log_det();
+
+    double log_dens_(const double dist) const
+    {
+      return norm_const_log - dist / 2.;
+    }
+
+public:
+  mv_norm_reg(const arma::mat &F, const arma::mat &Q):
+  F(F), chol_(Q), dim(Q.n_cols) { }
+
+  double operator()(
+      const double *x, const double *y, const arma::uword N,
+      const double x_log_w) const override {
+    arma::vec x1(x, N), y1(y, N);
+    x1 = F * x1;
+    chol_.solve_half(x1);
+    chol_.solve_half(y1);
+    const double dist = norm_square(x1.begin(), y1.begin(), N);
+    return log_dens_(dist) + x_log_w;
+  }
+
+  std::array<double, 2> operator()
+  (const hyper_rectangle &r1, const hyper_rectangle &r2) const override {
+    throw logic_error("'mv_norm_reg': not implemented");
+  }
+
+  arma::uword state_dim() const override {
+    return dim;
+  }
+
+  double log_density_state
+  (const arma::vec &x, arma::vec *gr, arma::mat *H, const comp_out what)
+  const override
+  {
+    throw std::logic_error("'mv_norm_reg': not implemented");
+  }
+
+  const arma::mat mean(const arma::vec &x){
+    return F * x;
+  }
+
+  arma::mat vCov() const {
+    return chol_.X;
+  }
+
+  arma::uword state_stat_dim(const comp_out) const override {
+    throw logic_error("not implemented");
+  }
+  arma::uword obs_stat_dim(const comp_out) const override {
+    throw logic_error("not implemented");
+  }
 };
 
 /* multivariate t distribution */
@@ -244,9 +336,10 @@ public:
   }
 
   double log_density_state
-  (const arma::vec &x, arma::vec *gr, arma::mat *H, const compute what)
+  (const arma::vec &x, arma::vec *gr, arma::mat *H, const comp_out what)
   const override
   {
+    gaurd_new_comp_out(what);
     check_input_mv_log_density_state(state_dim(), mu.get(), x, gr, H, what);
     if(what != log_densty)
       throw logic_error("'mv_tdist': not implemented");
@@ -257,7 +350,7 @@ public:
   void sample(arma::mat&) const override;
 
   double log_prop_dens(const arma::vec &x) const override {
-    return log_density_state(x, nullptr, nullptr, cdist::log_densty);
+    return log_density_state(x, nullptr, nullptr, log_densty);
   }
 
   const arma::mat& mean(){
@@ -268,7 +361,14 @@ public:
 
   arma::mat vCov() const {
     return chol_.X * (nu / (nu - 2.));
-  };
+  }
+
+  arma::uword state_stat_dim(const comp_out) const override {
+    throw logic_error("not implemented");
+  }
+  arma::uword obs_stat_dim(const comp_out) const override {
+    throw logic_error("not implemented");
+  }
 };
 
 class exp_family : public cdist {
@@ -283,27 +383,24 @@ protected:
   const arma::vec offset = X.t() * cfix;
   /* design matrix for random effects */
   const arma::mat &Z;
-  /* dispersion parameter. Default is no dispersion parameter. This function
-   * should not allocate memory. */
-  virtual arma::vec* set_disp(const arma::vec&) {
-    return nullptr;
-  };
-  const arma::vec *disp;
   /* case weights */
   const arma::vec ws;
+  /* dispersion parameter */
+  virtual arma::vec* set_disp(const arma::vec&) = 0; /* reminder to implement this */
+  std::unique_ptr<arma::vec> disp;
 
   /* Given a linear predictor, computes the log density and potentially
    * the derivatives. */
   virtual std::array<double, 3> log_density_state_inner
-    (const double, const double, const compute) const = 0;
+    (const double, const double, const comp_out) const = 0;
 
 public:
   virtual ~exp_family() = default;
 
   exp_family
   (const arma::vec &Y, const arma::mat &X, const arma::vec &cfix,
-   const arma::mat &Z, const arma::vec &disp, const arma::vec *ws):
-  Y(Y), X(X), cfix(cfix), Z(Z), disp(set_disp(disp)),
+   const arma::mat &Z, const arma::vec *ws, const arma::vec &):
+  Y(Y), X(X), cfix(cfix), Z(Z),
   ws(ws ? arma::vec(*ws) : arma::vec(X.n_cols, arma::fill::ones))
   {
 #ifdef MSSM_DEBUG
@@ -323,9 +420,13 @@ public:
   }
 
   double log_density_state
-    (const arma::vec &x, arma::vec *gr, arma::mat *H, const compute what)
+    (const arma::vec &x, arma::vec *gr, arma::mat *H, const comp_out what)
     const override final
   {
+    if(Y.n_elem < 1L)
+      return 0.;
+
+    gaurd_new_comp_out(what);
     const bool compute_gr = what == gradient or what == Hessian,
       compute_H = what == Hessian;
 
@@ -360,37 +461,58 @@ public:
 
     return out;
   }
+
+  arma::uword state_stat_dim(const comp_out) const override {
+    return 0L;
+  }
+  arma::uword obs_stat_dim(const comp_out what) const override {
+    gaurd_new_comp_out(what);
+    arma::uword out = 0L, n_fixed = X.n_rows;
+    if(what == gradient or what == Hessian)
+      out += n_fixed;
+    if(what == Hessian)
+      out += n_fixed * n_fixed;
+    return out;
+  }
 };
 
 #define EXP_CLASS(fname)                                            \
 class fname final : public exp_family {                             \
+  arma::vec* set_disp(const arma::vec&) final {                     \
+    return nullptr;                                                 \
+  }                                                                 \
   std::array<double, 3> log_density_state_inner                     \
-  (const double, const double, const compute) const override final; \
+  (const double, const double, const comp_out) const override final;\
 public:                                                             \
-  using exp_family::exp_family;                                     \
+  fname                                                             \
+  (const arma::vec &Y, const arma::mat &X, const arma::vec &cfix,   \
+  const arma::mat &Z, const arma::vec *ws, const arma::vec &di):    \
+  exp_family(Y, X, cfix, Z, ws, di)                                 \
+  {                                                                 \
+    disp.reset(set_disp(di));                                       \
+  }                                                                 \
+}
+
+#define EXP_CLASS_W_DISP(fname)                                       \
+class fname final : public exp_family {                               \
+  arma::vec* set_disp(const arma::vec&) override final;               \
+  std::array<double, 3> log_density_state_inner                       \
+  (const double, const double, const comp_out) const override final;  \
+public:                                                               \
+  fname                                                               \
+  (const arma::vec &Y, const arma::mat &X, const arma::vec &cfix,     \
+   const arma::mat &Z, const arma::vec *ws, const arma::vec &di):     \
+  exp_family(Y, X, cfix, Z, ws, di)                                   \
+  {                                                                   \
+    disp.reset(set_disp(di));                                         \
+  }                                                                   \
 }
 
 EXP_CLASS(binomial_logit);
-inline std::array<double, 3> binomial_logit::log_density_state_inner
-  (const double y, const double eta, const compute what) const
-{
-  std::array<double, 3> out;
-  const double eta_use = MAX(MIN(eta, 20.), -20.);
-  const double eta_exp = exp(eta_use);
-  const double expp1 = eta_exp + 1;
-  const double mu = eta_exp / expp1;
+EXP_CLASS(poisson_log);
+EXP_CLASS_W_DISP(Gamma_log);
+EXP_CLASS_W_DISP(gaussian_identity);
 
-  out[0L] = y * log(mu) + (1. - y) * log1p(-mu);
-  if(what == gradient or what == Hessian){
-    out[1L] = (eta_exp * (y - 1) + y) / expp1;
-    if(what == Hessian)
-      out[2L] = - eta_exp / expp1 / expp1;
-  }
-
-  return out;
-}
-
-#undef MIN
-#undef MAX
 #undef EXP_CLASS
+#undef EXP_CLASS_W_DISP
 #endif

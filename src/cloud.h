@@ -19,6 +19,9 @@ public:
    * statistics. The memory is uninitialized and should be initialized by
    * the caller */
   particle_cloud(const arma::uword, const arma::uword, const arma::uword);
+  particle_cloud(const particle_cloud&) = delete;
+  particle_cloud& operator=(const particle_cloud&) = delete;
+  particle_cloud(particle_cloud&&) = default;
 
   const arma::uword N_particles() const {
     return particles.n_cols;
@@ -29,6 +32,8 @@ public:
   const arma::uword dim_stats() const {
     return stats.n_rows;
   }
+
+  arma::vec get_cloud_mean() const;
 };
 
 #endif
