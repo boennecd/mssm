@@ -1,9 +1,7 @@
 #include "fast-kernel-approx.h"
 #include <limits>
-#include <math.h>
 #include <cmath>
 #include <utility>
-#include <math.h>
 #include "utils.h"
 #include <functional>
 
@@ -129,10 +127,7 @@ FSKA_cpp_permutation FSKA_cpp(
 }
 
 inline void set_func(double &o, const double n){
-  if(!std::isnan(o))
-    o = log_sum_log(o, n);
-  else
-    o = n;
+  o = log_sum_log(o, n);
 }
 
 void comp_w_centroid

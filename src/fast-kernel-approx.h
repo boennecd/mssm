@@ -31,7 +31,7 @@ public:
 
 /* Function to approximate O(N^2) computation. May permutate the the
  * referenced vectors and matrices. The returned object can be used to undo
- * the permutation. NaN values are taken as not initialized. */
+ * the permutation. Use -infinity for uninitialized weights. */
 struct FSKA_cpp_permutation {
   arma::uvec X_perm;
   arma::uvec Y_perm;

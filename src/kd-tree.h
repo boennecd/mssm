@@ -38,7 +38,7 @@ class KD_note {
 public:
   const arma::uword n_elem;
   bool is_leaf() const {
-    return (!left) and (!right);
+    return !(left or right);
   };
   const std::vector<arma::uword> &get_indices() const;
   std::vector<arma::uword> get_indices_parent();

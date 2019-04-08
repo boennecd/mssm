@@ -310,7 +310,7 @@ void hyper_rectangle::shrink
       double x = X(dim, i);
       if(x > upper)
         upper = x;
-      if(x < lower)
+      else if(x < lower)
         lower = x;
     }
   }

@@ -110,16 +110,16 @@ microbenchmark::microbenchmark(
   `dual tree 1` = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, 
                                eps = 5e-3, n_threads = 1L),
   `dual tree 6` = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, 
-                               eps = 5e-3, n_threads = 6L),
+                               eps = 5e-3, n_threads = 4L),
   `naive 1`     = mssm:::naive(X = X, ws = ws, Y = X, n_threads = 1L),
-  `naive 6`     = mssm:::naive(X = X, ws = ws, Y = X, n_threads = 6L),
+  `naive 6`     = mssm:::naive(X = X, ws = ws, Y = X, n_threads = 4L),
   times = 10L)
 
 # The functions return the un-normalized log weights. We first compare
 # the result on this scale
 o1 <- mssm:::FSKA  (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
                     n_threads = 1L)
-o2 <- mssm:::naive(X = X, ws = ws, Y = X, n_threads = 6L)
+o2 <- mssm:::naive(X = X, ws = ws, Y = X, n_threads = 4L)
 
 all.equal(o1, o2)
 par(mar = c(5, 4, .5, .5))
@@ -145,25 +145,25 @@ line is "naive" method, the continuous line is the dual-tree method, and the
 dotted line is dual-tree method using 1 thread.
 
 ```{r run_times_N, cache = 1}
-Ns <- 2^(7:15)
+Ns <- 2^(7:14)
 run_times <- lapply(Ns, function(N){
   invisible(list2env(get_sims(N), environment()))
   microbenchmark::microbenchmark(
     `dual-tree`   = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
-                               n_threads = 6L),
-    naive         = mssm:::naive(X = X, ws = ws, Y = X, n_threads = 6L),
+                                 n_threads = 4L),
+    naive         = mssm:::naive(X = X, ws = ws, Y = X, n_threads = 4L),
     `dual-tree 1` = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
-                               n_threads = 1L), 
-    times = 3L)
+                                 n_threads = 1L), 
+    times = 5L)
 })
 
-Ns_xtra <- 2^(16:20)
+Ns_xtra <- 2^(15:20)
 run_times_xtra <- lapply(Ns_xtra, function(N){
   invisible(list2env(get_sims(N), environment()))
   microbenchmark::microbenchmark(
     `dual-tree` = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
-                               n_threads = 6L),
-    times = 3L)
+                               n_threads = 4L),
+    times = 5L)
 })
 ```
 

@@ -68,7 +68,7 @@ context("Test FSKA_cpp") {
     { 0.071,  0.350, -0.740, -0.250, -0.220,  1.300, -1.000, -1.800, 0.930,
       1.500 });
     arma::vec Y_w(Y.n_cols, arma::fill::none);
-    Y_w.fill(std::numeric_limits<double>::quiet_NaN());
+    Y_w.fill(-std::numeric_limits<double>::infinity());
 
     arma::mat X_org = X, Y_org = Y;
     arma::vec w_org = X_w;

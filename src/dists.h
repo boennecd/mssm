@@ -34,6 +34,16 @@ public:
   arma::uword stat_dim(const comp_out what) const {
     return state_stat_dim(what) + obs_stat_dim(what);
   }
+  /* takes the old, new state, and log weight of the pair (ignoring
+   * a normalization term) and add the static to the third argument.
+   * This only includes the that depends on the pair. */
+  virtual void comp_stats
+    (const double*, const double*, const double, double*, const comp_out)
+    const = 0;
+  /* takes new state and add the static to the third argument.
+   * This only includes the that depends on the new state only. */
+  virtual void comp_stats
+    (const arma::vec&, double*, const comp_out) const = 0;
   /* computes the density and gradient and/or Hessian w.r.t. the state
    * vector if requested. */
   virtual double log_density_state
@@ -96,7 +106,7 @@ class mvs_norm final : public cdist, public trans_obj {
   const arma::uword dim;
   const double norm_const_log = -(double)dim / 2. * std::log(2. * M_PI);
 
-  double log_dens_(const double dist) const
+  inline double log_dens_(const double dist) const
   {
     return norm_const_log - dist / 2.;
   }
@@ -141,6 +151,15 @@ public:
   }
   arma::uword obs_stat_dim(const comp_out) const override {
     throw logic_error("not implemented");
+  }
+  void comp_stats
+  (const double*, const double*, const double, double*, const comp_out)
+  const override final {
+    throw logic_error("not implemented");
+  }
+  void comp_stats
+  (const arma::vec&, double*, const comp_out) const override final {
+    return;
   }
 };
 
@@ -221,6 +240,16 @@ public:
   arma::uword obs_stat_dim(const comp_out) const override {
     throw logic_error("not implemented");
   }
+
+  void comp_stats
+    (const double*, const double*, const double, double*, const comp_out)
+    const override final {
+      throw logic_error("not implemented");
+    }
+  void comp_stats
+    (const arma::vec&, double*, const comp_out) const override final {
+    return;
+  }
 };
 
 /* multivariate normal distribution with y ~ N(Fx, Q) */
@@ -280,6 +309,16 @@ public:
   }
   arma::uword obs_stat_dim(const comp_out) const override {
     throw logic_error("not implemented");
+  }
+
+  void comp_stats
+  (const double*, const double*, const double, double*, const comp_out)
+  const override final {
+    throw logic_error("not implemented");
+  }
+  void comp_stats
+  (const arma::vec&, double*, const comp_out) const override final {
+    return;
   }
 };
 
@@ -368,6 +407,16 @@ public:
   }
   arma::uword obs_stat_dim(const comp_out) const override {
     throw logic_error("not implemented");
+  }
+
+  void comp_stats
+    (const double*, const double*, const double, double*, const comp_out)
+    const override final {
+    throw logic_error("not implemented");
+  }
+  void comp_stats
+    (const arma::vec&, double*, const comp_out) const override final {
+    return;
   }
 };
 
@@ -473,6 +522,56 @@ public:
     if(what == Hessian)
       out += n_fixed * n_fixed;
     return out;
+  }
+
+  void comp_stats
+    (const double*, const double*, const double, double*,
+     const comp_out) const override final {
+     return;
+   }
+
+  void comp_stats
+    (const arma::vec &x, double *out, const comp_out what)
+    const override final
+  {
+    if(Y.n_elem < 1L)
+      return;
+
+    gaurd_new_comp_out(what);
+    const bool compute_gr = what == gradient or what == Hessian,
+      compute_H = what == Hessian;
+    if(!compute_gr and !compute_H)
+      return;
+
+#ifdef MSSM_DEBUG
+    if(x.n_elem != state_dim())
+      throw invalid_argument("invalid 'x'");
+#endif
+    const arma::vec &eta = offset + Z.t() * x;
+    const double *e, *w, *y;
+    const arma::uword p = X.n_rows;
+    arma::vec gr(out, p, false);
+    const std::unique_ptr<arma::mat> H = ([&]{
+      if(compute_H)
+        return std::unique_ptr<arma::mat>(
+          new arma::mat(out + p, p, p, false));
+      return std::unique_ptr<arma::mat>();
+    })();
+    arma::uword i;
+    for(i = 0, e = eta.begin(), w = ws.begin(), y = Y.begin();
+        i < eta.n_elem; ++i, ++e, ++w, ++y)
+    {
+      const std::array<double, 3> log_den_eval =
+        log_density_state_inner(*y, *e, what);
+
+      if(compute_gr)
+        gr += *w * log_den_eval[1] * Z.col(i);
+      if(compute_H)
+        arma_dsyr(*H, Z.unsafe_col(i), *w * log_den_eval[2]);
+    }
+
+    if(compute_H)
+      *H = arma::symmatu(*H);
   }
 };
 

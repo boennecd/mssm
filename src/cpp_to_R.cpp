@@ -105,7 +105,7 @@ arma::vec FSKA(
   const mvs_norm kernel(X.n_rows);
   thread_pool pool(n_threads);
   arma::vec out(Y.n_cols, arma::fill::none);
-  out.fill(std::numeric_limits<double>::quiet_NaN());
+  out.fill(-std::numeric_limits<double>::infinity());
 
   auto perm = FSKA_cpp(out, X_cp, Y_cp, ws_cp, N_min, eps, kernel, pool);
   return out(perm.Y_perm);
