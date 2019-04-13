@@ -36,6 +36,18 @@ std::unique_ptr<cdist> problem_data::get_obs_dist(const arma::uword) const {
   throw std::logic_error("not implemented");
 }
 
-std::unique_ptr<cdist> problem_data::get_sta_dist(const arma::uword) const {
-  throw std::logic_error("not implemented");
+template<>
+std::unique_ptr<cdist> problem_data::get_sta_dist(const arma::uword ti) const
+{
+  if(ti == 0)
+    return std::unique_ptr<cdist>(new mv_norm_reg(F, Q0, mu0));
+  return std::unique_ptr<cdist>(new mv_norm_reg(F, Q));
+}
+
+template<>
+std::unique_ptr<trans_obj> problem_data::get_sta_dist(const arma::uword ti) const
+{
+  if(ti == 0)
+    return std::unique_ptr<trans_obj>(new mv_norm_reg(F, Q0, mu0));
+  return std::unique_ptr<trans_obj>(new mv_norm_reg(F, Q));
 }

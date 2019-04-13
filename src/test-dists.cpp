@@ -148,7 +148,6 @@ context("Test state distribution") {
     di.trans_X(x);
     di.trans_Y(y);
 
-    double log_one = 0., log_one_half = std::log(.5);
     {
       std::array<double, 0L> stat;
       expect_true(di.obs_stat_dim(log_densty)   == 0L);
@@ -157,7 +156,7 @@ context("Test state distribution") {
       expect_true(di.state_stat_dim(log_densty) == 0L);
       /* run to check it does not throw or access memory that it should not */
       di.comp_stats_state_state(
-        x.memptr(), y.memptr(), log_one, stat.data(), log_densty);
+        x.memptr(), y.memptr(), 1, stat.data(), log_densty);
     }
     {
       expect_true(di.state_stat_dim(gradient)   == 18L);
@@ -168,7 +167,7 @@ context("Test state distribution") {
       arma::mat d_Q(stat.data() + 9L, 3L, 3L, false);
       d_Q.zeros();
       di.comp_stats_state_state(
-        x.memptr(), y.memptr(), log_one, stat.data(), gradient);
+        x.memptr(), y.memptr(), 1, stat.data(), gradient);
 
       auto d_F_expect = create_mat<3L, 3L>({
         -6.74999999979376, 41.9999999988044, -25.0500000003388, 4.5000000023869,
@@ -186,7 +185,7 @@ context("Test state distribution") {
       d_F.zeros();
       d_Q.zeros();
       di.comp_stats_state_state(
-        x.memptr(), y.memptr(), log_one_half, stat.data(), gradient);
+        x.memptr(), y.memptr(), .5, stat.data(), gradient);
 
       arma::mat ep_F_half = d_F_expect * .5;
       arma::mat ep_Q_half = d_Q_expect * .5;
@@ -198,7 +197,7 @@ context("Test state distribution") {
       d_F.fill(1.);
       d_Q.fill(1.);
       di.comp_stats_state_state(
-        x.memptr(), y.memptr(), log_one_half, stat.data(), gradient);
+        x.memptr(), y.memptr(), .5, stat.data(), gradient);
 
       arma::mat ep_F_p1 = .5 * d_F_expect + 1;
       arma::mat ep_Q_p1 = .5 * d_Q_expect + 1;

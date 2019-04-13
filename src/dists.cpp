@@ -50,7 +50,7 @@ void mv_tdist::sample(arma::mat &out) const {
 }
 
 void mv_norm_reg::comp_stats_state_state
-  (const double *x, const double *y, const double log_w, double *stat,
+  (const double *x, const double *y, const double w, double *stat,
    const comp_out what) const
 {
   gaurd_new_comp_out(what);
@@ -74,7 +74,7 @@ void mv_norm_reg::comp_stats_state_state
 
   /* start with Q */
   arma::vec xv(x, dim), yv(y, dim);
-  double w = std::exp(log_w), w_half = w * .5, w_half_neg = -w_half;
+  double w_half = w * .5, w_half_neg = -w_half;
   yv = yv - xv;                /* R^{-\top}(y - Fx) */
   chol_.solve_half(yv, true);  /* R^{-1}R^{-\top}(y - Fx) */
 

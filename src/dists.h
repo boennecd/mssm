@@ -303,6 +303,7 @@ class mv_norm_reg final : public cdist, public trans_obj {
   const arma::mat &F;
   const chol_decomp chol_;
   const arma::uword dim;
+  const std::unique_ptr<const arma::vec> mu;
   const double norm_const_log =
     -(double)dim / 2. * std::log(2. * M_PI) - .5 * chol_.log_det();
 
@@ -311,9 +312,17 @@ class mv_norm_reg final : public cdist, public trans_obj {
       return norm_const_log - dist / 2.;
     }
 
+  arma::vec *set_mu(const arma::vec& m) const {
+    arma::vec *out = new arma::vec(m);
+    trans_X(*out);
+    return out;
+  }
+
 public:
   mv_norm_reg(const arma::mat &F, const arma::mat &Q):
-  F(F), chol_(Q), dim(Q.n_cols) { }
+  F(F), chol_(Q), dim(Q.n_cols), mu(nullptr) { }
+  mv_norm_reg(const arma::mat &F, const arma::mat &Q, const arma::vec &mu):
+  F(F), chol_(Q), dim(Q.n_cols), mu(set_mu(mu)) { }
 
   /* trans_obj overrides */
   double operator()(
@@ -354,10 +363,19 @@ public:
   }
 
   double log_density_state
-  (const arma::vec &x, arma::vec *gr, arma::mat *H, const comp_out what)
+  (const arma::vec &y, arma::vec *gr, arma::mat *H, const comp_out what)
   const override
   {
-    throw std::logic_error("'mv_norm_reg': not implemented");
+#ifdef MSSM_DEBUG
+    if(!mu)
+      throw std::logic_error("'mu' not set");
+    if(what != log_densty)
+      throw std::logic_error("not implemented");
+#endif
+
+    arma::vec yc = y;
+    trans_Y(yc);
+    return operator()(mu->memptr(), yc.memptr(), dim, 0.);
   }
 
   arma::uword state_stat_dim(const comp_out what) const override {

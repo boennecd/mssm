@@ -55,7 +55,8 @@ public:
   std::unique_ptr<cdist> get_obs_dist(const arma::uword) const;
   /* returns an object to compute the conditional distribution of the state
    * at a given time given a state vector at the previous time point */
-  std::unique_ptr<cdist> get_sta_dist(const arma::uword) const;
+  template<typename T>
+  std::unique_ptr<T> get_sta_dist(const arma::uword) const;
 };
 
 #endif

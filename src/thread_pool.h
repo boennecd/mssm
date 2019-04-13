@@ -263,4 +263,20 @@ public:
   }
 };
 
+/* returns the increament and number task when divi */
+struct get_inc_n_block_out {
+  unsigned const inc, n_tasks;
+};
+
+template<unsigned mult = 4L>
+get_inc_n_block_out get_inc_n_block
+  (unsigned const n_tasks, const thread_pool &pool)
+{
+  unsigned const n_blocks = std::min(
+    n_tasks, (unsigned)(pool.thread_count * mult));
+  unsigned const inc = n_tasks / n_blocks + 1L;
+
+  return { inc, n_tasks };
+}
+
 #endif
