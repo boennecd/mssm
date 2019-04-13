@@ -166,7 +166,7 @@ run_times_xtra <- lapply(Ns_xtra, function(N){
     times = 5L)
 })
 ```
-
+ 
 ```{r plot_run_times_N}
 library(microbenchmark)
 meds <- t(sapply(run_times, function(x) summary(x, unit = "s")[, "median"]))
