@@ -34,15 +34,9 @@ public:
   arma::uword stat_dim(const comp_out what) const {
     return state_stat_dim(what) + obs_stat_dim(what);
   }
-  /* takes the old, new state, and log weight of the pair (ignoring
-   * a normalization term) and add the static to the third argument.
-   * This only includes the that depends on the pair. */
-  virtual void comp_stats
-    (const double*, const double*, const double, double*, const comp_out)
-    const = 0;
-  /* takes new state and add the static to the third argument.
-   * This only includes the that depends on the new state only. */
-  virtual void comp_stats
+  /* takes a new state and add the statistics to the third argument.
+   * This only includes the part that depends on the new state only. */
+  virtual void comp_stats_state_only
     (const arma::vec&, double*, const comp_out) const = 0;
   /* computes the density and gradient and/or Hessian w.r.t. the state
    * vector if requested. */
@@ -70,6 +64,13 @@ class trans_obj {
 public:
   virtual ~trans_obj() = default;
 
+  /* functions to be called on matrices of states before calling the other
+   * member functions */
+  virtual void trans_X(arma::mat&) const = 0;
+  virtual void trans_Y(arma::mat&) const = 0;
+  /* functions to be called on matrices to undo the above transformations */
+  virtual void trans_inv_X(arma::mat&) const = 0;
+  virtual void trans_inv_Y(arma::mat&) const = 0;
   /* compute log kernel given two points, the number of elements, and a
    * log weight */
   virtual double operator()
@@ -78,6 +79,12 @@ public:
    * hyper rectangles */
   virtual std::array<double, 2> operator()
     (const hyper_rectangle&, const hyper_rectangle&) const = 0;
+  /* takes the old, new state, and log weight of the pair (ignoring
+   * a normalization term) and add the requested stat to the third argument.
+   * This only includes the part that depends on the pair. */
+  virtual void comp_stats_state_state
+    (const double*, const double*, const double, double*, const comp_out)
+    const = 0;
 };
 
 inline void check_input_mv_log_density_state
@@ -106,7 +113,7 @@ class mvs_norm final : public cdist, public trans_obj {
   const arma::uword dim;
   const double norm_const_log = -(double)dim / 2. * std::log(2. * M_PI);
 
-  inline double log_dens_(const double dist) const
+  double log_dens_(const double dist) const
   {
     return norm_const_log - dist / 2.;
   }
@@ -117,6 +124,7 @@ public:
   mvs_norm(const arma::vec &mu):
     mu(new arma::vec(mu)), dim(mu.n_elem) { }
 
+  /* trans_obj overrides */
   double operator()(
       const double *x, const double *y, const arma::uword N,
       const double x_log_w) const override
@@ -131,6 +139,26 @@ public:
     return { log_dens_(dists[1L]), log_dens_(dists[0L]) };
   }
 
+  void trans_X(arma::mat&) const override final {
+    return;
+  }
+  void trans_Y(arma::mat&) const override final {
+    return;
+  }
+  void trans_inv_X(arma::mat&) const override final {
+    return;
+  }
+  void trans_inv_Y(arma::mat&) const override final {
+    return;
+  }
+
+  void comp_stats_state_state
+  (const double*, const double*, const double, double*, const comp_out)
+  const override final {
+    throw logic_error("not implemented");
+  }
+
+  /* cdist overrides */
   arma::uword state_dim() const override {
     return dim;
   }
@@ -152,12 +180,8 @@ public:
   arma::uword obs_stat_dim(const comp_out) const override {
     throw logic_error("not implemented");
   }
-  void comp_stats
-  (const double*, const double*, const double, double*, const comp_out)
-  const override final {
-    throw logic_error("not implemented");
-  }
-  void comp_stats
+
+  void comp_stats_state_only
   (const arma::vec&, double*, const comp_out) const override final {
     return;
   }
@@ -182,22 +206,49 @@ public:
   mv_norm(const arma::mat &Q, const arma::vec &mu):
     chol_(Q), mu(new arma::vec(mu)), dim(mu.n_elem) { }
 
+  /* trans_obj overrides */
   double operator()(
       const double *x, const double *y, const arma::uword N,
       const double x_log_w) const override
   {
-    arma::vec x1(x, N), y1(y, N);
-    chol_.solve_half(x1);
-    chol_.solve_half(y1);
-    const double dist = norm_square(x1.begin(), y1.begin(), N);
+    const double dist = norm_square(x, y, N);
     return log_dens_(dist) + x_log_w;
   }
 
   std::array<double, 2> operator()
   (const hyper_rectangle &r1, const hyper_rectangle &r2) const override {
-    throw logic_error("'mv_norm': not implemented");
+    auto dists = r1.min_max_dist(r2);
+    return { log_dens_(dists[1L]), log_dens_(dists[0L]) };
   }
 
+  void trans_X(arma::mat &X) const override final {
+    chol_.solve_half(X);
+  }
+  void trans_Y(arma::mat &Y) const override final {
+    chol_.solve_half(Y);
+  }
+  void trans_inv_X(arma::mat &X) const override final {
+    chol_.mult_half(X);
+  }
+  void trans_inv_Y(arma::mat &Y) const override final {
+    chol_.mult_half(Y);
+  }
+
+  void comp_stats_state_state
+  (const double*, const double*, const double, double*, const comp_out)
+   const override final
+  {
+    throw logic_error("not implemented");
+  }
+
+  /* proposal_dist overrides */
+  void sample(arma::mat&) const override;
+
+  double log_prop_dens(const arma::vec &x) const override {
+    return log_density_state(x, nullptr, nullptr, log_densty);
+  }
+
+  /* cdist overrides */
   arma::uword state_dim() const override {
     return dim;
   }
@@ -215,23 +266,11 @@ public:
     if(what == Hessian)
       *H -= chol_.get_inv();
 
-    return operator()(x.begin(), mu->begin(), x.n_elem, 0.);
-  }
-
-  void sample(arma::mat&) const override;
-
-  double log_prop_dens(const arma::vec &x) const override {
-    return log_density_state(x, nullptr, nullptr, log_densty);
-  }
-
-  const arma::mat& mean(){
-    if(!mu)
-      throw std::logic_error("no mean");
-    return *mu;
-  }
-
-  arma::mat vCov() const {
-    return chol_.X;
+    arma::mat x1 = x, mu1 = *mu; /* mat does not matter as we only need to
+                                    to pass a pointer */
+    trans_Y(x1);
+    trans_X(mu1); /* TODO: do this once */
+    return operator()(x1.begin(), mu1.begin(), x.n_elem, 0.);
   }
 
   arma::uword state_stat_dim(const comp_out) const override {
@@ -241,14 +280,21 @@ public:
     throw logic_error("not implemented");
   }
 
-  void comp_stats
-    (const double*, const double*, const double, double*, const comp_out)
-    const override final {
-      throw logic_error("not implemented");
-    }
-  void comp_stats
-    (const arma::vec&, double*, const comp_out) const override final {
+  void comp_stats_state_only
+    (const arma::vec&, double*, const comp_out) const override final
+  {
     return;
+  }
+
+  /* own members */
+  const arma::mat& mean(){
+    if(!mu)
+      throw std::logic_error("no mean");
+    return *mu;
+  }
+
+  arma::mat vCov() const {
+    return chol_.X;
   }
 };
 
@@ -269,22 +315,40 @@ public:
   mv_norm_reg(const arma::mat &F, const arma::mat &Q):
   F(F), chol_(Q), dim(Q.n_cols) { }
 
+  /* trans_obj overrides */
   double operator()(
       const double *x, const double *y, const arma::uword N,
       const double x_log_w) const override {
-    arma::vec x1(x, N), y1(y, N);
-    x1 = F * x1;
-    chol_.solve_half(x1);
-    chol_.solve_half(y1);
-    const double dist = norm_square(x1.begin(), y1.begin(), N);
+    const double dist = norm_square(x, y, N);
     return log_dens_(dist) + x_log_w;
   }
 
   std::array<double, 2> operator()
   (const hyper_rectangle &r1, const hyper_rectangle &r2) const override {
-    throw logic_error("'mv_norm_reg': not implemented");
+    auto dists = r1.min_max_dist(r2);
+    return { log_dens_(dists[1L]), log_dens_(dists[0L]) };
   }
 
+  void trans_X(arma::mat &X) const override final {
+    X = F * X;
+    chol_.solve_half(X);
+  }
+  void trans_Y(arma::mat &Y) const override final {
+    chol_.solve_half(Y);
+  }
+  void trans_inv_X(arma::mat &X) const override final {
+    chol_.mult_half(X);
+    X = arma::solve(F, X);
+  }
+  void trans_inv_Y(arma::mat &Y) const override final {
+    chol_.mult_half(Y);
+  }
+
+  void comp_stats_state_state
+  (const double *x, const double *y, const double log_w, double *stat,
+   const comp_out what) const override final;
+
+  /* cdist overrides */
   arma::uword state_dim() const override {
     return dim;
   }
@@ -296,29 +360,32 @@ public:
     throw std::logic_error("'mv_norm_reg': not implemented");
   }
 
+  arma::uword state_stat_dim(const comp_out what) const override {
+    gaurd_new_comp_out(what);
+    if(what == log_densty)
+      return 0L;
+    if(what == gradient)
+      return 2L * dim * dim;
+    else
+      throw std::logic_error("not implemented");
+  }
+  arma::uword obs_stat_dim(const comp_out) const override {
+    return 0L;
+  }
+
+  void comp_stats_state_only
+  (const arma::vec&, double*, const comp_out) const override final
+  {
+    return;
+  }
+
+  /* own members */
   const arma::mat mean(const arma::vec &x){
     return F * x;
   }
 
   arma::mat vCov() const {
     return chol_.X;
-  }
-
-  arma::uword state_stat_dim(const comp_out) const override {
-    throw logic_error("not implemented");
-  }
-  arma::uword obs_stat_dim(const comp_out) const override {
-    throw logic_error("not implemented");
-  }
-
-  void comp_stats
-  (const double*, const double*, const double, double*, const comp_out)
-  const override final {
-    throw logic_error("not implemented");
-  }
-  void comp_stats
-  (const arma::vec&, double*, const comp_out) const override final {
-    return;
   }
 };
 
@@ -355,21 +422,50 @@ public:
   mv_tdist(const arma::mat &Q, const arma::vec &mu, const double nu):
     chol_(Q), mu(new arma::vec(mu)), dim(Q.n_cols), nu(check_nu(nu)) { }
 
+  /* trans_obj overrides */
   double operator()
   (const double *x, const double *y, const arma::uword N,
    const double x_log_w) const override {
     arma::vec x1(x, N), y1(y, N);
-    chol_.solve_half(x1);
-    chol_.solve_half(y1);
     const double dist = norm_square(x1.begin(), y1.begin(), N);
     return log_dens_(dist) + x_log_w;
   }
 
   std::array<double, 2> operator()
   (const hyper_rectangle &r1, const hyper_rectangle &r2) const override {
-    throw logic_error("'mv_tdist': not implemented");
+    auto dists = r1.min_max_dist(r2);
+    return { log_dens_(dists[1L]), log_dens_(dists[0L]) };
   }
 
+  void trans_X(arma::mat &X) const override final {
+    chol_.solve_half(X);
+  }
+  void trans_Y(arma::mat &Y) const override final {
+    chol_.solve_half(Y);
+  }
+  void trans_inv_X(arma::mat &X) const override final {
+    chol_.mult_half(X);
+  }
+  void trans_inv_Y(arma::mat &Y) const override final {
+    chol_.mult_half(Y);
+  }
+
+  void comp_stats_state_state
+  (const double *x, const double *y, const double log_w, double *stat,
+   const comp_out what)
+  const override final
+  {
+    throw logic_error("not implemented");
+  }
+
+  /* proposal_dist overrides */
+  void sample(arma::mat&) const override;
+
+  double log_prop_dens(const arma::vec &x) const override {
+    return log_density_state(x, nullptr, nullptr, log_densty);
+  }
+
+  /* cdist overrides */
   arma::uword state_dim() const override {
     return dim;
   }
@@ -383,23 +479,11 @@ public:
     if(what != log_densty)
       throw logic_error("'mv_tdist': not implemented");
 
-    return operator()(x.begin(), mu->begin(), x.n_elem, 0.);
-  }
-
-  void sample(arma::mat&) const override;
-
-  double log_prop_dens(const arma::vec &x) const override {
-    return log_density_state(x, nullptr, nullptr, log_densty);
-  }
-
-  const arma::mat& mean(){
-    if(!mu)
-      throw std::logic_error("no mean");
-    return *mu;
-  }
-
-  arma::mat vCov() const {
-    return chol_.X * (nu / (nu - 2.));
+    arma::mat x1 = x, mu1 = *mu; /* mat does not matter as we only need to
+                                    to pass a pointer */
+    trans_Y(x1);
+    trans_X(mu1); /* TODO: do this once */
+    return operator()(x1.begin(), mu1.begin(), x.n_elem, 0.);
   }
 
   arma::uword state_stat_dim(const comp_out) const override {
@@ -409,14 +493,21 @@ public:
     throw logic_error("not implemented");
   }
 
-  void comp_stats
-    (const double*, const double*, const double, double*, const comp_out)
-    const override final {
-    throw logic_error("not implemented");
-  }
-  void comp_stats
-    (const arma::vec&, double*, const comp_out) const override final {
+  void comp_stats_state_only
+    (const arma::vec&, double*, const comp_out) const override final
+  {
     return;
+  }
+
+  /* own members */
+  const arma::mat& mean(){
+    if(!mu)
+      throw std::logic_error("no mean");
+    return *mu;
+  }
+
+  arma::mat vCov() const {
+    return chol_.X * (nu / (nu - 2.));
   }
 };
 
@@ -524,13 +615,7 @@ public:
     return out;
   }
 
-  void comp_stats
-    (const double*, const double*, const double, double*,
-     const comp_out) const override final {
-     return;
-   }
-
-  void comp_stats
+  void comp_stats_state_only
     (const arma::vec &x, double *out, const comp_out what)
     const override final
   {
@@ -565,9 +650,9 @@ public:
         log_density_state_inner(*y, *e, what);
 
       if(compute_gr)
-        gr += *w * log_den_eval[1] * Z.col(i);
+        gr += *w * log_den_eval[1] * X.col(i);
       if(compute_H)
-        arma_dsyr(*H, Z.unsafe_col(i), *w * log_den_eval[2]);
+        arma_dsyr(*H, X.unsafe_col(i), *w * log_den_eval[2]);
     }
 
     if(compute_H)

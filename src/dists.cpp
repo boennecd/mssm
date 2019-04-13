@@ -1,9 +1,12 @@
 #include "dists.h"
 #include <R_ext/Random.h>
 #include <cmath>
+#include "blas-lapack.h"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
+
+static int I_ONE = 1L;
 
 void mv_norm::sample(arma::mat &out) const {
 #ifdef MSSM_DEBUG
@@ -44,6 +47,54 @@ void mv_tdist::sample(arma::mat &out) const {
   /* add mean */
   if(mu)
     out.each_col() += *mu;
+}
+
+void mv_norm_reg::comp_stats_state_state
+  (const double *x, const double *y, const double log_w, double *stat,
+   const comp_out what) const
+{
+  gaurd_new_comp_out(what);
+  if(what == log_densty)
+    return;
+  else if(what == Hessian)
+    throw logic_error("not implemented");
+
+  /* Need to compute
+   \begin{aligned}
+    Q^{-1}(y - Fx)x^\top
+       &= R^{-1}(\tilde y - \tilde x)(F^{-1}R^\top \tilde x)^\top \\
+    \frac 12 Q^{-1}((y-Fx)(y-Fx)^\top Q^{-1} - I)
+       &= \frac 12 R^{-1}(\tilde y-\tilde x)(\tilde y-\tilde x)^\top R^{-\top} - \frac 12 Q^{-1} \\
+    Q&=R^\top R \\
+    Q^{-1}&= R^{-1}R^{-\top} \\
+    \tilde x &= R^{-\top}Fx \\
+    \tilde y &= R^{-\top}y
+   \end{aligned}
+   */
+
+  /* start with Q */
+  arma::vec xv(x, dim), yv(y, dim);
+  double w = std::exp(log_w), w_half = w * .5, w_half_neg = -w_half;
+  yv = yv - xv;                /* R^{-\top}(y - Fx) */
+  chol_.solve_half(yv, true);  /* R^{-1}R^{-\top}(y - Fx) */
+
+  double *d_Q_begin = stat + dim * dim;
+  const int nm = dim, nm_sq = nm * nm;
+  F77_CALL(dger)(
+      &nm, &nm, &w_half, yv.memptr(), &I_ONE, yv.memptr(), &I_ONE,
+      d_Q_begin, &nm);
+  F77_CALL(daxpy)(
+      &nm_sq, &w_half_neg, chol_.get_inv().memptr(), &I_ONE, d_Q_begin,
+      &I_ONE);
+
+  /* then F */
+  chol_.mult_half(xv);
+  xv = arma::solve(F, xv);     /* get original x */
+  double *D_f_begin = stat;
+
+  F77_CALL(dger)(
+      &nm, &nm, &w, yv.memptr(), &I_ONE, xv.memptr(), &I_ONE,
+      D_f_begin, &nm);
 }
 
 std::array<double, 3> binomial_logit::log_density_state_inner

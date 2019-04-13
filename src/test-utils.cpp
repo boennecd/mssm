@@ -34,19 +34,31 @@ context("Test utils functions") {
           0.198907264824591, -0.523259018078045, 0.0758946638440411};
       expect_true(is_all_aprx_equal(O, expect));
 
+      arma::mat X_back = cl.mult_half(static_cast<const arma::mat>(O));
+      expect_true(is_all_aprx_equal(X, X_back));
+
       arma::mat Xc = X;
       cl.solve_half(Xc);
       expect_true(is_all_aprx_equal(Xc, expect));
+
+      cl.mult_half(Xc);
+      expect_true(is_all_aprx_equal(Xc, X));
     }
     {
-      arma::mat O = cl.solve_half(x);
+      arma::vec O = cl.solve_half(x);
       std::array<double, 2> expect =
         { 0.494974746830583, -0.790569415042095 };
       expect_true(is_all_aprx_equal(O, expect));
 
+      arma::vec x_back = cl.mult_half(static_cast<const arma::vec>(O));
+      expect_true(is_all_aprx_equal(x, x_back));
+
       arma::vec xc = x;
       cl.solve_half(xc);
       expect_true(is_all_aprx_equal(xc, expect));
+
+      cl.mult_half(xc);
+      expect_true(is_all_aprx_equal(x, xc));
     }
     {
       std::array<double, 6> expect =
@@ -75,6 +87,62 @@ context("Test utils functions") {
       std::array<double, 4> expect = {0.6, -0.2, -0.2, 0.4};
       const arma::mat &inv_mat = cl.get_inv();
       expect_true(is_all_aprx_equal(inv_mat, expect));
+    }
+    {
+      arma::mat O = cl.solve(X), O2 = cl.solve_half(X);
+      cl.solve_half(O2, true);
+      expect_true(is_all_aprx_equal(O, O2));
+    }
+  }
+
+  test_that("Testing chol decomposition with 'tranpose = true'") {
+    /* R code:
+    Q <- matrix(c(2, 1, 1, 3), 2L)
+    X <- matrix(c(0.7, -0.9, 0.071, 0.35, -0.74, -0.25), 2L)
+    Q_c <- chol(Q)
+    dput(drop(solve(Q_c, X[, 1])))
+    dput(drop(solve(Q_c, X)))
+    dput(drop(crossprod(Q_c, X)))
+    */
+
+    auto Q = create_mat<2L, 2L>({ 2, 1, 1, 3 });
+    const arma::mat X = create_mat<2L, 3L>({ 0.7, -0.9, 0.071, 0.35, -0.74, -0.25 });
+    const arma::vec x = X.col(0);
+
+    chol_decomp cl(Q);
+
+    {
+      arma::mat O = cl.solve_half(X, true);
+      std::array<double, 6> expect =
+        { 0.779579736245737, -0.569209978830308, -0.0604751366416484,
+          0.221359436211787, -0.444202076573836, -0.158113883008419 };
+      expect_true(is_all_aprx_equal(O, expect));
+
+      arma::mat X_back = cl.mult_half(static_cast<const arma::mat>(O), true);
+      expect_true(is_all_aprx_equal(X, X_back));
+
+      arma::mat Xc = X;
+      cl.solve_half(Xc, true);
+      expect_true(is_all_aprx_equal(Xc, expect));
+
+      cl.mult_half(Xc, true);
+      expect_true(is_all_aprx_equal(Xc, X));
+    }
+    {
+      arma::vec O = cl.solve_half(x, true);
+      std::array<double, 2> expect =
+        { 0.779579736245737, -0.569209978830308 };
+      expect_true(is_all_aprx_equal(O, expect));
+
+      arma::vec x_back = cl.mult_half(static_cast<const arma::vec>(O), true);
+      expect_true(is_all_aprx_equal(x, x_back));
+
+      arma::vec xc = x;
+      cl.solve_half(xc, true);
+      expect_true(is_all_aprx_equal(xc, expect));
+
+      cl.mult_half(xc, true);
+      expect_true(is_all_aprx_equal(x, xc));
     }
   }
 

@@ -45,11 +45,28 @@ public:
   /* computes R in the decomposition X = R^\top R */
   chol_decomp(const arma::mat&);
 
-  /* returns R^{-\top}Z where Z is the input */
-  void solve_half(arma::mat&) const;
-  void solve_half(arma::vec&) const;
-  arma::mat solve_half(const arma::mat&) const;
-  arma::vec solve_half(const arma::vec&) const;
+  /* returns R^{-\top}Z where Z is the input. You get R^- Z if  `transpose`
+   * is true */
+  void solve_half(arma::mat&, const bool transpose = false) const;
+  void solve_half(arma::vec&, const bool transpose = false) const;
+  arma::mat solve_half(const arma::mat&, const bool transpose = false) const;
+  arma::vec solve_half(const arma::vec&, const bool transpose = false) const;
+
+  /* inverse of the above */
+  template<typename T>
+  void mult_half(T& X, const bool transpose = false) const {
+    if(transpose)
+      X = chol_ * X;
+    else
+      X = chol_.t() * X;
+  }
+  template<typename T>
+  T mult_half(const T& X, const bool transpose = false) const {
+    if(transpose)
+      return chol_ * X;
+    else
+      return chol_.t() * X;
+  }
 
   /* Return X^{-1}Z */
   void solve(arma::mat&) const;

@@ -103,23 +103,39 @@ FSKA_cpp_permutation FSKA_cpp(
   profiler prof("FSKA_cpp");
 #endif
 
+  /* transform X and Y before doing any computation */
+  {
+    auto ta = pool.submit(std::bind(
+      &trans_obj::trans_X, &kernel, ref(X)));
+    kernel.trans_Y(Y);
+    ta.get();
+  }
+
+  /* form trees */
   auto f1 = pool.submit(std::bind(
     get_X_root, ref(X), ref(ws_log), N_min));
-  auto f2 = pool.submit(std::bind(
-    get_Y_root, ref(Y), N_min));
 
+  std::list<std::future<void> > futures;
+  auto Y_root = get_Y_root(Y, N_min);
   auto X_root = f1.get();
-  auto Y_root = f2.get();
   source_node &X_root_source = *std::get<1L>(X_root);
   query_node &Y_root_query   = *std::get<1L>(Y_root);
 
-  std::list<std::future<void> > futures;
+  /* compute weights etc. */
   comp_weights(log_weights, X_root_source, Y_root_query, X, ws_log, Y, eps,
                kernel, pool, futures);
 
   while(!futures.empty()){
     futures.back().get();
     futures.pop_back();
+  }
+
+  /* transform back */
+  {
+    auto ta = pool.submit(std::bind(
+      &trans_obj::trans_inv_X, &kernel, ref(X)));
+    kernel.trans_inv_Y(Y);
+    ta.get();
   }
 
   return
@@ -259,7 +275,7 @@ void comp_weights(
     }
 
     /* check if we should finish the rest in another thread */
-    constexpr arma::uword stop_n_elem = 50L;
+    static constexpr arma::uword stop_n_elem = 50L;
     if(single_threaded and
          X_node.node.n_elem < stop_n_elem and
          Y_node.node.n_elem < stop_n_elem){

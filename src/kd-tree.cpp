@@ -303,11 +303,19 @@ void hyper_rectangle::shrink
   (const arma::mat &X, const std::vector<arma::uword> &idx,
    const arma::uword dim)
   {
-    double &lower = borders(0L, dim), &upper = borders(1L, dim);
-    lower = std::numeric_limits<double>::max();
-    upper = std::numeric_limits<double>::lowest();
-    for(auto i : idx){
-      double x = X(dim, i);
+#ifdef MSSM_DEBUG
+    if(idx.size() < 1L)
+      throw std::logic_error("'shrink' called with no elements");
+#endif
+    double &lower = borders(0L, dim) , &upper = borders(1L, dim);
+    auto i = idx.begin();
+    {
+      /* set to first point */
+      lower = upper = X(dim, *(i++));
+    }
+    auto end = idx.end();
+    for(; i != end; ++i){
+      double x = X(dim, *i);
       if(x > upper)
         upper = x;
       else if(x < lower)

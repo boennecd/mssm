@@ -47,7 +47,8 @@ bool is_all_equal(XT &X, YT &Y){
 
 template<class T1, class T2>
 bool is_all_aprx_equal
-  (T1 first1, T1 end1, T2 first2, T2 end2, const double eps = 1e-12){
+  (const T1 first1, const T1 end1, const T2 first2, const T2 end2,
+   const double eps = 1e-12){
   auto d1 = std::distance(first1, end1);
   if(d1 != std::distance(first2, end2))
     throw std::invalid_argument("The length of iterators do not match");

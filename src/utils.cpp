@@ -1,65 +1,53 @@
 #include "utils.h"
-#include <R_ext/RS.h>	/* for F77_... */
+#include "blas-lapack.h"
 
 using std::invalid_argument;
 
-extern "C" {
-  void F77_NAME(dtrsm)(
-      const char *side, const char *uplo,
-      const char *transa, const char *diag,
-      const int *m, const int *n, const double *alpha,
-      const double *a, const int *lda,
-      double *b, const int *ldb);
-  void F77_NAME(dsyr)(
-      const char *uplo, const int *n, const double *alpha,
-      const double *x, const int *incx,
-      double *a, const int *lda);
-  void F77_NAME(dpotrs)(
-      const char* uplo, const int* n,
-      const int* nrhs, const double* a, const int* lda,
-      double* b, const int* ldb, int* info);
-  void F77_NAME(dpotri)(
-      char* uplo, int* n, double* a, int* lda, int* info);
+inline arma::mat set_chol_(const arma::mat &X)
+{
+  return arma::trimatu(arma::chol(X));
 }
 
 chol_decomp::chol_decomp(const arma::mat &X):
-  X(X), chol_(arma::chol(X)) { }
+  X(X), chol_(set_chol_(X)) { }
 
-static constexpr char C_U = 'U', C_N = 'N', C_L = 'L', C_T = 'T';
+static constexpr char C_U = 'U', C_N = 'N', C_L = 'L';
 static constexpr double D_one = 1.;
 static constexpr int I_one = 1L;
 
-inline void solve_half_(const arma::mat &chol_, arma::mat &X){
+inline void solve_half_(const arma::mat &chol_, arma::mat &X,
+                        const bool transpose){
 #ifdef MSSM_DEBUG
   if(X.n_rows != chol_.n_cols)
     throw invalid_argument("dims do not match with 'chol_'");
 #endif
   int n = X.n_cols, m = X.n_rows;
+  char trans = transpose ? 'T' : 'N';
   F77_CALL(dtrsm)(
-      &C_L, &C_U, &C_T, &C_N, &m, &n, &D_one, chol_.begin(), &m, X.begin(),
+      &C_L, &C_U, &trans, &C_N, &m, &n, &D_one, chol_.begin(), &m, X.begin(),
       &m);
 }
 
-void chol_decomp::solve_half(arma::mat &X) const {
-  solve_half_(chol_, X);
+void chol_decomp::solve_half(arma::mat &X, const bool transpose) const {
+  solve_half_(chol_, X, !transpose);
 }
 
-void chol_decomp::solve_half(arma::vec &x) const {
+void chol_decomp::solve_half(arma::vec &x, const bool transpose) const {
   arma::mat dum(x.begin(), x.n_elem, 1L, false);
-  solve_half_(chol_, dum);
+  solve_half_(chol_, dum, !transpose);
 }
 
-arma::mat chol_decomp::solve_half(const arma::mat &X) const
+arma::mat chol_decomp::solve_half(const arma::mat &X, const bool transpose) const
 {
   arma::mat out = X;
-  solve_half(out);
+  solve_half(out, transpose);
   return out;
 }
 
-arma::vec chol_decomp::solve_half(const arma::vec &x) const
+arma::vec chol_decomp::solve_half(const arma::vec &x, const bool transpose) const
 {
   arma::vec out = x;
-  solve_half(out);
+  solve_half(out, transpose);
   return out;
 }
 
