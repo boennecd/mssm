@@ -12,11 +12,13 @@ public:
   const double nu, covar_fac, ftol_rel;
   /* number of particles */
   const arma::uword N_part;
+  /* what to compute */
   const comp_out what_stat;
+  const unsigned int trace;
 
   control_obj
     (const arma::uword, const double, const double, const double,
-     const arma::uword, const std::string&);
+     const arma::uword, const std::string&, const unsigned int);
   control_obj& operator=(const control_obj&) = delete;
   control_obj(const control_obj&) = delete;
   control_obj(control_obj&&) = default;
@@ -29,12 +31,14 @@ class problem_data {
   using cmat = const arma::mat;
 
   /* objects related to observed outcomes */
-  cvec &Y, &cfix, &ws;
+  cvec &Y, &cfix, &ws, &offsets, &disp;
   cmat &X, &Z;
   const std::vector<arma::uvec> &time_indices;
 
   /* objects related to state-space model */
   cmat F, Q, Q0;
+
+  const std::string fam;
 
   /* objects related to computations */
   const std::unique_ptr<thread_pool> pool;
@@ -44,8 +48,9 @@ public:
   const control_obj ctrl;
 
   problem_data(
-    cvec&, cvec&, cvec&, cmat&, cmat&, const std::vector<arma::uvec>&,
-    cmat&, cmat&, cmat&, cvec&, control_obj&&);
+    cvec&, cvec&, cvec&, cvec&, cvec&, cmat&, cmat&,
+    const std::vector<arma::uvec>&, cmat&, cmat&, cmat&,
+    const std::string&, cvec&, control_obj&&);
   problem_data(const problem_data&) = delete;
   problem_data& operator=(const problem_data&) = delete;
   problem_data(problem_data&&) = default;

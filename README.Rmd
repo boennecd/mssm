@@ -3,10 +3,11 @@ output:
   github_document:
     pandoc_args: --webtex=https://chart.googleapis.com/chart?cht=tx&chl=
 bibliography: README.bib
+nocite: |
+  @Polyak92
 ---
 
-## Fast Sum-Kernel Approximation
-
+# Multivariate State Space Models
 [![Build Status on Travis](https://travis-ci.org/boennecd/mssm.svg?branch=master,osx)](https://travis-ci.org/boennecd/mssm)
 
 ```{r setup, include=FALSE}
@@ -14,10 +15,343 @@ knitr::opts_chunk$set(
   error = FALSE, cache = "./README-cache/", fig.path = "./README-fig/", 
   echo = TRUE)
 options(digits = 4, scipen = 7)
+source("render_toc.R")
 ```
 
+This package provides methods to estimate models of the form 
+
+$$y_{it} \sim g(\eta_{it}),\qquad i\in I_t$$ 
+$$\eta_{it} = \vec\gamma^\top\vec x_{it} +\vec\beta_t^\top\vec z_{it}$$
+$$\vec\beta_t = F\vec\beta_{t-1}+\vec\epsilon_t, \qquad \vec\epsilon_t\sim N(\vec 0, Q)$$
+
+where $g$ is simple distribution and $I_t$, $y_{it}$, $\vec x_{it}$, and 
+$\vec z_{it}$ are known. What is multivariate is 
+$\vec y_t = \{y_{it}\}_{i\in I_t}$ (though, $\vec \beta_t$ can also be 
+multivariate) and this package is written to scale well 
+in the dimension of $| I_t |$. The package uses an independent 
+particle filter as suggested by @Lin05. This is particular type of filter 
+can be used in the method suggested by @Poyiadjis11. I will show an example
+of how to use the package through the rest of the document and highlight some 
+implementation details. 
+
+## Table of Contents
+
+```{r echo = FALSE}
+render_toc("README.Rmd", toc_header_name = "Table of Contents", toc_depth = 3L)
+```
+
+## Poisson Example
+
+We simulate data as follows.
+
+```{r simulate}
+# simulate state path of state variable 
+set.seed(78727269)
+n_periods <- 110L
+(F. <- matrix(c(.5, .1, 0, .8), 2L))
+(Q <- matrix(c(.5^2, .1, .1, .7^2), 2L))
+(Q_0 <- matrix(c(0.333, 0.194, 0.194, 1.46), 2L))
+
+betas <- cbind(crossprod(chol(Q_0),        rnorm(2L)                      ), 
+               crossprod(chol(Q  ), matrix(rnorm((n_periods - 1L) * 2), 2)))
+betas <- t(betas)
+for(i in 2:nrow(betas))
+  betas[i, ] <- betas[i, ] + F. %*% betas[i - 1L, ]
+par(mar = c(5, 4, 1, 1))
+matplot(betas, lty = 1, type = "l")
+
+# simualte observations
+cfix <- c(-1, .2, .5, -1) # gamma
+n_obs <- 100L
+dat <- lapply(1:n_obs, function(id){
+  x <- runif(n_periods, -1, 1)
+  X <- cbind(X1 = x, X2 = runif(1, -1, 1))
+  z <- runif(n_periods, -1, 1)
+  
+  eta <- drop(cbind(1, X, z) %*% cfix + rowSums(cbind(1, z) * betas))
+  y <- rpois(n_periods, lambda = exp(eta))
+  
+  # randomly drop some
+  keep <- .2 > runif(n_periods)
+  
+  data.frame(y = y, X, Z = z, id = id, time_idx = 1:n_periods)[keep, ]
+})
+dat <- do.call(rbind, dat)
+
+# show some properties 
+nrow(dat)
+head(dat)
+table(dat$y)
+```
+
+### Log-Likelihood Approximations
+
+Then we estimate a generalized linear model without random effects.
+
+```{r fit_glm}
+glm_fit <- glm(y ~ X1 + X2 + Z, poisson(), dat)
+summary(glm_fit)
+logLik(glm_fit)
+```
+
+Next, we make a log-likelihood approximation with the implemented particle at 
+the true parameters with the `mssm` function.
+
+```{r fit_mssm, cache = 1}
+library(mssm)
+ll_func <- mssm(
+  fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
+  # make it explict that there is an intercept (not needed)
+  random = ~ 1 + Z, ti = time_idx, control = mssm_control(
+    n_threads = 5L, N_part = 500L, what = "log_density", 
+    seed = 2L))
+
+system.time(
+  mssm_obj <- ll_func$pf_filter(
+    cfix = cfix, disp = numeric(), F. = F., Q = Q))
+
+# returns the log-likelihood approximation
+logLik(mssm_obj)
+```
+
+As expected, we get a much higher log-likelihood. We can e.g., compare this 
+to a model where we use splines instead for each of the two random effects.
+
+```{r use_splines}
+# compare with GLM with spline
+library(splines)
+logLik(glm(y ~ X1 + X2 + Z * ns(time_idx, df = 20, intercept = TRUE)- 1, 
+           poisson(), dat))
+```
+
+We can plot the **filter** estimates.
+
+```{r plot_filter}
+# plot estiamtes 
+filter_means <- plot(mssm_obj)
+
+# plot with true line as well
+for(i in 1:ncol(betas)){
+  be <- betas[, i]
+  me <- filter_means$means[i, ]
+  lb <- filter_means$lbs[i, ]
+  ub <- filter_means$ubs[i, ]
+  
+  # dashed: true line, continuous: filter estimate 
+  # dotted: prediction interval
+  matplot(cbind(be, me, lb, ub), lty = c(2, 1, 3, 3), type = "l", 
+          col = "black", ylab = rownames(filter_means$lbs)[i])
+}
+```
+
+We can get the effective sample size at each point in time with the `get_ess`
+function.
+
+```{r show_ess}
+(ess <- get_ess(mssm_obj))
+plot(ess)
+```
+
+We can compare this what we get by using a so-called bootstrap (like) filter
+instead.
+
+```{r comp_boot}
+local({
+  ll_boot <- mssm(
+    fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
+    # make it explict that there is an intercept (not needed)
+    random = ~ 1 + Z, ti = time_idx, control = mssm_control(
+      n_threads = 5L, N_part = 500L, what = "log_density", 
+      seed = 2L, which_sampler = "bootstrap"))
+  
+  print(system.time(
+    boot_fit <- ll_boot$pf_filter(
+      cfix = coef(glm_fit), disp = numeric(), F. = F., Q = Q)))
+  
+  plot(get_ess(boot_fit))
+})
+```
+
+The above is not much faster (and maybe slower in this run) as the bulk of 
+the computation is not in the sampling step. We can also compare the 
+log-likelihood approximation with what we get if we choose parameters close 
+to the GLM estimates.
+
+```{r comp_close_glm}
+mssm_glm <- ll_func$pf_filter(
+  cfix = coef(glm_fit), disp = numeric(), F. = diag(1e-8, 2), 
+  Q = diag(1e-4^2, 2))
+logLik(mssm_glm)
+```
+
+TODO: I am not sure why we get a lower log-likelihood with the above. 
+
+### Parameter Estimation
+
+We will need to estimate the parameter for real applications. We could do 
+this e.g., with a Monte Carlo expectation-maximization algorithm or by using 
+a Monte Carlo approximation of the gradient. Currently, the latter is only 
+available and the user will have to write a custom function to perform 
+the estimation. 
+I will provide an example below. The `sgd` function is not a part of the 
+package. Instead the package provides a way to approximate the gradient and 
+allows the user to perform subsequent maximization. The definition of the 
+`sgd` is given at the end of this file as it is somewhat long. 
+
+```{r mc_grad_est, echo = FALSE}
+# Stochastic gradient descent for mssm object. The function assumes that the 
+# state vector is stationary. The default values are rather arbitrary.
+# 
+# Args:
+#   object: an object of class mssmFunc. 
+#   n_it: number of iterations. 
+#   lrs: learning rates to use. Must have n_it elements. Like problem specific. 
+#   avg_start: index to start averaging. See Polyak et al. (1992) for arguments
+#              for averaging.
+#   cfix: starting values for fixed coefficients. 
+#   F.: starting value for transition matrix in conditional distribution of the 
+#       current state given the previous state.
+#   Q: starting value for covariance matrix in conditional distribution of the 
+#      current state given the previous. 
+#   verbose: TRUE if output should be printed doing estmation. 
+# 
+# Returns:
+#   List with estimates and the log-likelihood approximation at each iteration. 
+sgd <- function(
+  object, n_it = 150L, 
+  lrs = 1e-3 * c(rep(1L, 49), ((50:n_it) - 40)^(-1/2)), avg_start = 100L,
+  cfix, F., Q,  verbose = FALSE)
+{
+  # make checks
+  stopifnot(
+    inherits(object, "mssmFunc"), object$control$what == "gradient", n_it > 0L, 
+    all(lrs > 0.), avg_start > 1L, length(lrs) == n_it)
+  n_fix <- nrow(object$X)
+  n_rng <- nrow(object$Z)
+  
+  # objects for estimates at each iteration and log-likelihood approximations
+  ests <- matrix(
+    NA_real_, n_it + 1L, n_fix + n_rng * n_rng + n_rng * (n_rng  + 1L) / 2L)
+  ests[1L, ] <- c(cfix, F., Q[lower.tri(Q, diag = TRUE)])
+  lls <- rep(NA_real_, n_it)
+  
+  # indices of the different components
+  idx_fix <- 1:n_fix
+  idx_F   <- 1:(n_rng * n_rng) + n_fix
+  idx_Q   <- 1:(n_rng * (n_rng  + 1L) / 2L) + n_fix + n_rng * n_rng
+  
+  # we only want the lower part of `Q` so we make the following map for the 
+  # gradient
+  library(matrixcalc) # TODO: get rid of this
+  gr_map <- matrix(
+    0., nrow = ncol(ests), ncol = length(cfix) + length(F.) + length(Q))
+  gr_map[idx_fix, idx_fix] <- diag(length(idx_fix))
+  gr_map[idx_F  , idx_F] <- diag(length(idx_F))
+  dup_mat <- duplication.matrix(ncol(Q))
+  gr_map[idx_Q  , -c(idx_fix, idx_F)] <- t(dup_mat)
+  
+  # function to set the parameters
+  set_parems <- function(i){
+    # select whether or not to average
+    idx <- if(i > avg_start) avg_start:i else i
+    
+    # set new parameters
+    cfix <<-             colMeans(ests[idx, idx_fix, drop = FALSE])
+    F.[] <<-             colMeans(ests[idx, idx_F  , drop = FALSE])
+    Q[]  <<- dup_mat %*% colMeans(ests[idx, idx_Q  , drop = FALSE])
+    
+  }
+    
+  # run gradient decent 
+  max_half <- 25L
+  for(i in 1:n_it + 1L){
+    # get gradient. First, run the particle filter
+    filter_out <- object$pf_filter(cfix = cfix, disp = numeric(), F. = F., Q = Q)
+    lls[i - 1L] <- c(logLik(filter_out))
+    
+    # then get the gradient associated with each particle and the log 
+    # normalized weight of the particles
+    grads <- tail(filter_out$pf_output, 1L)[[1L]]$stats
+    ws    <- tail(filter_out$pf_output, 1L)[[1L]]$ws_normalized
+    
+    # compute the gradient and take a small step
+    grad <- colSums(t(grads) * drop(exp(ws)))
+    lr_i <- lrs[i - 1L]
+    k <- 0L
+    while(k < max_half){
+      ests[i, ] <- ests[i - 1L, ] + lr_i * gr_map %*% grad 
+      set_parems(i)
+      
+      # check that Q is positive definite and the system is stationary
+      c1 <- all(abs(eigen(F.)$values) < 1)
+      c2 <- all(eigen(Q)$values > 0)
+      if(c1 && c2)
+        break
+      
+      # decrease learning rate
+      lr_i <- lr_i * .5
+      k <- k + 1L
+    }
+    
+    # check if we failed to find a value within our constraints
+    if(k == max_half)
+      stop("failed to find solution within constraints")
+    
+    # print information if requested 
+    if(verbose && (i - 2L) %% 20L == 0L){
+      cat(sprintf(
+        "\nIt %5d: log-likelihood (current, max) %12.2f, %12.2f\n", 
+        i - 1L, logLik(filter_out), max(lls, na.rm = TRUE)), 
+          rep("-", 66), "\n", sep = "")
+      cat("cfix\n")
+      print(cfix)
+      cat("F\n")
+      print(F.)
+      cat("Q\n")
+      print(Q)
+      
+    }
+  } 
+  
+  list(estimates = ests, logLik = lls, F. = F., Q = Q, cfix = cfix)
+}
+```
+
+```{r use_sgd, cache = 1}
+# setup mssmFunc object to use
+ll_func <- mssm(
+  fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
+  # make it explict that there is an intercept (not needed)
+  random = ~ 1 + Z, ti = time_idx, control = mssm_control(
+    n_threads = 5L, N_part = 100L, what = "gradient", 
+    seed = 2L))
+
+# use stochastic gradient descent
+system.time(
+  res <- sgd(
+    ll_func, F. = diag(.1, 2), Q = diag(.1^2, 2), cfix = coef(glm_fit)))
+```
+
+Plot the approximate log-likelihoods at each iteration and show the 
+final estimates. 
+
+```{r show_use_sgd}
+tail(res$logLik, 1L) # final log-likelihood approximation
+par(mar = c(5, 4, 1, 1))
+plot(     res$logLik       , type = "l")
+plot(tail(res$logLik, 100L), type = "l") # only the final iterations
+
+# final estimates
+res$F. 
+res$Q
+res$cfix
+```
+
+## Fast Sum-Kernel Approximation
+
 This package contains a simple implementation of the dual-tree method like the one 
-suggested by @Gray03 and shown in @Klaas06. The problem we want to solve is
+suggested by @Gray03 and shown in @Klaas06. It is currently not used in 
+the particle filters but will be in the future. The problem we want to solve is
 the sum-kernel problem in @Klaas06. Particularly, we consider the situation 
 where we have $1,\dots,N_q$ query particles denoted by 
 $\{\vec Y_i\}_{i=1,\dots,N_q}$ and $1,\dots,N_s$ source particles denoted by
@@ -157,7 +491,7 @@ run_times <- lapply(Ns, function(N){
     times = 5L)
 })
 
-Ns_xtra <- 2^(15:20)
+Ns_xtra <- 2^(15:19)
 run_times_xtra <- lapply(Ns_xtra, function(N){
   invisible(list2env(get_sims(N), environment()))
   microbenchmark::microbenchmark(
@@ -179,6 +513,11 @@ meds
 par(mar = c(5, 4, .5, .5))
 matplot(c(Ns, Ns_xtra) * 3L, meds, lty = 1:3, type = "l", log = "xy", 
         ylab = "seconds", xlab = "N", col = "black")
+```
+
+## Function Definitions
+
+```{r mc_grad_est, eval = FALSE}
 ```
 
 # References

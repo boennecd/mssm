@@ -61,7 +61,7 @@ public:
     /* first add old stat */
     const double weight = std::exp(log_weight);
     F77_CALL(daxpy)(
-        &stat_dim, &log_weight, stats_old, &I_ONE, stats_new, &I_ONE);
+        &stat_dim, &weight, stats_old, &I_ONE, stats_new, &I_ONE);
 
     /* then compute the terms that is a function of the pair */
     double *stat_i = stats_new;
@@ -137,7 +137,6 @@ void stats_comp_helper::set_ll_n_stat_
   /* flip sign of weights. Assumes that they are the log density of the
    * proposal distribution */
   new_cloud.ws *= -1;
-
   new_cloud.stats.zeros();
 
   if(old_cloud)
@@ -177,25 +176,29 @@ inline void set_trans_ll_n_comp_stats_no_aprx
 {
   const arma::uword n_old = old_cloud.N_particles(),
     dim_particle = new_cloud.dim_particle();
+  arma::vec new_log_ws(n_old);
   for(arma::uword i = start; i < end; ++i){
     const double *d_new = new_cloud.particles.colptr(i);
-    double * stats_new = new_cloud.stats.colptr(i);
-    double &w = new_cloud.ws(i);
+    double *stats_new = new_cloud.stats.colptr(i),
+      *n_w = new_log_ws.begin(),
+      max_w = -std::numeric_limits<double>::infinity();
 
-    for(arma::uword j = 0; j < n_old; ++j){
+    for(arma::uword j = 0; j < n_old; ++j, ++n_w){
       const double *d_old = old_cloud.particles.colptr(j),
         *stats_old = old_cloud.stats.colptr(j);
 
-      double new_term = trans_func(
-        d_old, d_new, dim_particle, old_cloud.ws_normalized[j]);
-      w += new_term;
+      *n_w = trans_func(
+        d_old, d_new, dim_particle, old_cloud.ws_normalized(j));
 
       util.state_state(
-        d_old, d_new, stats_old, stats_new, new_term);
+        d_old, d_new, stats_old, stats_new, *n_w);
+      if(*n_w > max_w)
+        max_w = *n_w;
     }
+
+    new_cloud.ws(i) = log_sum_log(new_log_ws, max_w);
   }
 }
-
 
 void stats_comp_helper_no_aprx::set_ll_state_state
   (const cdist &obs_dist, particle_cloud &old_cloud, particle_cloud &new_cloud,
@@ -206,33 +209,35 @@ void stats_comp_helper_no_aprx::set_ll_state_state
     trans_func.trans_X(old_cloud.particles);
     trans_func.trans_Y(new_cloud.particles);
 
-    /* copy old log weights. We need this to do normalization later */
-    const arma::vec old_w = new_cloud.ws;
-
     {
-      const arma::uword n_particles = new_cloud.N_particles();
-      auto loop_figs = get_inc_n_block(n_particles, pool);
-      std::vector<std::future<void> > futures;
-      futures.reserve(loop_figs.n_tasks);
+      /* copy old log weights. We need to add this later */
+      add_back<arma::vec> ad(new_cloud.ws);
 
-      for(arma::uword start = 0L; start < n_particles;){
-        arma::uword end = std::min(start + loop_figs.inc, n_particles);
-        futures.push_back(pool.submit(std::bind(
-            set_trans_ll_n_comp_stats_no_aprx, ref(old_cloud), ref(new_cloud),
-            cref(trans_func), cref(util), start, end)));
-        start = end;
+      {
+        const arma::uword n_particles = new_cloud.N_particles();
+        auto loop_figs = get_inc_n_block(n_particles, pool);
+        std::vector<std::future<void> > futures;
+        futures.reserve(loop_figs.n_tasks);
+
+        for(arma::uword start = 0L; start < n_particles;){
+          arma::uword end = std::min(start + loop_figs.inc, n_particles);
+          futures.push_back(pool.submit(std::bind(
+              set_trans_ll_n_comp_stats_no_aprx, ref(old_cloud), ref(new_cloud),
+              cref(trans_func), cref(util), start, end)));
+          start = end;
+        }
+
+        while(!futures.empty()){
+          futures.back().get();
+          futures.pop_back();
+        }
       }
 
-      while(!futures.empty()){
-        futures.back().get();
-        futures.pop_back();
+      /* normalize statistics */
+      {
+        arma::vec norm_conts = arma::exp(new_cloud.ws);
+        new_cloud.stats.each_row() /= norm_conts.t();
       }
-    }
-
-    /* normalize statistics */
-    {
-      arma::vec norm_conts = arma::exp(new_cloud.ws - old_w);
-      new_cloud.stats.each_row() /= norm_conts;
     }
 
     /* transform back */

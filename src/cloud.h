@@ -34,6 +34,7 @@ public:
   }
 
   arma::vec get_cloud_mean() const;
+  arma::vec get_stats_mean() const;
 };
 
 #endif

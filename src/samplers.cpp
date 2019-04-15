@@ -1,6 +1,34 @@
 #include "samplers.h"
 #include "proposal_dist.h"
 
+inline void print_before_sampling(const proposal_dist *dist){
+  arma::vec mean;
+  arma::mat scale;
+  bool has_found = false;
+  {
+    const mv_norm *ptr = dynamic_cast<const mv_norm*>(dist);
+    has_found = ptr;
+    if(has_found){
+      mean = ptr->mean();
+      scale = ptr->vCov();
+    }
+  }
+  if(!has_found){
+    const mv_tdist *ptr = dynamic_cast<const mv_tdist*>(dist);
+    has_found = ptr;
+    if(has_found){
+      mean = ptr->mean();
+      scale = ptr->vCov();
+    }
+  }
+
+  if(has_found){
+    Rcpp::Rcout << "Sampling with mean: " << mean.t()
+                << "and scale matrix:\n" << scale;
+
+  }
+}
+
 inline particle_cloud sample_util
   (const proposal_dist &dist, const problem_data &prob,
    const cdist &state_dist, const cdist &obs_dist)
@@ -9,6 +37,9 @@ inline particle_cloud sample_util
   const arma::uword dim_state = state_dist.state_dim(),
     stat_dim = state_dist.stat_dim(what) + obs_dist.stat_dim(what);
   particle_cloud out(prob.ctrl.N_part, dim_state, stat_dim);
+
+  if(prob.ctrl.trace > 1L)
+    print_before_sampling(&dist);
 
   dist.sample(out.particles);
   double *w;
@@ -25,7 +56,7 @@ class bootstrap_sampler final : public sampler {
    const cdist &obs_dist)
   const
   {
-    std::unique_ptr<cdist> state_dist = prob.get_obs_dist(ti);
+    auto state_dist = prob.get_sta_dist<cdist>(ti);
     mv_norm_reg *dist = dynamic_cast<mv_norm_reg*>(state_dist.get());
     if(!dist)
       throw std::logic_error("not 'mv_norm_reg' pointer");
@@ -73,7 +104,10 @@ class mode_aprx_sampler final : public sampler {
    const cdist &obs_dist)
   const
   {
-    std::unique_ptr<cdist> state_dist = prob.get_obs_dist(ti);
+    if(prob.ctrl.trace > 1L)
+      Rcpp::Rcout << "Making mode approximation. Starting at: " << old_mean.t();
+
+    auto state_dist = prob.get_sta_dist<cdist>(ti);
     mv_norm_reg *dist = dynamic_cast<mv_norm_reg*>(state_dist.get());
     if(!dist)
       throw std::logic_error("not 'mv_norm_reg' pointer");

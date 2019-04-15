@@ -21,3 +21,7 @@ sample_mv_tdist <- function(N, Q, mu, nu) {
     .Call(`_mssm_sample_mv_tdist`, N, Q, mu, nu)
 }
 
+pf_filter <- function(Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, which_sampler, which_ll_cp, trace) {
+    .Call(`_mssm_pf_filter`, Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, which_sampler, which_ll_cp, trace)
+}
+

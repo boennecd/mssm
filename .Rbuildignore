@@ -3,4 +3,5 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^\.travis\.yml$
+render_toc\.R
 

@@ -1,0 +1,9 @@
+Test output with different families
+Test output with bootstrap method mode approximation
+Test with and without gradient computation
+Add function to approximate Hessian
+Add smoothing method
+Test output with offsets and weights
+Use kernal approximation method
+Better `logLik` method implementation
+Test method works when there are time points with no observations

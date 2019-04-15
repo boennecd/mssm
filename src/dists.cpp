@@ -209,3 +209,20 @@ std::array<double, 3> gaussian_identity::log_density_state_inner
 
   return out;
 }
+
+#define EXP_CLASS_PTR(fam)                                     \
+  if(which == #fam)                                            \
+    return(std::unique_ptr<exp_family>(new fam(                \
+      Y, X, cfix, Z, ws, di, offset)))
+
+std::unique_ptr<exp_family> get_family
+  (const std::string &which, const arma::vec &Y, const arma::mat &X,
+   const arma::vec &cfix, const arma::mat &Z, const arma::vec *ws,
+   const arma::vec &di, const arma::vec &offset) {
+  EXP_CLASS_PTR(binomial_logit);
+  EXP_CLASS_PTR(poisson_log);
+  EXP_CLASS_PTR(Gamma_log);
+  EXP_CLASS_PTR(gaussian_identity);
+
+  throw invalid_argument("'" + which + "' is not supported");
+}

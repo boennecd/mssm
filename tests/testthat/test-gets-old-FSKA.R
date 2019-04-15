@@ -1,6 +1,4 @@
-context("Test versus old results")
-
-formals(expect_known_value)$update <- FALSE
+context("Test versus old results for kernel methods")
 
 test_that("'FSKA' gives the same", {
   set.seed(90638579)

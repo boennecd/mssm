@@ -18,3 +18,15 @@ arma::vec particle_cloud::get_cloud_mean() const {
 
   return out;
 }
+
+arma::vec particle_cloud::get_stats_mean() const {
+  arma::vec out(dim_stats(), arma::fill::zeros);
+  const arma::uword n_particles = N_particles();
+  const double *w;
+  arma::uword i;
+  for(i = 0, w = ws_normalized.cbegin();
+      i < n_particles; ++i, ++w)
+    out += std::exp(*w) * stats.col(i);
+
+  return out;
+}

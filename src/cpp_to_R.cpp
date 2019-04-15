@@ -1,10 +1,13 @@
 #include "fast-kernel-approx.h"
 #include "utils.h"
 #include "dists.h"
+#include "PF.h"
 
 #ifdef MSSM_PROF
 #include "profile.h"
 #endif
+
+using Rcpp::Named;
 
 // [[Rcpp::export]]
 Rcpp::List test_KD_note(const arma::mat &X, const arma::uword N_min){
@@ -130,6 +133,84 @@ arma::mat sample_mv_tdist
   arma::mat out(Q.n_cols, N);
   mv_tdist dt(Q, mu, nu);
   dt.sample(out);
+
+  return out;
+}
+
+// [[Rcpp::export]]
+Rcpp::List pf_filter
+  (const arma::vec &Y, const arma::vec &cfix, const arma::vec &ws,
+   const arma::vec &offsets, const arma::vec &disp, const arma::mat &X, const arma::mat &Z,
+   const arma::uvec &time_indices_elems, const arma::uvec &time_indices_len,
+   const arma::mat &F, const arma::mat &Q, const arma::mat &Q0,
+   const std::string &fam, const arma::vec &mu0, const arma::uword n_threads,
+   const double nu, const double covar_fac, const double ftol_rel,
+   const arma::uword N_part, const std::string &what,
+   const std::string &which_sampler, const std::string &which_ll_cp,
+   const unsigned int trace)
+{
+  /* create vector with time indices */
+  const std::vector<arma::uvec> time_indices = ([&]{
+    std::vector<arma::uvec> indices;
+    indices.reserve(time_indices_len.n_elem);
+    auto ele_begin = time_indices_elems.cbegin();
+    arma::uword n_in = 0.;
+    for(auto n_ele : time_indices_len){
+      n_in += n_ele;
+      if(n_in > time_indices_elems.n_elem)
+        throw std::invalid_argument(
+            "invalid 'time_indices_elems' and 'time_indices_len'");
+
+      indices.emplace_back(ele_begin, n_ele);
+      ele_begin += n_ele;
+    }
+
+    return indices;
+  })();
+
+  /* setup problem data object */
+  control_obj ctrl(n_threads, nu, covar_fac, ftol_rel, N_part, what, trace);
+  problem_data dat(
+    Y, cfix, ws, offsets, disp, X, Z, time_indices, F, Q, Q0, fam, mu0,
+    std::move(ctrl));
+
+  /* setup sampler */
+  const std::unique_ptr<sampler> sampler_ = ([&]{
+    if(which_sampler == "bootstrap")
+      return get_bootstrap_sampler();
+    if(which_sampler == "mode_aprx")
+      return get_mode_aprx_sampler();
+
+    throw std::invalid_argument("Unkown sampler: '" + which_sampler + "'");
+  })();
+
+  /* setup object to compute log likehood and stats */
+  const std::unique_ptr<stats_comp_helper> stats_cp = ([&]{
+    if(which_ll_cp == "no_aprx")
+      return std::unique_ptr<stats_comp_helper>(
+        new stats_comp_helper_no_aprx());
+
+    throw std::invalid_argument("Unkown ll_cp: '" + which_ll_cp + "'");
+  })();
+
+  /* run particle filter */
+  auto comp_res = PF(dat, *sampler_, *stats_cp);
+
+  /* make list and return */
+  Rcpp::List out(comp_res.size());
+
+  auto add_res = [](particle_cloud &cl){
+    return Rcpp::List::create(
+      Named("particles")     = std::move(cl.particles),
+      Named("stats")         = std::move(cl.stats),
+      Named("ws")            = std::move(cl.ws),
+      Named("ws_normalized") = std::move(cl.ws_normalized)
+    );
+  };
+
+  auto p_cloud = comp_res.begin();
+  for(auto &ele : out)
+    ele = add_res(*(p_cloud++));
 
   return out;
 }

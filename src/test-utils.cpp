@@ -166,4 +166,26 @@ context("Test utils functions") {
       { 6.2, 1, 4, -8.6, 37.8, 2, -2.4, 21.2, 23.8 };
     expect_true(is_all_aprx_equal(A, expected));
   }
+
+  test_that("Testing add_back") {
+    arma::vec x(5), expect(5);
+    x.fill(1.);
+    {
+      expect.zeros();
+      add_back<arma::vec> ad(x);
+      expect_true(is_all_equal(x, expect));
+    }
+    expect.fill(1.);
+    expect_true(is_all_equal(x, expect));
+    {
+      expect.zeros();
+      add_back<arma::vec> ad(x);
+      x(2) = 3;
+      expect(2) = 3;
+      expect_true(is_all_equal(x, expect));
+    }
+    expect.fill(1.);
+    expect(2) = 4;
+    expect_true(is_all_equal(x, expect));
+  }
 }

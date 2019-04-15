@@ -79,7 +79,7 @@ public:
    * hyper rectangles */
   virtual std::array<double, 2> operator()
     (const hyper_rectangle&, const hyper_rectangle&) const = 0;
-  /* takes the old, new state, and log weight of the pair (ignoring
+  /* takes the old, new state, and weight of the pair (ignoring
    * a normalization term) and add the requested stat to the third argument.
    * This only includes the part that depends on the pair. */
   virtual void comp_stats_state_state
@@ -287,7 +287,7 @@ public:
   }
 
   /* own members */
-  const arma::mat& mean(){
+  const arma::mat& mean() const {
     if(!mu)
       throw std::logic_error("no mean");
     return *mu;
@@ -398,7 +398,7 @@ public:
   }
 
   /* own members */
-  const arma::mat mean(const arma::vec &x){
+  const arma::mat mean(const arma::vec &x) const {
     return F * x;
   }
 
@@ -518,7 +518,7 @@ public:
   }
 
   /* own members */
-  const arma::mat& mean(){
+  const arma::mat& mean()  const {
     if(!mu)
       throw std::logic_error("no mean");
     return *mu;
@@ -532,20 +532,21 @@ public:
 class exp_family : public cdist {
 protected:
   /* outcome */
-  const arma::vec &Y;
+  const arma::vec Y;
   /* design matrix for fixed effects */
-  const arma::mat &X;
+  const arma::mat X;
   /* coefficients for fixed effects */
-  const arma::vec &cfix;
-  /* offset from fixed effects */
-  const arma::vec offset = X.t() * cfix;
+  const arma::vec cfix;
   /* design matrix for random effects */
-  const arma::mat &Z;
+  const arma::mat Z;
   /* case weights */
   const arma::vec ws;
   /* dispersion parameter */
   virtual arma::vec* set_disp(const arma::vec&) = 0; /* reminder to implement this */
   std::unique_ptr<arma::vec> disp;
+
+  /* offset from fixed effects and offsets */
+  const arma::vec offset;
 
   /* Given a linear predictor, computes the log density and potentially
    * the derivatives. */
@@ -557,9 +558,11 @@ public:
 
   exp_family
   (const arma::vec &Y, const arma::mat &X, const arma::vec &cfix,
-   const arma::mat &Z, const arma::vec *ws, const arma::vec &):
+   const arma::mat &Z, const arma::vec *ws, const arma::vec&,
+   const arma::vec &offset):
   Y(Y), X(X), cfix(cfix), Z(Z),
-  ws(ws ? arma::vec(*ws) : arma::vec(X.n_cols, arma::fill::ones))
+  ws(ws ? arma::vec(*ws) : arma::vec(X.n_cols, arma::fill::ones)),
+  offset(offset + X.t() * cfix)
   {
 #ifdef MSSM_DEBUG
     if(X.n_cols != Y.n_elem)
@@ -688,8 +691,9 @@ class fname final : public exp_family {                             \
 public:                                                             \
   fname                                                             \
   (const arma::vec &Y, const arma::mat &X, const arma::vec &cfix,   \
-  const arma::mat &Z, const arma::vec *ws, const arma::vec &di):    \
-  exp_family(Y, X, cfix, Z, ws, di)                                 \
+   const arma::mat &Z, const arma::vec *ws, const arma::vec &di,    \
+   const arma::vec &offset):                                        \
+  exp_family(Y, X, cfix, Z, ws, di, offset)                         \
   {                                                                 \
     disp.reset(set_disp(di));                                       \
   }                                                                 \
@@ -703,8 +707,9 @@ class fname final : public exp_family {                               \
 public:                                                               \
   fname                                                               \
   (const arma::vec &Y, const arma::mat &X, const arma::vec &cfix,     \
-   const arma::mat &Z, const arma::vec *ws, const arma::vec &di):     \
-  exp_family(Y, X, cfix, Z, ws, di)                                   \
+   const arma::mat &Z, const arma::vec *ws, const arma::vec &di,      \
+   const arma::vec &offset):                                          \
+  exp_family(Y, X, cfix, Z, ws, di, offset)                           \
   {                                                                   \
     disp.reset(set_disp(di));                                         \
   }                                                                   \
@@ -714,6 +719,10 @@ EXP_CLASS(binomial_logit);
 EXP_CLASS(poisson_log);
 EXP_CLASS_W_DISP(Gamma_log);
 EXP_CLASS_W_DISP(gaussian_identity);
+
+std::unique_ptr<exp_family> get_family
+  (const std::string&,  const arma::vec&, const arma::mat&, const arma::vec&,
+   const arma::mat&, const arma::vec*, const arma::vec&,const arma::vec&);
 
 #undef EXP_CLASS
 #undef EXP_CLASS_W_DISP

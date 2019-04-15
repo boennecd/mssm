@@ -2,6 +2,7 @@
 #define MSSM_UTILS_H
 #include "arma.h"
 #include <mutex>
+#include <type_traits>
 
 inline double log_sum_log(const double old, const double new_term){
   double max = std::max(old, new_term);
@@ -27,6 +28,29 @@ inline double norm_square(const double *d1, const double *d2, arma::uword N){
 
   return dist;
 }
+
+/* class for arma object which takes a copy of the current value, set the
+ * elements to zero and adds the copy back when the this objects is
+ * destructed. */
+template<typename T>
+class add_back {
+  using cp_type  = typename std::remove_reference<T>::type;
+  using org_type = typename std::add_lvalue_reference<T>::type;
+
+  const cp_type copy;
+  org_type org;
+
+public:
+  add_back(T& org):  copy(org), org(org)
+  {
+    org.zeros();
+  }
+
+  ~add_back(){
+    if(arma::size(org) == arma::size(copy))
+      org += copy;
+  }
+};
 
 class chol_decomp {
 public:
@@ -89,6 +113,30 @@ public:
     return out;
   }
 };
+
+/* normalizes log weights and returns the effective sample size */
+inline double normalize_log_weights(arma::vec &low_ws)
+{
+  double max_w = -std::numeric_limits<double>::infinity();
+  for(const auto d: low_ws)
+    if(d > max_w)
+      max_w = d;
+
+  double norm_const = 0;
+  for(auto &d : low_ws){
+    d = std::exp(d - max_w);
+    norm_const += d;
+  }
+
+  double ess_inv = 0.;
+  for(auto &d: low_ws){
+    d /= norm_const;
+    ess_inv += d * d;
+    d = std::log(d);
+  }
+
+  return 1. / ess_inv;
+}
 
 /* wrapper for dsyr. Only updates the upper half */
 void arma_dsyr(arma::mat&, const arma::vec&, const double);

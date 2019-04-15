@@ -5,9 +5,11 @@ std::vector<particle_cloud> PF
 {
   std::vector<particle_cloud> out;
   out.reserve(prob.n_periods);
-  thread_pool &pool = prob.ctrl.get_pool();
+  const unsigned int trace = prob.ctrl.trace;
 
   for(arma::uword i = 0; i < prob.n_periods; ++i){
+    if(i % 10L == 0)
+      Rcpp::checkUserInterrupt();
     /* get conditional distribution at time i */
     std::unique_ptr<cdist> dist_t = prob.get_obs_dist(i);
 
@@ -28,7 +30,18 @@ std::vector<particle_cloud> PF
         prob,                      new_cloud, *dist_t   );
 
     /* normalize weights */
-    // TODO: implement
+    new_cloud.ws_normalized = new_cloud.ws;
+    double ess = normalize_log_weights(new_cloud.ws_normalized);
+    if(trace > 0){
+      Rprintf("Effective sample size at %4d: %12.1f\n", i + 1L, ess);
+      Rcpp::Rcout << "cloud mean: " << new_cloud.get_cloud_mean().t()
+                  << "stats mean: " << new_cloud.get_stats_mean().t();
+
+    }
+
+    /* we do not need the olds stats anymore */
+    if(i > 0L)
+      (out.rbegin() + 1)->stats.clear();
   }
 
   return out;

@@ -75,6 +75,39 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// pf_filter
+Rcpp::List pf_filter(const arma::vec& Y, const arma::vec& cfix, const arma::vec& ws, const arma::vec& offsets, const arma::vec& disp, const arma::mat& X, const arma::mat& Z, const arma::uvec& time_indices_elems, const arma::uvec& time_indices_len, const arma::mat& F, const arma::mat& Q, const arma::mat& Q0, const std::string& fam, const arma::vec& mu0, const arma::uword n_threads, const double nu, const double covar_fac, const double ftol_rel, const arma::uword N_part, const std::string& what, const std::string& which_sampler, const std::string& which_ll_cp, const unsigned int trace);
+RcppExport SEXP _mssm_pf_filter(SEXP YSEXP, SEXP cfixSEXP, SEXP wsSEXP, SEXP offsetsSEXP, SEXP dispSEXP, SEXP XSEXP, SEXP ZSEXP, SEXP time_indices_elemsSEXP, SEXP time_indices_lenSEXP, SEXP FSEXP, SEXP QSEXP, SEXP Q0SEXP, SEXP famSEXP, SEXP mu0SEXP, SEXP n_threadsSEXP, SEXP nuSEXP, SEXP covar_facSEXP, SEXP ftol_relSEXP, SEXP N_partSEXP, SEXP whatSEXP, SEXP which_samplerSEXP, SEXP which_ll_cpSEXP, SEXP traceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::vec& >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type cfix(cfixSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type ws(wsSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type offsets(offsetsSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type disp(dispSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type Z(ZSEXP);
+    Rcpp::traits::input_parameter< const arma::uvec& >::type time_indices_elems(time_indices_elemsSEXP);
+    Rcpp::traits::input_parameter< const arma::uvec& >::type time_indices_len(time_indices_lenSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type F(FSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type Q(QSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type Q0(Q0SEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type fam(famSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type mu0(mu0SEXP);
+    Rcpp::traits::input_parameter< const arma::uword >::type n_threads(n_threadsSEXP);
+    Rcpp::traits::input_parameter< const double >::type nu(nuSEXP);
+    Rcpp::traits::input_parameter< const double >::type covar_fac(covar_facSEXP);
+    Rcpp::traits::input_parameter< const double >::type ftol_rel(ftol_relSEXP);
+    Rcpp::traits::input_parameter< const arma::uword >::type N_part(N_partSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type what(whatSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type which_sampler(which_samplerSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type which_ll_cp(which_ll_cpSEXP);
+    Rcpp::traits::input_parameter< const unsigned int >::type trace(traceSEXP);
+    rcpp_result_gen = Rcpp::wrap(pf_filter(Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, which_sampler, which_ll_cp, trace));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 RcppExport SEXP run_testthat_tests();
 
@@ -84,7 +117,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_mssm_FSKA", (DL_FUNC) &_mssm_FSKA, 6},
     {"_mssm_sample_mv_normal", (DL_FUNC) &_mssm_sample_mv_normal, 3},
     {"_mssm_sample_mv_tdist", (DL_FUNC) &_mssm_sample_mv_tdist, 4},
-    {"run_testthat_tests",     (DL_FUNC) &run_testthat_tests,     0},
+    {"_mssm_pf_filter", (DL_FUNC) &_mssm_pf_filter, 23},
+    {"run_testthat_tests",     (DL_FUNC) &run_testthat_tests,      0},
     {NULL, NULL, 0}
 };
 
