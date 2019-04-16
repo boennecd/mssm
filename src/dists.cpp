@@ -75,7 +75,7 @@ void mv_norm_reg::comp_stats_state_state
   /* start with Q */
   arma::vec xv(x, dim), yv(y, dim);
   double w_half = w * .5, w_half_neg = -w_half;
-  yv = yv - xv;                /* R^{-\top}(y - Fx) */
+  yv -= xv;                    /* R^{-\top}(y - Fx) */
   chol_.solve_half(yv, true);  /* R^{-1}R^{-\top}(y - Fx) */
 
   double *d_Q_begin = stat + dim * dim;
@@ -89,7 +89,7 @@ void mv_norm_reg::comp_stats_state_state
 
   /* then F */
   chol_.mult_half(xv);
-  xv = arma::solve(F, xv);     /* get original x */
+  F.solve(xv);         /* get original x */
   double *D_f_begin = stat;
 
   F77_CALL(dger)(

@@ -28,6 +28,21 @@ extern "C" {
       const int *n, const double *alpha,
       const double *dx, const int *incx,
       double *dy, const int *incy);
+  void F77_NAME(dgetrs)(
+      const char *trans, const int *n, const int *nrhs,
+      const double *a, const int *lda, const int *ipiv,
+      double *b, const int *ldb, int *info);
+  void F77_NAME(dtrmm)(
+      const char *side, const char *uplo, const char *transa,
+      const char *diag, const int *m, const int *n,
+      const double *alpha, const double *a, const int *lda,
+      double *b, const int *ldb);
+}
+
+/* avoid warnings due to different definitions of function */
+namespace lapack {
+  void dgetrf(
+      const int*, const int*, double*, const int*, int*, int*);
 }
 
 #endif

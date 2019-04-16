@@ -69,6 +69,12 @@ public:
   /* computes R in the decomposition X = R^\top R */
   chol_decomp(const arma::mat&);
 
+  chol_decomp() = delete;
+  chol_decomp(const chol_decomp&) = delete;
+  chol_decomp& operator=(const chol_decomp&) = delete;
+
+  chol_decomp(chol_decomp&&) = default;
+
   /* returns R^{-\top}Z where Z is the input. You get R^- Z if  `transpose`
    * is true */
   void solve_half(arma::mat&, const bool transpose = false) const;
@@ -77,20 +83,10 @@ public:
   arma::vec solve_half(const arma::vec&, const bool transpose = false) const;
 
   /* inverse of the above */
-  template<typename T>
-  void mult_half(T& X, const bool transpose = false) const {
-    if(transpose)
-      X = chol_ * X;
-    else
-      X = chol_.t() * X;
-  }
-  template<typename T>
-  T mult_half(const T& X, const bool transpose = false) const {
-    if(transpose)
-      return chol_ * X;
-    else
-      return chol_.t() * X;
-  }
+  void mult_half(arma::mat&, const bool transpose = false) const;
+  void mult_half(arma::vec&, const bool transpose = false) const;
+  arma::mat mult_half(const arma::mat&, const bool transpose = false) const;
+  arma::vec mult_half(const arma::vec&, const bool transpose = false) const;
 
   /* Return X^{-1}Z */
   void solve(arma::mat&) const;
@@ -111,6 +107,48 @@ public:
       out += 2. * std::log(chol_(i, i));
 
     return out;
+  }
+
+  operator const arma::mat&() const {
+    return X;
+  }
+};
+
+/* LU factorization of matrix */
+class LU_fact {
+public:
+  /* original matrix */
+  const arma::mat X;
+
+private:
+  const int m = X.n_rows, n = X.n_cols;
+
+  /* bool for whether the factorization is computed */
+  std::unique_ptr<std::once_flag> is_comp =
+    std::unique_ptr<std::once_flag>(new std::once_flag());
+  std::unique_ptr<arma::mat> LU =
+    std::unique_ptr<arma::mat>(new arma::mat());
+  std::unique_ptr<int[]> ipiv =
+    std::unique_ptr<int[]>(new int[std::min(m, n)]);
+
+  /* return a reference to the LU decomposition. Must be called e.g., before
+   * calling solve */
+  const arma::mat& get_LU() const;
+
+public:
+  LU_fact(const arma::mat &X): X(X) { }
+
+  LU_fact() = delete;
+  LU_fact(const LU_fact&) = delete;
+  LU_fact& operator=(const LU_fact&) = delete;
+
+  LU_fact(LU_fact&&) = default;
+
+  void solve(arma::mat&) const;
+  void solve(arma::vec&) const;
+
+  operator const arma::mat&() const {
+    return X;
   }
 };
 

@@ -1,8 +1,16 @@
 #include "PF.h"
 
+#ifdef MSSM_PROF
+#include "profile.h"
+#endif
+
 std::vector<particle_cloud> PF
   (const problem_data &prob, const sampler &samp, const stats_comp_helper &trans)
 {
+#ifdef MSSM_PROF
+  profiler prof("PF");
+#endif
+
   std::vector<particle_cloud> out;
   out.reserve(prob.n_periods);
   const unsigned int trace = prob.ctrl.trace;

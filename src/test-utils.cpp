@@ -146,6 +146,39 @@ context("Test utils functions") {
     }
   }
 
+  test_that("Testing LU_fact") {
+    /* R code:
+      F. <- matrix(c(2, 1, 5, 3), 2L)
+      X <- matrix(c(0.7, -0.9, 0.071, 0.35, -0.74, -0.25), 2L)
+      dput(solve(F., X))
+      dput(solve(F., X[, 2]))
+    */
+
+    auto Fmat = create_mat<2L, 2L>({ 2, 1, 5, 3 });
+    const arma::mat X = create_mat<2L, 3L>({ 0.7, -0.9, 0.071, 0.35, -0.74, -0.25 });
+    const arma::vec x = X.col(1);
+
+    LU_fact lu(Fmat);
+    expect_true(is_all_equal(lu.X, Fmat));
+
+    {
+      arma::mat Xc = X;
+      lu.solve(Xc);
+      std::array<double, 6> expect = { 6.6, -2.5, -1.537, 0.629, -0.97, 0.24 };
+
+      Rcpp::Rcout << Xc;
+      expect_true(is_all_aprx_equal(Xc, expect));
+    }
+
+    {
+      arma::vec xc = x;
+      lu.solve(xc);
+      Rcpp::Rcout << xc;
+      std::array<double, 2> expect = { -1.537, 0.629 };
+      expect_true(is_all_aprx_equal(xc, expect));
+    }
+  }
+
   test_that("Testing dsyr") {
     /* R code
        A <- matrix(c(3, 1, 4,

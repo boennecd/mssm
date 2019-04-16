@@ -171,7 +171,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   0.714   0.007   0.203
+    ##   0.772   0.015   0.199
 
 ``` r
 # returns the log-likelihood approximation
@@ -210,6 +210,7 @@ for(i in 1:ncol(betas)){
   
   # dashed: true line, continuous: filter estimate 
   # dotted: prediction interval
+  par(mar = c(5, 4, 1, 1))
   matplot(cbind(be, me, lb, ub), lty = c(2, 1, 3, 3), type = "l", 
           col = "black", ylab = rownames(filter_means$lbs)[i])
 }
@@ -255,7 +256,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   0.773   0.012   0.211
+    ##   0.699   0.009   0.178
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -292,7 +293,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 414.717   1.453  98.840
+    ##  59.987   1.008  15.482
 
 Plot the approximate log-likelihoods at each iteration and show the final estimates.
 
@@ -422,11 +423,11 @@ microbenchmark::microbenchmark(
 ```
 
     ## Unit: milliseconds
-    ##         expr     min      lq    mean  median     uq     max neval
-    ##  dual tree 1  117.99  119.51  121.30  121.24  122.7  125.28    10
-    ##  dual tree 6   42.75   43.31   45.07   44.38   45.6   51.57    10
-    ##      naive 1 3353.68 3360.14 3368.39 3364.77 3374.4 3398.96    10
-    ##      naive 6  859.94  862.92  887.78  879.39  898.9  969.12    10
+    ##         expr     min      lq    mean  median      uq     max neval
+    ##  dual tree 1  112.60  114.45  118.27  115.88  119.01  138.05    10
+    ##  dual tree 6   41.18   42.13   46.26   43.47   52.61   53.61    10
+    ##      naive 1 3322.36 3367.28 3451.26 3464.88 3503.88 3616.26    10
+    ##      naive 6  941.73  954.22 1005.04  963.05 1059.27 1135.02    10
 
 ``` r
 # The functions return the un-normalized log weights. We first compare
@@ -507,20 +508,20 @@ meds
 ```
 
     ##          method
-    ## N         Dual-tree      Naive Dual-tree 1
-    ##   384      0.001417  0.0009245    0.003422
-    ##   768      0.002729  0.0028841    0.006962
-    ##   1536     0.004568  0.0097685    0.012473
-    ##   3072     0.008978  0.0375691    0.025303
-    ##   6144     0.020062  0.1658279    0.054574
-    ##   12288    0.040821  0.6376093    0.105185
-    ##   24576    0.070787  2.5062328    0.191004
-    ##   49152    0.131320 10.4332776    0.389458
-    ##   98304    0.279371         NA          NA
-    ##   196608   0.554765         NA          NA
-    ##   393216   1.030610         NA          NA
-    ##   786432   2.092430         NA          NA
-    ##   1572864  4.811182         NA          NA
+    ## N         Dual-tree     Naive Dual-tree 1
+    ##   384      0.001713  0.001186    0.004205
+    ##   768      0.003232  0.002979    0.008134
+    ##   1536     0.005331  0.010871    0.014012
+    ##   3072     0.009384  0.038602    0.025541
+    ##   6144     0.022175  0.174188    0.053972
+    ##   12288    0.044357  0.655904    0.109632
+    ##   24576    0.065755  2.634866    0.190534
+    ##   49152    0.131258 10.634452    0.393239
+    ##   98304    0.258856        NA          NA
+    ##   196608   0.511701        NA          NA
+    ##   393216   1.095187        NA          NA
+    ##   786432   2.327251        NA          NA
+    ##   1572864  4.631362        NA          NA
 
 ``` r
 par(mar = c(5, 4, .5, .5))

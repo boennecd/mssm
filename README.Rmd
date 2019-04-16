@@ -15,6 +15,7 @@ knitr::opts_chunk$set(
   error = FALSE, cache = "./README-cache/", fig.path = "./README-fig/", 
   echo = TRUE)
 options(digits = 4, scipen = 7)
+.fig_height_small <- 4
 source("render_toc.R")
 ```
 
@@ -44,7 +45,7 @@ render_toc("README.Rmd", toc_header_name = "Table of Contents", toc_depth = 3L)
 
 We simulate data as follows.
 
-```{r simulate}
+```{r simulate, fig.height = .fig_height_small}
 # simulate state path of state variable 
 set.seed(78727269)
 n_periods <- 110L
@@ -126,7 +127,7 @@ logLik(glm(y ~ X1 + X2 + Z * ns(time_idx, df = 20, intercept = TRUE)- 1,
 
 We can plot the **filter** estimates.
 
-```{r plot_filter}
+```{r plot_filter, fig.height = .fig_height_small}
 # plot estiamtes 
 filter_means <- plot(mssm_obj)
 
@@ -139,6 +140,7 @@ for(i in 1:ncol(betas)){
   
   # dashed: true line, continuous: filter estimate 
   # dotted: prediction interval
+  par(mar = c(5, 4, 1, 1))
   matplot(cbind(be, me, lb, ub), lty = c(2, 1, 3, 3), type = "l", 
           col = "black", ylab = rownames(filter_means$lbs)[i])
 }
@@ -147,7 +149,7 @@ for(i in 1:ncol(betas)){
 We can get the effective sample size at each point in time with the `get_ess`
 function.
 
-```{r show_ess}
+```{r show_ess, fig.height = .fig_height_small}
 (ess <- get_ess(mssm_obj))
 plot(ess)
 ```
@@ -155,7 +157,7 @@ plot(ess)
 We can compare this what we get by using a so-called bootstrap (like) filter
 instead.
 
-```{r comp_boot}
+```{r comp_boot, fig.height = .fig_height_small}
 local({
   ll_boot <- mssm(
     fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
@@ -335,7 +337,7 @@ system.time(
 Plot the approximate log-likelihoods at each iteration and show the 
 final estimates. 
 
-```{r show_use_sgd}
+```{r show_use_sgd, fig.height = .fig_height_small}
 tail(res$logLik, 1L) # final log-likelihood approximation
 par(mar = c(5, 4, 1, 1))
 plot(     res$logLik       , type = "l")

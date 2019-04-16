@@ -51,6 +51,50 @@ arma::vec chol_decomp::solve_half(const arma::vec &x, const bool transpose) cons
   return out;
 }
 
+void chol_decomp::mult_half(arma::mat &Z, const bool transpose) const
+{
+  char trans = transpose ? 'N' : 'T';
+  int m = Z.n_rows, n = Z.n_cols;
+#ifdef MSSM_DEBUG
+  if(m != (int)chol_.n_cols)
+    throw std::invalid_argument("Invalid 'Z' in 'chol_decomp::mult_half'");
+#endif
+
+  F77_CALL(dtrmm)(
+    &C_L, &C_U, &trans, &C_N, &m, &n, &D_one, chol_.memptr(), &m,
+    Z.memptr(), &m);
+}
+
+void chol_decomp::mult_half(arma::vec &z, const bool transpose) const
+{
+  char trans = transpose ? 'N' : 'T';
+  int m = z.n_elem;
+#ifdef MSSM_DEBUG
+  if(m != (int)chol_.n_cols)
+    throw std::invalid_argument("Invalid 'z' in 'chol_decomp::mult_half'");
+#endif
+
+  F77_CALL(dtrmm)(
+      &C_L, &C_U, &trans, &C_N, &m, &I_one, &D_one, chol_.memptr(), &m,
+      z.memptr(), &m);
+}
+
+arma::mat chol_decomp::mult_half
+  (const arma::mat &Z, const bool transpose) const
+{
+  arma::mat out = Z;
+  mult_half(out, transpose);
+  return out;
+}
+
+arma::vec chol_decomp::mult_half
+  (const arma::vec &z, const bool transpose) const
+{
+  arma::vec out = z;
+  mult_half(out, transpose);
+  return out;
+}
+
 void chol_decomp::solve(arma::mat &out) const
 {
 #ifdef MSSM_DEBUG
@@ -111,4 +155,59 @@ void arma_dsyr(arma::mat &A, const arma::vec &x, const double alpha)
 
   F77_CALL(dsyr)(
     &C_U, &n, &alpha, x.memptr(), &I_one, A.memptr(), &n);
+}
+
+const arma::mat& LU_fact::get_LU() const
+{
+  /* set LU factorization if needed */
+  std::call_once(*is_comp, [&](){
+    *LU = X;
+
+    int info;
+    lapack::dgetrf(
+      &m, &n, LU->memptr(), &m, ipiv.get(), &info);
+
+    if(info != 0L)
+      throw std::runtime_error(
+          "'dgetrf' failed with info: " + std::to_string(info));
+  });
+
+  return *LU;
+}
+
+inline void check_dgetrs_info(const int info){
+  if(info != 0L)
+    throw std::runtime_error(
+        "'dgetrs' failed with info: " + std::to_string(info));
+}
+
+void LU_fact::solve(arma::mat &Z) const {
+  get_LU();
+#ifdef MSSM_DEBUG
+  if((int)Z.n_rows != n)
+    throw std::invalid_argument("'Z.n_rows' does not match with LU dim");
+#endif
+  int nrhs = Z.n_cols;
+
+  int info;
+  F77_CALL(dgetrs)(
+    &C_N, &n, &nrhs, LU->memptr(), &m, ipiv.get(), Z.memptr(),
+    &n, &info);
+
+  check_dgetrs_info(info);
+}
+
+void LU_fact::solve(arma::vec &z) const {
+  get_LU();
+#ifdef MSSM_DEBUG
+  if((int)z.n_elem != n)
+    throw std::invalid_argument("'z.n_elem' does not match with LU dim");
+#endif
+
+  int info;
+  F77_CALL(dgetrs)(
+      &C_N, &n, &I_one, LU->memptr(), &m, ipiv.get(), z.memptr(),
+      &n, &info);
+
+  check_dgetrs_info(info);
 }

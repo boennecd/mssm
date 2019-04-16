@@ -300,7 +300,7 @@ public:
 
 /* multivariate normal distribution with y ~ N(Fx, Q) */
 class mv_norm_reg final : public cdist, public trans_obj {
-  const arma::mat &F;
+  const LU_fact F;
   const chol_decomp chol_;
   const arma::uword dim;
   const std::unique_ptr<const arma::vec> mu;
@@ -339,7 +339,7 @@ public:
   }
 
   void trans_X(arma::mat &X) const override final {
-    X = F * X;
+    X = F.X * X;
     chol_.solve_half(X);
   }
   void trans_Y(arma::mat &Y) const override final {
@@ -347,7 +347,7 @@ public:
   }
   void trans_inv_X(arma::mat &X) const override final {
     chol_.mult_half(X);
-    X = arma::solve(F, X);
+    F.solve(X);
   }
   void trans_inv_Y(arma::mat &Y) const override final {
     chol_.mult_half(Y);
@@ -399,7 +399,7 @@ public:
 
   /* own members */
   const arma::mat mean(const arma::vec &x) const {
-    return F * x;
+    return F.X * x;
   }
 
   arma::mat vCov() const {
