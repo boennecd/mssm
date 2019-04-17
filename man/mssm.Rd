@@ -31,7 +31,7 @@ Left hand side is ignored.}
 }
 \value{
 An object of class \code{mssmFunc} with the following elements
-\item{pf_filter}{function to perform particle filtering. See the
+\item{pf_filter}{function to perform particle filtering. See
 \link{mssm-pf}.}
 \item{terms_fixed}{\code{\link{terms.object}} for the covariates with
 fixed effects.}

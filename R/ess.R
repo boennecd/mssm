@@ -29,7 +29,7 @@ print.mssmEss <- function(x, ...){
   to_print <- c(mean(x), sd(x), min(x), max(x))
 
   cat(
-    sprintf("Effective sample size:\n  Mean %10.1f\n  sd %12.1f\n  Min %11.1f\n  Max %11.1f\n",
+    sprintf("Effective sample sizes\n  Mean %10.1f\n  sd %12.1f\n  Min %11.1f\n  Max %11.1f\n",
             to_print[1], to_print[2], to_print[3], to_print[4]))
 
   # TODO: test output

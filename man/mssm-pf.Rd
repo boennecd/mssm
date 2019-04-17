@@ -38,7 +38,7 @@ distribution.}
 \item{remaining elements}{same as return by \code{\link{mssm}}.}
 
 If gradient approximation is requested then the first elements of
-\code{stats} are w.r.t. to fixed coefficients, the next elements are
+\code{stats} are w.r.t. the fixed coefficients, the next elements are
 w.r.t. the matrix in the map from the previous state vector to the mean
 of the next, and the last element is w.r.t. the covariance matrix. See
 the example in the README at \url{https://github.com/boennecd/mssm}.

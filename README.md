@@ -12,7 +12,7 @@ This package provides methods to estimate models of the form
 
 ![\\vec\\beta\_t = F\\vec\\beta\_{t-1}+\\vec\\epsilon\_t, \\qquad \\vec\\epsilon\_t\\sim N(\\vec 0, Q)](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_t%20%3D%20F%5Cvec%5Cbeta_%7Bt-1%7D%2B%5Cvec%5Cepsilon_t%2C%20%5Cqquad%20%5Cvec%5Cepsilon_t%5Csim%20N%28%5Cvec%200%2C%20Q%29 "\vec\beta_t = F\vec\beta_{t-1}+\vec\epsilon_t, \qquad \vec\epsilon_t\sim N(\vec 0, Q)")
 
-where ![g](https://chart.googleapis.com/chart?cht=tx&chl=g "g") is simple distribution, we observe ![t=1,\\dots,T](https://chart.googleapis.com/chart?cht=tx&chl=t%3D1%2C%5Cdots%2CT "t=1,\dots,T") periods, and ![I\_t](https://chart.googleapis.com/chart?cht=tx&chl=I_t "I_t"), ![y\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=y_%7Bit%7D "y_{it}"), ![\\vec x\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20x_%7Bit%7D "\vec x_{it}"), and ![\\vec z\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20z_%7Bit%7D "\vec z_{it}") are known. What is multivariate is ![\\vec y\_t = \\{y\_{it}\\}\_{i\\in I\_t}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20y_t%20%3D%20%5C%7By_%7Bit%7D%5C%7D_%7Bi%5Cin%20I_t%7D "\vec y_t = \{y_{it}\}_{i\in I_t}") (though, ![\\vec \\beta\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20%5Cbeta_t "\vec \beta_t") can also be multivariate) and this package is written to scale well in the dimension of ![| I\_t |](https://chart.googleapis.com/chart?cht=tx&chl=%7C%20I_t%20%7C "| I_t |"). The package uses an independent particle filter as suggested by Lin et al. (2005). This is particular type of filter can be used in the method suggested by Poyiadjis, Doucet, and Singh (2011). I will show an example of how to use the package through the rest of the document and highlight some implementation details.
+where ![g](https://chart.googleapis.com/chart?cht=tx&chl=g "g") is simple distribution, we observe ![t=1,\\dots,T](https://chart.googleapis.com/chart?cht=tx&chl=t%3D1%2C%5Cdots%2CT "t=1,\dots,T") periods, and ![I\_t](https://chart.googleapis.com/chart?cht=tx&chl=I_t "I_t"), ![y\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=y_%7Bit%7D "y_{it}"), ![\\vec x\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20x_%7Bit%7D "\vec x_{it}"), and ![\\vec z\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20z_%7Bit%7D "\vec z_{it}") are known. What is multivariate is ![\\vec y\_t = \\{y\_{it}\\}\_{i\\in I\_t}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20y_t%20%3D%20%5C%7By_%7Bit%7D%5C%7D_%7Bi%5Cin%20I_t%7D "\vec y_t = \{y_{it}\}_{i\in I_t}") (though, ![\\vec \\beta\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20%5Cbeta_t "\vec \beta_t") can also be multivariate) and this package is written to scale well in the dimension of ![| I\_t |](https://chart.googleapis.com/chart?cht=tx&chl=%7C%20I_t%20%7C "| I_t |"). The package uses independent particle filters as suggested by Lin et al. (2005). This particular type of filter can be used in the method suggested by Poyiadjis, Doucet, and Singh (2011). I will show an example of how to use the package through the rest of the document and highlight some implementation details.
 
 The package is not on CRAN but you can be installed from Github using e.g.,
 
@@ -38,7 +38,7 @@ Poisson Example
 We simulate data as follows.
 
 ``` r
-# simulate state path of state variable 
+# simulate path of state variables 
 set.seed(78727269)
 n_periods <- 110L
 (F. <- matrix(c(.5, .1, 0, .8), 2L))
@@ -77,7 +77,7 @@ matplot(betas, lty = 1, type = "l")
 ![](./README-fig/simulate-1.png)
 
 ``` r
-# simualte observations
+# sumulate observations
 cfix <- c(-1, .2, .5, -1) # gamma
 n_obs <- 100L
 dat <- lapply(1:n_obs, function(id){
@@ -121,11 +121,33 @@ table(dat$y)
     ##    0    1    2    3    4    5    6    7    8    9   11   15   18 
     ## 1465  519  163   72   20   12    4    4    4    1    1    1    1
 
+``` r
+# quick smooth of number of events vs. time
+par(mar = c(5, 4, 1, 1))
+plot(smooth.spline(dat$time_idx, dat$y), type = "l", xlab = "Time", 
+     ylab = "Number of events")
+```
+
+![](./README-fig/simulate-2.png)
+
+``` r
+# and split by those with `Z` above and below 0
+with(dat, {
+  z_large <- ifelse(Z > 0, "large", "small")
+  smooths <- lapply(split(cbind(dat, z_large), z_large), function(x){
+    plot(smooth.spline(x$time_idx, x$y), type = "l", xlab = "Time", 
+     ylab = paste("Number of events -", unique(x$z_large)))
+  })
+})
+```
+
+![](./README-fig/simulate-3.png)![](./README-fig/simulate-4.png)
+
 In the above, we simulate 110 (`n_periods`) with 100 (`n_obs`) individuals. Each individual has a fixed covaraite, `X2`, and two time-varying covariates, `X1` and `Z`. One of the time-varying covariates, `Z`, has a random slope. Further, the intercept is also random.
 
 ### Log-Likelihood Approximations
 
-We estimate a generalized linear model without random effects.
+We start by estimating a generalized linear model without random effects.
 
 ``` r
 glm_fit <- glm(y ~ X1 + X2 + Z, poisson(), dat)
@@ -179,7 +201,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   0.783   0.003   0.192
+    ##   0.753   0.018   0.197
 
 ``` r
 # returns the log-likelihood approximation
@@ -199,7 +221,7 @@ logLik(glm(y ~ X1 + X2 + Z * ns(time_idx, df = 20, intercept = TRUE)- 1,
 
     ## 'log Lik.' -2007 (df=42)
 
-We can plot the **filter** estimates.
+We can plot the predicted values of state variables from the filter distribution.
 
 ``` r
 # plot estiamtes 
@@ -209,15 +231,16 @@ filter_means <- plot(mssm_obj)
 ![](./README-fig/plot_filter-1.png)![](./README-fig/plot_filter-2.png)
 
 ``` r
-# plot with true line as well
+# plot with which also contains the true paths
 for(i in 1:ncol(betas)){
   be <- betas[, i]
   me <- filter_means$means[i, ]
   lb <- filter_means$lbs[i, ]
   ub <- filter_means$ubs[i, ]
   
-  # dashed: true line, continuous: filter estimate 
-  # dotted: prediction interval
+  #     dashed: true paths
+  # continuous: predicted mean from filter distribution 
+  #     dotted: prediction interval
   par(mar = c(5, 4, 1, 1))
   matplot(cbind(be, me, lb, ub), lty = c(2, 1, 3, 3), type = "l", 
           col = "black", ylab = rownames(filter_means$lbs)[i])
@@ -232,7 +255,7 @@ We can get the effective sample size at each point in time with the `get_ess` fu
 (ess <- get_ess(mssm_obj))
 ```
 
-    ## Effective sample size:
+    ## Effective sample sizes
     ##   Mean      460.5
     ##   sd         13.0
     ##   Min       404.4
@@ -263,7 +286,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   0.720   0.002   0.175
+    ##   0.660   0.010   0.172
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -282,7 +305,7 @@ TODO: I am not sure why we get a lower log-likelihood with the above.
 
 ### Parameter Estimation
 
-We will need to estimate the parameter for real applications. We could do this e.g., with a Monte Carlo expectation-maximization algorithm or by using a Monte Carlo approximation of the gradient. Currently, the latter is only available and the user will have to write a custom function to perform the estimation. I will provide an example below. The `sgd` function is not a part of the package. Instead the package provides a way to approximate the gradient and allows the user to perform subsequent maximization. The definition of the `sgd` is given at the end of this file as it is somewhat long.
+We will need to estimate the parameters for real applications. We could do this e.g., with a Monte Carlo expectation-maximization algorithm or by using a Monte Carlo approximation of the gradient. Currently, the latter is only available and the user will have to write a custom function to perform the estimation. I will provide an example below. The `sgd` function is not a part of the package. Instead the package provides a way to approximate the gradient and allows the user to perform subsequent maximization (e.g., with constraints or penalties). The definition of the `sgd` is given at the end of this file as it is somewhat long.
 
 ``` r
 # setup mssmFunc object to use
@@ -292,21 +315,21 @@ ll_func <- mssm(
     n_threads = 5L, N_part = 200L, what = "gradient"))
 
 # use stochastic gradient descent
-system.time(
+system.time( 
   res <- sgd(
-    ll_func, F. = diag(.1, 2), Q = diag(.1^2, 2), cfix = coef(glm_fit)))
+    ll_func, F. = diag(.5, 2), Q = diag(2, 2), cfix = coef(glm_fit)))
 ```
 
     ##    user  system elapsed 
-    ## 367.787   2.471  85.608
+    ## 201.825   1.315  46.881
 
-A plot of the approximate log-likelihoods at each iteration are shown below along with the final estimates.
+A plot of the approximate log-likelihoods at each iteration is shown below along with the final estimates.
 
 ``` r
 tail(res$logLik, 1L) # final log-likelihood approximation
 ```
 
-    ## [1] -2007
+    ## [1] -2004
 
 ``` r
 par(mar = c(5, 4, 1, 1))
@@ -327,26 +350,26 @@ res$F.
 ```
 
     ##          [,1]    [,2]
-    ## [1,]  0.31907 0.05154
-    ## [2,] -0.01707 0.73443
+    ## [1,]  0.40283 0.06492
+    ## [2,] -0.05569 0.83593
 
 ``` r
 res$Q
 ```
 
     ##         [,1]    [,2]
-    ## [1,] 0.31994 0.09186
-    ## [2,] 0.09186 0.50461
+    ## [1,] 0.29828 0.05731
+    ## [2,] 0.05731 0.31031
 
 ``` r
 res$cfix
 ```
 
-    ## [1] -1.0479  0.2116  0.5189 -1.0698
+    ## [1] -1.0480  0.2145  0.5192 -1.0929
 
 ### Faster Approximation
 
-One drawback with the particle filter we use is that it has ![\\mathcal{O}(N^2)](https://chart.googleapis.com/chart?cht=tx&chl=%5Cmathcal%7BO%7D%28N%5E2%29 "\mathcal{O}(N^2)") computational complexity where ![N](https://chart.googleapis.com/chart?cht=tx&chl=N "N") is the number of particles. We can see this by adjusting the number of particles.
+One drawback with the particle filter we use is that it has ![\\mathcal{O}(N^2)](https://chart.googleapis.com/chart?cht=tx&chl=%5Cmathcal%7BO%7D%28N%5E2%29 "\mathcal{O}(N^2)") computational complexity where ![N](https://chart.googleapis.com/chart?cht=tx&chl=N "N") is the number of particles. We can see this by changing the number of particles.
 
 ``` r
 local({
@@ -429,7 +452,7 @@ The `aprx_eps` controls the size of the error. To be precise about what this val
 
 ![L = \\mu\_1(\\vec \\beta\_1)g\_1(\\vec y\_1 \\mid \\vec \\beta\_1)\\prod\_{t=2}^Tf(\\vec\\beta\_t \\mid\\vec\\beta\_{t-1})g\_t(y\_t\\mid\\beta\_t)](https://chart.googleapis.com/chart?cht=tx&chl=L%20%3D%20%5Cmu_1%28%5Cvec%20%5Cbeta_1%29g_1%28%5Cvec%20y_1%20%5Cmid%20%5Cvec%20%5Cbeta_1%29%5Cprod_%7Bt%3D2%7D%5ETf%28%5Cvec%5Cbeta_t%20%5Cmid%5Cvec%5Cbeta_%7Bt-1%7D%29g_t%28y_t%5Cmid%5Cbeta_t%29 "L = \mu_1(\vec \beta_1)g_1(\vec y_1 \mid \vec \beta_1)\prod_{t=2}^Tf(\vec\beta_t \mid\vec\beta_{t-1})g_t(y_t\mid\beta_t)")
 
-where ![g\_t](https://chart.googleapis.com/chart?cht=tx&chl=g_t "g_t") is conditional distribution ![\\vec y\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20y_t "\vec y_t") given ![\\vec\\beta\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_t "\vec\beta_t"), ![f](https://chart.googleapis.com/chart?cht=tx&chl=f "f") is the conditional distribution of ![\\vec\\beta\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_t "\vec\beta_t") given ![\\vec\\beta\_{t-1}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_%7Bt-1%7D "\vec\beta_{t-1}"), and ![\\mu](https://chart.googleapis.com/chart?cht=tx&chl=%5Cmu "\mu") is the time-invariant distribution of ![\\vec\\beta](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta "\vec\beta"). Let ![w\_t^{(j)}](https://chart.googleapis.com/chart?cht=tx&chl=w_t%5E%7B%28j%29%7D "w_t^{(j)}") be the weight of particle ![j](https://chart.googleapis.com/chart?cht=tx&chl=j "j") at time ![t](https://chart.googleapis.com/chart?cht=tx&chl=t "t") and ![\\vec \\beta\_t^{(j)}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20%5Cbeta_t%5E%7B%28j%29%7D "\vec \beta_t^{(j)}") be the ![j](https://chart.googleapis.com/chart?cht=tx&chl=j "j")th particle at time ![t](https://chart.googleapis.com/chart?cht=tx&chl=t "t"). Then we ensure the error in our evaluation of terms ![w\_{t-1}^{(j)}f(\\vec\\beta\_t^{(i)} \\mid \\vec\\beta\_{t-1}^{(j)})](https://chart.googleapis.com/chart?cht=tx&chl=w_%7Bt-1%7D%5E%7B%28j%29%7Df%28%5Cvec%5Cbeta_t%5E%7B%28i%29%7D%20%5Cmid%20%5Cvec%5Cbeta_%7Bt-1%7D%5E%7B%28j%29%7D%29 "w_{t-1}^{(j)}f(\vec\beta_t^{(i)} \mid \vec\beta_{t-1}^{(j)})") never exceeds
+where ![g\_t](https://chart.googleapis.com/chart?cht=tx&chl=g_t "g_t") is conditional distribution ![\\vec y\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20y_t "\vec y_t") given ![\\vec\\beta\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_t "\vec\beta_t"), ![f](https://chart.googleapis.com/chart?cht=tx&chl=f "f") is the conditional distribution of ![\\vec\\beta\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_t "\vec\beta_t") given ![\\vec\\beta\_{t-1}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_%7Bt-1%7D "\vec\beta_{t-1}"), and ![\\mu](https://chart.googleapis.com/chart?cht=tx&chl=%5Cmu "\mu") is the time-invariant distribution of ![\\vec\\beta\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_t "\vec\beta_t"). Let ![w\_t^{(j)}](https://chart.googleapis.com/chart?cht=tx&chl=w_t%5E%7B%28j%29%7D "w_t^{(j)}") be the weight of particle ![j](https://chart.googleapis.com/chart?cht=tx&chl=j "j") at time ![t](https://chart.googleapis.com/chart?cht=tx&chl=t "t") and ![\\vec \\beta\_t^{(j)}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20%5Cbeta_t%5E%7B%28j%29%7D "\vec \beta_t^{(j)}") be the ![j](https://chart.googleapis.com/chart?cht=tx&chl=j "j")th particle at time ![t](https://chart.googleapis.com/chart?cht=tx&chl=t "t"). Then we ensure the error in our evaluation of terms ![w\_{t-1}^{(j)}f(\\vec\\beta\_t^{(i)} \\mid \\vec\\beta\_{t-1}^{(j)})](https://chart.googleapis.com/chart?cht=tx&chl=w_%7Bt-1%7D%5E%7B%28j%29%7Df%28%5Cvec%5Cbeta_t%5E%7B%28i%29%7D%20%5Cmid%20%5Cvec%5Cbeta_%7Bt-1%7D%5E%7B%28j%29%7D%29 "w_{t-1}^{(j)}f(\vec\beta_t^{(i)} \mid \vec\beta_{t-1}^{(j)})") never exceeds
 
 ![w\_{t-1} \\frac{u - l}{(u + l)/2}](https://chart.googleapis.com/chart?cht=tx&chl=w_%7Bt-1%7D%20%5Cfrac%7Bu%20-%20l%7D%7B%28u%20%2B%20l%29%2F2%7D "w_{t-1} \frac{u - l}{(u + l)/2}")
 
@@ -438,7 +461,7 @@ where ![g\_t](https://chart.googleapis.com/chart?cht=tx&chl=g_t "g_t") is condit
 ``` r
 ll_compare <- local({
   N_use <- 500L
-  # we alter the seed in each run
+  # we alter the seed in each run. First, the exact method
   ll_no_approx <- sapply(1:100, function(seed){
     ll_func <- mssm(
       fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
@@ -450,6 +473,7 @@ ll_compare <- local({
       cfix = cfix, disp = numeric(), F. = F., Q = Q))
   })
   
+  # then the approximation
   ll_approx <- sapply(1:100, function(seed){
     ll_func <- mssm(
       fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
@@ -512,11 +536,11 @@ with(ll_compare, t.test(ll_no_approx, ll_approx))
     ## mean of x mean of y 
     ##     -2008     -2008
 
-The fact that it is small is nice because now we can get a much better approximation quickly of e.g., the log-likelihood as shown below.
+The fact that it is small is nice because now we can get a much better approximation (in terms of variance) quickly of e.g., the log-likelihood as shown below.
 
 ``` r
 ll_approx <- sapply(1:10, function(seed){
-  N_use <- 100000L
+  N_use <- 100000L # many more particles
   
   ll_func <- mssm(
     fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
@@ -549,6 +573,12 @@ sd(ll_approx)
     ## [1] 0.04254
 
 ``` r
+mean(ll_approx)
+```
+
+    ## [1] -2008
+
+``` r
 # compare sd with 
 sd(ll_compare$ll_no_approx)
 ```
@@ -558,7 +588,7 @@ sd(ll_compare$ll_no_approx)
 Fast Sum-Kernel Approximation
 -----------------------------
 
-This package contains a simple implementation of the dual-tree method like the one suggested by Gray and Moore (2003) and shown in Klaas et al. (2006). It is currently not used in the particle filters but will be in the future. The problem we want to solve is the sum-kernel problem in Klaas et al. (2006). Particularly, we consider the situation where we have ![1,\\dots,N\_q](https://chart.googleapis.com/chart?cht=tx&chl=1%2C%5Cdots%2CN_q "1,\dots,N_q") query particles denoted by ![\\{\\vec Y\_i\\}\_{i=1,\\dots,N\_q}](https://chart.googleapis.com/chart?cht=tx&chl=%5C%7B%5Cvec%20Y_i%5C%7D_%7Bi%3D1%2C%5Cdots%2CN_q%7D "\{\vec Y_i\}_{i=1,\dots,N_q}") and ![1,\\dots,N\_s](https://chart.googleapis.com/chart?cht=tx&chl=1%2C%5Cdots%2CN_s "1,\dots,N_s") source particles denoted by ![\\{\\vec X\_j\\}\_{j=1,\\dots,N\_s}](https://chart.googleapis.com/chart?cht=tx&chl=%5C%7B%5Cvec%20X_j%5C%7D_%7Bj%3D1%2C%5Cdots%2CN_s%7D "\{\vec X_j\}_{j=1,\dots,N_s}"). For each query particle, we want to compute the weights
+This package contains a simple implementation of the dual-tree method like the one suggested by Gray and Moore (2003) and shown in Klaas et al. (2006). The problem we want to solve is the sum-kernel problem in Klaas et al. (2006). Particularly, we consider the situation where we have ![1,\\dots,N\_q](https://chart.googleapis.com/chart?cht=tx&chl=1%2C%5Cdots%2CN_q "1,\dots,N_q") query particles denoted by ![\\{\\vec Y\_i\\}\_{i=1,\\dots,N\_q}](https://chart.googleapis.com/chart?cht=tx&chl=%5C%7B%5Cvec%20Y_i%5C%7D_%7Bi%3D1%2C%5Cdots%2CN_q%7D "\{\vec Y_i\}_{i=1,\dots,N_q}") and ![1,\\dots,N\_s](https://chart.googleapis.com/chart?cht=tx&chl=1%2C%5Cdots%2CN_s "1,\dots,N_s") source particles denoted by ![\\{\\vec X\_j\\}\_{j=1,\\dots,N\_s}](https://chart.googleapis.com/chart?cht=tx&chl=%5C%7B%5Cvec%20X_j%5C%7D_%7Bj%3D1%2C%5Cdots%2CN_s%7D "\{\vec X_j\}_{j=1,\dots,N_s}"). For each query particle, we want to compute the weights
 
 ![W\_i = \\frac{\\tilde W\_i}{\\sum\_{k = 1}^{N\_q} \\tilde W\_i},\\qquad \\tilde W\_i = \\sum\_{j=1}^{N\_s} \\bar W\_j K(\\vec Y\_i, \\vec X\_j)](https://chart.googleapis.com/chart?cht=tx&chl=W_i%20%3D%20%5Cfrac%7B%5Ctilde%20W_i%7D%7B%5Csum_%7Bk%20%3D%201%7D%5E%7BN_q%7D%20%5Ctilde%20W_i%7D%2C%5Cqquad%20%5Ctilde%20W_i%20%3D%20%5Csum_%7Bj%3D1%7D%5E%7BN_s%7D%20%5Cbar%20W_j%20K%28%5Cvec%20Y_i%2C%20%5Cvec%20X_j%29 "W_i = \frac{\tilde W_i}{\sum_{k = 1}^{N_q} \tilde W_i},\qquad \tilde W_i = \sum_{j=1}^{N_s} \bar W_j K(\vec Y_i, \vec X_j)")
 
@@ -603,7 +633,7 @@ set.seed(42452654)
 invisible(list2env(get_sims(5000L), environment()))
 
 # plot points
-par(mar = c(5, 4, .5, .5))
+par(mar = c(5, 4, 1, 1))
 plot(as.matrix(sims[, c("X1", "X2")]), col = sims$grp + 1L)
 
 # find k-d tree and add borders 
@@ -639,11 +669,11 @@ microbenchmark::microbenchmark(
 ```
 
     ## Unit: milliseconds
-    ##         expr     min      lq    mean  median      uq    max neval
-    ##  dual tree 1  117.52  119.60  132.43  131.48  140.49  165.7    10
-    ##  dual tree 6   42.94   47.77   54.38   52.62   61.77   66.2    10
-    ##      naive 1 3350.31 3560.50 3716.53 3658.46 3855.03 4280.1    10
-    ##      naive 6 1174.50 1212.13 1276.23 1242.48 1303.59 1576.5    10
+    ##         expr     min      lq   mean  median      uq     max neval
+    ##  dual tree 1  116.98  118.34  121.5  118.93  121.73  135.52    10
+    ##  dual tree 6   41.45   41.82   43.4   41.96   43.52   51.77    10
+    ##      naive 1 3318.78 3335.22 3409.1 3382.32 3509.36 3546.91    10
+    ##      naive 6  873.27  935.32  965.1  967.98  992.91 1042.07    10
 
 ``` r
 # The functions return the un-normalized log weights. We first compare
@@ -658,7 +688,7 @@ all.equal(o1, o2)
     ## [1] "Mean relative difference: 0.0015"
 
 ``` r
-par(mar = c(5, 4, .5, .5))
+par(mar = c(5, 4, 1, 1))
 hist((o1 - o2)/ abs((o1 + o2) / 2), breaks = 50, main = "", 
      xlab = "Delta un-normalized log weights")
 ```
@@ -740,7 +770,7 @@ meds
     ##   1572864  4.452460         NA          NA
 
 ``` r
-par(mar = c(5, 4, .5, .5))
+par(mar = c(5, 4, 1, 1))
 matplot(c(Ns, Ns_xtra) * 3L, meds, lty = 1:3, type = "l", log = "xy", 
         ylab = "seconds", xlab = "N", col = "black")
 ```
@@ -770,8 +800,8 @@ Function Definitions
 # Returns:
 #   List with estimates and the log-likelihood approximation at each iteration. 
 sgd <- function(
-  object, n_it = 250L, 
-  lrs = 1e-3 * (1:n_it)^(-1/2), avg_start = max(1L, as.integer(n_it * 4L / 5L)),
+  object, n_it = 150L, 
+  lrs = 1e-2 * (1:n_it)^(-1/2), avg_start = max(1L, as.integer(n_it * 4L / 5L)),
   cfix, F., Q,  verbose = FALSE)
 {
   # make checks

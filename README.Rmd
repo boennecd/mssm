@@ -17,6 +17,8 @@ knitr::opts_chunk$set(
 options(digits = 4, scipen = 7)
 .fig_height_small <- 4
 source("render_toc.R")
+palette(c("#000000", "#009E73", "#e79f00", "#9ad0f3", "#0072B2", "#D55E00", 
+          "#CC79A7", "#F0E442"))
 ```
 
 This package provides methods to estimate models of the form 
@@ -30,8 +32,8 @@ $y_{it}$, $\vec x_{it}$, and
 $\vec z_{it}$ are known. What is multivariate is 
 $\vec y_t = \{y_{it}\}_{i\in I_t}$ (though, $\vec \beta_t$ can also be 
 multivariate) and this package is written to scale well 
-in the dimension of $| I_t |$. The package uses an independent 
-particle filter as suggested by @Lin05. This is particular type of filter 
+in the dimension of $| I_t |$. The package uses independent 
+particle filters as suggested by @Lin05. This particular type of filter 
 can be used in the method suggested by @Poyiadjis11. I will show an example
 of how to use the package through the rest of the document and highlight some 
 implementation details. 
@@ -54,7 +56,7 @@ render_toc("README.Rmd", toc_header_name = "Table of Contents", toc_depth = 3L)
 We simulate data as follows.
 
 ```{r simulate, fig.height = .fig_height_small}
-# simulate state path of state variable 
+# simulate path of state variables 
 set.seed(78727269)
 n_periods <- 110L
 (F. <- matrix(c(.5, .1, 0, .8), 2L))
@@ -69,7 +71,7 @@ for(i in 2:nrow(betas))
 par(mar = c(5, 4, 1, 1))
 matplot(betas, lty = 1, type = "l")
 
-# simualte observations
+# sumulate observations
 cfix <- c(-1, .2, .5, -1) # gamma
 n_obs <- 100L
 dat <- lapply(1:n_obs, function(id){
@@ -91,6 +93,20 @@ dat <- do.call(rbind, dat)
 nrow(dat)
 head(dat)
 table(dat$y)
+
+# quick smooth of number of events vs. time
+par(mar = c(5, 4, 1, 1))
+plot(smooth.spline(dat$time_idx, dat$y), type = "l", xlab = "Time", 
+     ylab = "Number of events")
+
+# and split by those with `Z` above and below 0
+with(dat, {
+  z_large <- ifelse(Z > 0, "large", "small")
+  smooths <- lapply(split(cbind(dat, z_large), z_large), function(x){
+    plot(smooth.spline(x$time_idx, x$y), type = "l", xlab = "Time", 
+     ylab = paste("Number of events -", unique(x$z_large)))
+  })
+})
 ```
 
 In the above, we simulate `r n_periods` (`n_periods`) with `r n_obs` (`n_obs`)
@@ -100,7 +116,7 @@ random slope. Further, the intercept is also random.
 
 ### Log-Likelihood Approximations
 
-We estimate a generalized linear model without random effects.
+We start by estimating a generalized linear model without random effects.
 
 ```{r fit_glm}
 glm_fit <- glm(y ~ X1 + X2 + Z, poisson(), dat)
@@ -137,21 +153,23 @@ logLik(glm(y ~ X1 + X2 + Z * ns(time_idx, df = 20, intercept = TRUE)- 1,
            poisson(), dat))
 ```
 
-We can plot the **filter** estimates.
+We can plot the predicted values of state variables from the filter 
+distribution.
 
 ```{r plot_filter, fig.height = .fig_height_small}
 # plot estiamtes 
 filter_means <- plot(mssm_obj)
 
-# plot with true line as well
+# plot with which also contains the true paths
 for(i in 1:ncol(betas)){
   be <- betas[, i]
   me <- filter_means$means[i, ]
   lb <- filter_means$lbs[i, ]
   ub <- filter_means$ubs[i, ]
   
-  # dashed: true line, continuous: filter estimate 
-  # dotted: prediction interval
+  #     dashed: true paths
+  # continuous: predicted mean from filter distribution 
+  #     dotted: prediction interval
   par(mar = c(5, 4, 1, 1))
   matplot(cbind(be, me, lb, ub), lty = c(2, 1, 3, 3), type = "l", 
           col = "black", ylab = rownames(filter_means$lbs)[i])
@@ -201,14 +219,15 @@ TODO: I am not sure why we get a lower log-likelihood with the above.
 
 ### Parameter Estimation
 
-We will need to estimate the parameter for real applications. We could do 
+We will need to estimate the parameters for real applications. We could do 
 this e.g., with a Monte Carlo expectation-maximization algorithm or by using 
 a Monte Carlo approximation of the gradient. Currently, the latter is only 
 available and the user will have to write a custom function to perform 
 the estimation. 
 I will provide an example below. The `sgd` function is not a part of the 
 package. Instead the package provides a way to approximate the gradient and 
-allows the user to perform subsequent maximization. The definition of the 
+allows the user to perform subsequent maximization (e.g., with constraints or 
+penalties). The definition of the 
 `sgd` is given at the end of this file as it is somewhat long. 
 
 ```{r mc_grad_est, echo = FALSE}
@@ -231,8 +250,8 @@ allows the user to perform subsequent maximization. The definition of the
 # Returns:
 #   List with estimates and the log-likelihood approximation at each iteration. 
 sgd <- function(
-  object, n_it = 250L, 
-  lrs = 1e-3 * (1:n_it)^(-1/2), avg_start = max(1L, as.integer(n_it * 4L / 5L)),
+  object, n_it = 150L, 
+  lrs = 1e-2 * (1:n_it)^(-1/2), avg_start = max(1L, as.integer(n_it * 4L / 5L)),
   cfix, F., Q,  verbose = FALSE)
 {
   # make checks
@@ -339,12 +358,12 @@ ll_func <- mssm(
     n_threads = 5L, N_part = 200L, what = "gradient"))
 
 # use stochastic gradient descent
-system.time(
+system.time( 
   res <- sgd(
-    ll_func, F. = diag(.1, 2), Q = diag(.1^2, 2), cfix = coef(glm_fit)))
+    ll_func, F. = diag(.5, 2), Q = diag(2, 2), cfix = coef(glm_fit)))
 ```
 
-A plot of the approximate log-likelihoods at each iteration are shown below 
+A plot of the approximate log-likelihoods at each iteration is shown below 
 along with the final estimates. 
 
 ```{r show_use_sgd, fig.height = .fig_height_small}
@@ -362,7 +381,7 @@ res$cfix
 ### Faster Approximation
 One drawback with the particle filter we use is that it has $\mathcal{O}(N^2)$ 
 computational complexity where $N$ is the number of particles. We can see 
-this by adjusting the number of particles. 
+this by changing the number of particles. 
 
 ```{r comp_w_n_part, cache = 1}
 local({
@@ -434,7 +453,8 @@ $$L = \mu_1(\vec \beta_1)g_1(\vec y_1 \mid \vec \beta_1)\prod_{t=2}^Tf(\vec\beta
 
 where $g_t$ is conditional distribution $\vec y_t$ given $\vec\beta_t$, $f$ is 
 the conditional distribution of $\vec\beta_t$ given $\vec\beta_{t-1}$, and
-$\mu$ is the time-invariant distribution of $\vec\beta$. Let $w_t^{(j)}$ be the weight of particle 
+$\mu$ is the time-invariant distribution of $\vec\beta_t$. 
+Let $w_t^{(j)}$ be the weight of particle 
 $j$ at time $t$ and $\vec \beta_t^{(j)}$ be the $j$th particle at time $t$. 
 Then we ensure the error in our evaluation of terms 
 $w_{t-1}^{(j)}f(\vec\beta_t^{(i)} \mid \vec\beta_{t-1}^{(j)})$ never 
@@ -450,7 +470,7 @@ true parameters.
 ```{r comp_arell_aprx, cache = 1, fig.height = .fig_height_small}
 ll_compare <- local({
   N_use <- 500L
-  # we alter the seed in each run
+  # we alter the seed in each run. First, the exact method
   ll_no_approx <- sapply(1:100, function(seed){
     ll_func <- mssm(
       fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
@@ -462,6 +482,7 @@ ll_compare <- local({
       cfix = cfix, disp = numeric(), F. = F., Q = Q))
   })
   
+  # then the approximation
   ll_approx <- sapply(1:100, function(seed){
     ll_func <- mssm(
       fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
@@ -495,11 +516,12 @@ with(ll_compare, t.test(ll_no_approx, ll_approx))
 ```
 
 The fact that it is small is nice because now we can get a much better 
-approximation quickly of e.g., the log-likelihood as shown below.
+approximation (in terms of variance) quickly of e.g., the log-likelihood 
+as shown below.
 
 ```{r show_ll_quick, cache = 1}
 ll_approx <- sapply(1:10, function(seed){
-  N_use <- 100000L
+  N_use <- 100000L # many more particles
   
   ll_func <- mssm(
     fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
@@ -514,6 +536,7 @@ ll_approx <- sapply(1:10, function(seed){
 
 # approximate log-likelihood
 sd(ll_approx)
+mean(ll_approx)
 
 # compare sd with 
 sd(ll_compare$ll_no_approx)
@@ -522,8 +545,7 @@ sd(ll_compare$ll_no_approx)
 ## Fast Sum-Kernel Approximation
 
 This package contains a simple implementation of the dual-tree method like the one 
-suggested by @Gray03 and shown in @Klaas06. It is currently not used in 
-the particle filters but will be in the future. The problem we want to solve is
+suggested by @Gray03 and shown in @Klaas06. The problem we want to solve is
 the sum-kernel problem in @Klaas06. Particularly, we consider the situation 
 where we have $1,\dots,N_q$ query particles denoted by 
 $\{\vec Y_i\}_{i=1,\dots,N_q}$ and $1,\dots,N_s$ source particles denoted by
@@ -586,7 +608,7 @@ set.seed(42452654)
 invisible(list2env(get_sims(5000L), environment()))
 
 # plot points
-par(mar = c(5, 4, .5, .5))
+par(mar = c(5, 4, 1, 1))
 plot(as.matrix(sims[, c("X1", "X2")]), col = sims$grp + 1L)
 
 # find k-d tree and add borders 
@@ -628,7 +650,7 @@ o1 <- mssm:::FSKA  (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3,
 o2 <- mssm:::naive(X = X, ws = ws, Y = X, n_threads = 4L)
 
 all.equal(o1, o2)
-par(mar = c(5, 4, .5, .5))
+par(mar = c(5, 4, 1, 1))
 hist((o1 - o2)/ abs((o1 + o2) / 2), breaks = 50, main = "", 
      xlab = "Delta un-normalized log weights")
 
@@ -682,7 +704,7 @@ meds <- rbind(meds, cbind(meds_xtra, NA_real_, NA_real_))
 dimnames(meds) <- list(
   N = c(Ns, Ns_xtra) * 3L, method = c("Dual-tree", "Naive", "Dual-tree 1"))
 meds
-par(mar = c(5, 4, .5, .5))
+par(mar = c(5, 4, 1, 1))
 matplot(c(Ns, Ns_xtra) * 3L, meds, lty = 1:3, type = "l", log = "xy", 
         ylab = "seconds", xlab = "N", col = "black")
 ```

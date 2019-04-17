@@ -5,7 +5,7 @@
 \title{Auxiliary for Controlling Multivariate State Space Model Fitting}
 \usage{
 mssm_control(N_part = 1000L, n_threads = 1L, covar_fac = 1.2,
-  ftol_rel = 1e-06, nu = 8, what = "log_density",
+  ftol_rel = 0.000001, nu = 8, what = "log_density",
   which_sampler = "mode_aprx", which_ll_cp = "no_aprx", seed = 1L,
   KD_N_max = 10L, aprx_eps = 0.001)
 }
