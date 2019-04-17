@@ -48,7 +48,6 @@ KD_note::KD_note(
     bool do_split = idx_in->size() > N_min;
     if(do_split){
       /* split indices*/
-
       idx_ptr idx_left;
       idx_ptr idx_right;
 
@@ -61,7 +60,7 @@ KD_note::KD_note(
         rect_left .shrink(X, *idx_left , split_dim.dim);
         rect_right.shrink(X, *idx_right, split_dim.dim);
       }
-      idx_in.release(); /* do not need indices anymore */
+      idx_in.reset(); /* do not need indices anymore */
 
       left .reset(
         new KD_note(X, N_min, idx_left , order, depth + 1L, &rect_left));
@@ -108,7 +107,7 @@ row_order::index_partition row_order::get_split(
     index_partition out;
     out.dim = row;
 
-    out.left.reset (new std::vector<arma::uword>(split_at));
+    out.left .reset(new std::vector<arma::uword>(split_at));
     out.right.reset(new std::vector<arma::uword>(indices.size() - split_at));
 
     std::vector<arma::uword> &left  = *out.left;

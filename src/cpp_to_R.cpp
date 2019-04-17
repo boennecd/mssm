@@ -147,7 +147,7 @@ Rcpp::List pf_filter
    const double nu, const double covar_fac, const double ftol_rel,
    const arma::uword N_part, const std::string &what,
    const std::string &which_sampler, const std::string &which_ll_cp,
-   const unsigned int trace)
+   const unsigned int trace, const arma::uword KD_N_max, const double aprx_eps)
 {
   /* create vector with time indices */
   const std::vector<arma::uvec> time_indices = ([&]{
@@ -169,7 +169,8 @@ Rcpp::List pf_filter
   })();
 
   /* setup problem data object */
-  control_obj ctrl(n_threads, nu, covar_fac, ftol_rel, N_part, what, trace);
+  control_obj ctrl(n_threads, nu, covar_fac, ftol_rel, N_part, what, trace,
+                   KD_N_max, aprx_eps);
   problem_data dat(
     Y, cfix, ws, offsets, disp, X, Z, time_indices, F, Q, Q0, fam, mu0,
     std::move(ctrl));
@@ -189,6 +190,9 @@ Rcpp::List pf_filter
     if(which_ll_cp == "no_aprx")
       return std::unique_ptr<stats_comp_helper>(
         new stats_comp_helper_no_aprx());
+    if(which_ll_cp == "KD")
+      return std::unique_ptr<stats_comp_helper>(
+        new stats_comp_helper_aprx_KD());
 
     throw std::invalid_argument("Unkown ll_cp: '" + which_ll_cp + "'");
   })();

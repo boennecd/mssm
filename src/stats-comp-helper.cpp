@@ -1,10 +1,12 @@
 #include "stats-comp-helper.h"
 #include "blas-lapack.h"
 #include "thread_pool.h"
+#include "fast-kernel-approx.h"
 
 static constexpr int I_ONE = 1L;
 using std::ref;
 using std::cref;
+using namespace std::placeholders;
 
 class comp_stat_util {
   const comp_out what;
@@ -23,9 +25,9 @@ class comp_stat_util {
   };
   const std::array<dist, 2L> dists;
   const int stat_dim;
-  const bool any_work = stat_dim > 0L;
 
 public:
+  const bool any_work = stat_dim > 0L;
   comp_stat_util(const comp_out what, const cdist &d1, const cdist &d2):
   what(what), dists({ dist(d1, what), dist(d2, what) }),
   stat_dim(dists[0].di.stat_dim(what) + dists[1].di.stat_dim(what)) { }
@@ -141,7 +143,7 @@ void stats_comp_helper::set_ll_n_stat_
 
   if(old_cloud)
     set_ll_state_state(
-      obs_dist, *old_cloud, new_cloud, util, dat.ctrl.get_pool(), *trans_func);
+      obs_dist, *old_cloud, new_cloud, util, dat.ctrl, *trans_func);
   else {
     const arma::uword n_particles = new_cloud.N_particles();
     /* TODO: do this in parallel? */
@@ -202,45 +204,109 @@ inline void set_trans_ll_n_comp_stats_no_aprx
 
 void stats_comp_helper_no_aprx::set_ll_state_state
   (const cdist &obs_dist, particle_cloud &old_cloud, particle_cloud &new_cloud,
-   const comp_stat_util &util, thread_pool &pool, const trans_obj &trans_func)
+   const comp_stat_util &util, const control_obj &ctrl, const trans_obj &trans_func)
   const
+{
+  /* transform*/
+  trans_func.trans_X(old_cloud.particles);
+  trans_func.trans_Y(new_cloud.particles);
+  thread_pool &pool = ctrl.get_pool();
+
   {
-    /* transform*/
-    trans_func.trans_X(old_cloud.particles);
-    trans_func.trans_Y(new_cloud.particles);
+    /* copy old log weights. We need to add this later */
+    add_back<arma::vec> ad(new_cloud.ws);
 
     {
-      /* copy old log weights. We need to add this later */
-      add_back<arma::vec> ad(new_cloud.ws);
+      const arma::uword n_particles = new_cloud.N_particles();
+      auto loop_figs = get_inc_n_block(n_particles, pool);
+      std::vector<std::future<void> > futures;
+      futures.reserve(loop_figs.n_tasks);
 
-      {
-        const arma::uword n_particles = new_cloud.N_particles();
-        auto loop_figs = get_inc_n_block(n_particles, pool);
-        std::vector<std::future<void> > futures;
-        futures.reserve(loop_figs.n_tasks);
-
-        for(arma::uword start = 0L; start < n_particles;){
-          arma::uword end = std::min(start + loop_figs.inc, n_particles);
-          futures.push_back(pool.submit(std::bind(
-              set_trans_ll_n_comp_stats_no_aprx, ref(old_cloud), ref(new_cloud),
-              cref(trans_func), cref(util), start, end)));
-          start = end;
-        }
-
-        while(!futures.empty()){
-          futures.back().get();
-          futures.pop_back();
-        }
+      for(arma::uword start = 0L; start < n_particles;){
+        arma::uword end = std::min(start + loop_figs.inc, n_particles);
+        futures.push_back(pool.submit(std::bind(
+            set_trans_ll_n_comp_stats_no_aprx, ref(old_cloud), ref(new_cloud),
+            cref(trans_func), cref(util), start, end)));
+        start = end;
       }
 
-      /* normalize statistics */
-      {
-        arma::vec norm_conts = arma::exp(new_cloud.ws);
-        new_cloud.stats.each_row() /= norm_conts.t();
+      while(!futures.empty()){
+        futures.back().get();
+        futures.pop_back();
       }
     }
 
-    /* transform back */
-    trans_func.trans_inv_X(old_cloud.particles);
-    trans_func.trans_inv_Y(new_cloud.particles);
+    /* normalize statistics */
+    {
+      arma::vec norm_conts = arma::exp(new_cloud.ws);
+      new_cloud.stats.each_row() /= norm_conts.t();
+    }
   }
+
+  /* transform back */
+  trans_func.trans_inv_X(old_cloud.particles);
+  trans_func.trans_inv_Y(new_cloud.particles);
+}
+
+void stats_comp_helper_aprx_KD::set_ll_state_state
+  (const cdist &obs_dist, particle_cloud &old_cloud, particle_cloud &new_cloud,
+   const comp_stat_util &util, const control_obj &ctrl,
+   const trans_obj &trans_func)
+  const
+{
+  /* copy old log weights. We need to add this later */
+  add_back<arma::vec> ad(new_cloud.ws);
+
+  {
+    const bool any_work = util.any_work;
+
+    arma::vec &ws = new_cloud.ws,
+          &old_ws = old_cloud.ws_normalized;
+
+    ws.fill(-std::numeric_limits<double>::infinity());
+
+    arma::mat &new_particles = new_cloud.particles,
+              &old_particles = old_cloud.particles,
+              &new_stat = new_cloud.stats,
+              &old_stat = old_cloud.stats;
+
+    const arma::uword N_min = ctrl.KD_N_min;
+    const double eps = ctrl.aprx_eps;
+
+    thread_pool &pool = ctrl.get_pool();
+
+    auto permu_indices = ([&]{
+      if(any_work){
+        auto state_state_func = std::bind(
+          &comp_stat_util::state_state, &util, _1, _2, _3, _4, _5);
+
+        return FSKA_cpp<true>(
+          ws, old_particles, new_particles, old_ws, N_min, eps, trans_func,
+          pool, &old_stat, &new_stat, state_state_func);
+      }
+
+      return FSKA_cpp<false>(
+        ws, old_particles, new_particles, old_ws, N_min, eps, trans_func,
+        pool);
+    })();
+
+    /* normalize statistics */
+    {
+      arma::vec norm_conts = arma::exp(ws);
+      new_cloud.stats.each_row() /= norm_conts.t();
+    }
+
+    /* permutate */
+    ws = ws(permu_indices.Y_perm);
+    new_particles = new_particles.cols(permu_indices.Y_perm);
+
+    old_ws = old_ws(permu_indices.X_perm);
+    old_particles = old_particles.cols(permu_indices.X_perm);
+
+    if(any_work){
+      new_stat = new_stat.cols(permu_indices.Y_perm);
+      old_stat = old_stat.cols(permu_indices.X_perm);
+    }
+  }
+}
+

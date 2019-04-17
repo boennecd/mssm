@@ -12,7 +12,13 @@ This package provides methods to estimate models of the form
 
 ![\\vec\\beta\_t = F\\vec\\beta\_{t-1}+\\vec\\epsilon\_t, \\qquad \\vec\\epsilon\_t\\sim N(\\vec 0, Q)](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_t%20%3D%20F%5Cvec%5Cbeta_%7Bt-1%7D%2B%5Cvec%5Cepsilon_t%2C%20%5Cqquad%20%5Cvec%5Cepsilon_t%5Csim%20N%28%5Cvec%200%2C%20Q%29 "\vec\beta_t = F\vec\beta_{t-1}+\vec\epsilon_t, \qquad \vec\epsilon_t\sim N(\vec 0, Q)")
 
-where ![g](https://chart.googleapis.com/chart?cht=tx&chl=g "g") is simple distribution and ![I\_t](https://chart.googleapis.com/chart?cht=tx&chl=I_t "I_t"), ![y\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=y_%7Bit%7D "y_{it}"), ![\\vec x\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20x_%7Bit%7D "\vec x_{it}"), and ![\\vec z\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20z_%7Bit%7D "\vec z_{it}") are known. What is multivariate is ![\\vec y\_t = \\{y\_{it}\\}\_{i\\in I\_t}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20y_t%20%3D%20%5C%7By_%7Bit%7D%5C%7D_%7Bi%5Cin%20I_t%7D "\vec y_t = \{y_{it}\}_{i\in I_t}") (though, ![\\vec \\beta\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20%5Cbeta_t "\vec \beta_t") can also be multivariate) and this package is written to scale well in the dimension of ![| I\_t |](https://chart.googleapis.com/chart?cht=tx&chl=%7C%20I_t%20%7C "| I_t |"). The package uses an independent particle filter as suggested by Lin et al. (2005). This is particular type of filter can be used in the method suggested by Poyiadjis, Doucet, and Singh (2011). I will show an example of how to use the package through the rest of the document and highlight some implementation details.
+where ![g](https://chart.googleapis.com/chart?cht=tx&chl=g "g") is simple distribution, we observe ![t=1,\\dots,T](https://chart.googleapis.com/chart?cht=tx&chl=t%3D1%2C%5Cdots%2CT "t=1,\dots,T") periods, and ![I\_t](https://chart.googleapis.com/chart?cht=tx&chl=I_t "I_t"), ![y\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=y_%7Bit%7D "y_{it}"), ![\\vec x\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20x_%7Bit%7D "\vec x_{it}"), and ![\\vec z\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20z_%7Bit%7D "\vec z_{it}") are known. What is multivariate is ![\\vec y\_t = \\{y\_{it}\\}\_{i\\in I\_t}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20y_t%20%3D%20%5C%7By_%7Bit%7D%5C%7D_%7Bi%5Cin%20I_t%7D "\vec y_t = \{y_{it}\}_{i\in I_t}") (though, ![\\vec \\beta\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20%5Cbeta_t "\vec \beta_t") can also be multivariate) and this package is written to scale well in the dimension of ![| I\_t |](https://chart.googleapis.com/chart?cht=tx&chl=%7C%20I_t%20%7C "| I_t |"). The package uses an independent particle filter as suggested by Lin et al. (2005). This is particular type of filter can be used in the method suggested by Poyiadjis, Doucet, and Singh (2011). I will show an example of how to use the package through the rest of the document and highlight some implementation details.
+
+The package is not on CRAN but you can be installed from Github using e.g.,
+
+``` r
+devtools::install_github("boennecd/mssm")
+```
 
 Table of Contents
 -----------------
@@ -21,6 +27,7 @@ Table of Contents
     -   [Poisson Example](#poisson-example)
         -   [Log-Likelihood Approximations](#log-likelihood-approximations)
         -   [Parameter Estimation](#parameter-estimation)
+        -   [Faster Approximation](#faster-approximation)
     -   [Fast Sum-Kernel Approximation](#fast-sum-kernel-approximation)
     -   [Function Definitions](#function-definitions)
 -   [References](#references)
@@ -114,9 +121,11 @@ table(dat$y)
     ##    0    1    2    3    4    5    6    7    8    9   11   15   18 
     ## 1465  519  163   72   20   12    4    4    4    1    1    1    1
 
+In the above, we simulate 110 (`n_periods`) with 100 (`n_obs`) individuals. Each individual has a fixed covaraite, `X2`, and two time-varying covariates, `X1` and `Z`. One of the time-varying covariates, `Z`, has a random slope. Further, the intercept is also random.
+
 ### Log-Likelihood Approximations
 
-Then we estimate a generalized linear model without random effects.
+We estimate a generalized linear model without random effects.
 
 ``` r
 glm_fit <- glm(y ~ X1 + X2 + Z, poisson(), dat)
@@ -162,8 +171,7 @@ ll_func <- mssm(
   fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
   # make it explict that there is an intercept (not needed)
   random = ~ 1 + Z, ti = time_idx, control = mssm_control(
-    n_threads = 5L, N_part = 500L, what = "log_density", 
-    seed = 2L))
+    n_threads = 5L, N_part = 500L, what = "log_density"))
 
 system.time(
   mssm_obj <- ll_func$pf_filter(
@@ -171,7 +179,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   0.772   0.015   0.199
+    ##   0.783   0.003   0.192
 
 ``` r
 # returns the log-likelihood approximation
@@ -225,10 +233,10 @@ We can get the effective sample size at each point in time with the `get_ess` fu
 ```
 
     ## Effective sample size:
-    ##   Mean      461.1
-    ##   sd         13.2
-    ##   Min       400.9
-    ##   Max       481.8
+    ##   Mean      460.5
+    ##   sd         13.0
+    ##   Min       404.4
+    ##   Max       478.5
 
 ``` r
 plot(ess)
@@ -242,10 +250,9 @@ We can compare this what we get by using a so-called bootstrap (like) filter ins
 local({
   ll_boot <- mssm(
     fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
-    # make it explict that there is an intercept (not needed)
-    random = ~ 1 + Z, ti = time_idx, control = mssm_control(
+    random = ~ Z, ti = time_idx, control = mssm_control(
       n_threads = 5L, N_part = 500L, what = "log_density", 
-      seed = 2L, which_sampler = "bootstrap"))
+      which_sampler = "bootstrap"))
   
   print(system.time(
     boot_fit <- ll_boot$pf_filter(
@@ -256,7 +263,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   0.699   0.009   0.178
+    ##   0.720   0.002   0.175
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -281,10 +288,8 @@ We will need to estimate the parameter for real applications. We could do this e
 # setup mssmFunc object to use
 ll_func <- mssm(
   fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
-  # make it explict that there is an intercept (not needed)
-  random = ~ 1 + Z, ti = time_idx, control = mssm_control(
-    n_threads = 5L, N_part = 100L, what = "gradient", 
-    seed = 2L))
+  random = ~ Z, ti = time_idx, control = mssm_control(
+    n_threads = 5L, N_part = 200L, what = "gradient"))
 
 # use stochastic gradient descent
 system.time(
@@ -293,9 +298,9 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##  59.987   1.008  15.482
+    ## 367.787   2.471  85.608
 
-Plot the approximate log-likelihoods at each iteration and show the final estimates.
+A plot of the approximate log-likelihoods at each iteration are shown below along with the final estimates.
 
 ``` r
 tail(res$logLik, 1L) # final log-likelihood approximation
@@ -321,23 +326,234 @@ plot(tail(res$logLik, 100L), type = "l") # only the final iterations
 res$F. 
 ```
 
-    ##          [,1]   [,2]
-    ## [1,]  0.35275 0.0556
-    ## [2,] -0.02201 0.8060
+    ##          [,1]    [,2]
+    ## [1,]  0.31907 0.05154
+    ## [2,] -0.01707 0.73443
 
 ``` r
 res$Q
 ```
 
     ##         [,1]    [,2]
-    ## [1,] 0.30418 0.05624
-    ## [2,] 0.05624 0.34139
+    ## [1,] 0.31994 0.09186
+    ## [2,] 0.09186 0.50461
 
 ``` r
 res$cfix
 ```
 
-    ## [1] -1.0091  0.2152  0.5168 -1.0651
+    ## [1] -1.0479  0.2116  0.5189 -1.0698
+
+### Faster Approximation
+
+One drawback with the particle filter we use is that it has ![\\mathcal{O}(N^2)](https://chart.googleapis.com/chart?cht=tx&chl=%5Cmathcal%7BO%7D%28N%5E2%29 "\mathcal{O}(N^2)") computational complexity where ![N](https://chart.googleapis.com/chart?cht=tx&chl=N "N") is the number of particles. We can see this by adjusting the number of particles.
+
+``` r
+local({
+  # assign function that returns a function that use given number of particles
+  func <- function(N){
+    ll_func <- mssm(
+      fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
+      random = ~ Z, ti = time_idx, control = mssm_control(
+        n_threads = 5L, N_part = N, what = "log_density"))
+    function()
+      ll_func$pf_filter(
+        cfix = coef(glm_fit), disp = numeric(), F. = diag(1e-8, 2), 
+        Q = diag(1e-4^2, 2))
+      
+  }
+  
+  f_100  <- func( 100)
+  f_200  <- func( 200)
+  f_400  <- func( 400)
+  f_800  <- func( 800)
+  f_1600 <- func(1600)
+  
+  # benchmark. Should grow ~ N^2
+  microbenchmark::microbenchmark(
+    `100` = f_100(), `200` = f_200(), `400` = f_400(), `800` = f_800(),
+    `1600` = f_1600(), times = 3L)
+})
+```
+
+    ## Unit: milliseconds
+    ##  expr     min      lq    mean  median      uq     max neval
+    ##   100   24.02   24.93   26.01   25.85   27.00   28.16     3
+    ##   200   47.53   48.60   50.60   49.67   52.14   54.61     3
+    ##   400  135.57  135.90  138.64  136.23  140.17  144.11     3
+    ##   800  374.26  382.28  405.15  390.31  420.59  450.88     3
+    ##  1600 1257.33 1271.76 1304.84 1286.20 1328.60 1370.99     3
+
+A solution is to use the dual k-d tree method I cover later. The computational complexity is ![\\mathcal{O}(N \\log N)](https://chart.googleapis.com/chart?cht=tx&chl=%5Cmathcal%7BO%7D%28N%20%5Clog%20N%29 "\mathcal{O}(N \log N)") for this method which is somewhat indicated by the run times shown below.
+
+``` r
+local({
+  # assign function that returns a function that use given number of particles
+  func <- function(N){
+    ll_func <- mssm(
+      fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
+      random = ~ Z, ti = time_idx, control = mssm_control(
+        n_threads = 5L, N_part = N, what = "log_density", 
+        which_ll_cp = "KD", KD_N_max = 6L, aprx_eps = 1e-2))
+    function()
+      ll_func$pf_filter(
+        cfix = coef(glm_fit), disp = numeric(), F. = diag(1e-8, 2), 
+        Q = diag(1e-4^2, 2))
+      
+  }
+  
+  f_100   <- func(  100)
+  f_200   <- func(  200)
+  f_400   <- func(  400)
+  f_800   <- func(  800)
+  f_1600  <- func( 1600)
+  f_51200 <- func(51200)
+  
+  # benchmark. Should grow ~ N log N
+  microbenchmark::microbenchmark(
+    `100` = f_100(), `200` = f_200(), `400` = f_400(), `800` = f_800(), 
+    `1600` = f_1600(), `51200` = f_51200(), times = 3L)
+})
+```
+
+    ## Unit: milliseconds
+    ##   expr      min       lq     mean   median       uq      max neval
+    ##    100    36.62    38.26    39.65    39.91    41.17    42.43     3
+    ##    200    76.98    84.21    88.51    91.44    94.28    97.12     3
+    ##    400   161.32   165.31   167.39   169.30   170.43   171.56     3
+    ##    800   290.58   301.19   310.78   311.81   320.88   329.95     3
+    ##   1600   530.80   578.54   598.78   626.28   632.77   639.25     3
+    ##  51200 13169.70 13306.89 13389.39 13444.08 13499.23 13554.37     3
+
+The `aprx_eps` controls the size of the error. To be precise about what this value does then we need to some notation for the complete likelihood (the likelihood where we observe ![\\vec\\beta\_1,\\dots,\\vec\\beta\_T](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_1%2C%5Cdots%2C%5Cvec%5Cbeta_T "\vec\beta_1,\dots,\vec\beta_T")s). This is
+
+![L = \\mu\_1(\\vec \\beta\_1)g\_1(\\vec y\_1 \\mid \\vec \\beta\_1)\\prod\_{t=2}^Tf(\\vec\\beta\_t \\mid\\vec\\beta\_{t-1})g\_t(y\_t\\mid\\beta\_t)](https://chart.googleapis.com/chart?cht=tx&chl=L%20%3D%20%5Cmu_1%28%5Cvec%20%5Cbeta_1%29g_1%28%5Cvec%20y_1%20%5Cmid%20%5Cvec%20%5Cbeta_1%29%5Cprod_%7Bt%3D2%7D%5ETf%28%5Cvec%5Cbeta_t%20%5Cmid%5Cvec%5Cbeta_%7Bt-1%7D%29g_t%28y_t%5Cmid%5Cbeta_t%29 "L = \mu_1(\vec \beta_1)g_1(\vec y_1 \mid \vec \beta_1)\prod_{t=2}^Tf(\vec\beta_t \mid\vec\beta_{t-1})g_t(y_t\mid\beta_t)")
+
+where ![g\_t](https://chart.googleapis.com/chart?cht=tx&chl=g_t "g_t") is conditional distribution ![\\vec y\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20y_t "\vec y_t") given ![\\vec\\beta\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_t "\vec\beta_t"), ![f](https://chart.googleapis.com/chart?cht=tx&chl=f "f") is the conditional distribution of ![\\vec\\beta\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_t "\vec\beta_t") given ![\\vec\\beta\_{t-1}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_%7Bt-1%7D "\vec\beta_{t-1}"), and ![\\mu](https://chart.googleapis.com/chart?cht=tx&chl=%5Cmu "\mu") is the time-invariant distribution of ![\\vec\\beta](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta "\vec\beta"). Let ![w\_t^{(j)}](https://chart.googleapis.com/chart?cht=tx&chl=w_t%5E%7B%28j%29%7D "w_t^{(j)}") be the weight of particle ![j](https://chart.googleapis.com/chart?cht=tx&chl=j "j") at time ![t](https://chart.googleapis.com/chart?cht=tx&chl=t "t") and ![\\vec \\beta\_t^{(j)}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20%5Cbeta_t%5E%7B%28j%29%7D "\vec \beta_t^{(j)}") be the ![j](https://chart.googleapis.com/chart?cht=tx&chl=j "j")th particle at time ![t](https://chart.googleapis.com/chart?cht=tx&chl=t "t"). Then we ensure the error in our evaluation of terms ![w\_{t-1}^{(j)}f(\\vec\\beta\_t^{(i)} \\mid \\vec\\beta\_{t-1}^{(j)})](https://chart.googleapis.com/chart?cht=tx&chl=w_%7Bt-1%7D%5E%7B%28j%29%7Df%28%5Cvec%5Cbeta_t%5E%7B%28i%29%7D%20%5Cmid%20%5Cvec%5Cbeta_%7Bt-1%7D%5E%7B%28j%29%7D%29 "w_{t-1}^{(j)}f(\vec\beta_t^{(i)} \mid \vec\beta_{t-1}^{(j)})") never exceeds
+
+![w\_{t-1} \\frac{u - l}{(u + l)/2}](https://chart.googleapis.com/chart?cht=tx&chl=w_%7Bt-1%7D%20%5Cfrac%7Bu%20-%20l%7D%7B%28u%20%2B%20l%29%2F2%7D "w_{t-1} \frac{u - l}{(u + l)/2}")
+
+ where ![u](https://chart.googleapis.com/chart?cht=tx&chl=u "u") and ![l](https://chart.googleapis.com/chart?cht=tx&chl=l "l") are respectively an upper and lower bound of ![f(\\vec\\beta\_t^{(i)} \\mid \\vec\\beta\_{t-1}^{(j)})](https://chart.googleapis.com/chart?cht=tx&chl=f%28%5Cvec%5Cbeta_t%5E%7B%28i%29%7D%20%5Cmid%20%5Cvec%5Cbeta_%7Bt-1%7D%5E%7B%28j%29%7D%29 "f(\vec\beta_t^{(i)} \mid \vec\beta_{t-1}^{(j)})"). The question is how big the error is. Thus, we consider the error in the log-likelihood approximation at the true parameters.
+
+``` r
+ll_compare <- local({
+  N_use <- 500L
+  # we alter the seed in each run
+  ll_no_approx <- sapply(1:100, function(seed){
+    ll_func <- mssm(
+      fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
+      random = ~ Z, ti = time_idx, control = mssm_control(
+        n_threads = 5L, N_part = N_use, what = "log_density", 
+        seed = seed))
+    
+    logLik(ll_func$pf_filter(
+      cfix = cfix, disp = numeric(), F. = F., Q = Q))
+  })
+  
+  ll_approx <- sapply(1:100, function(seed){
+    ll_func <- mssm(
+      fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
+      random = ~ Z, ti = time_idx, control = mssm_control(
+        n_threads = 5L, N_part = N_use, what = "log_density", 
+        KD_N_max = 6L, aprx_eps = 1e-2, seed = seed, 
+        which_ll_cp = "KD"))
+    
+    logLik(ll_func$pf_filter(
+      cfix = cfix, disp = numeric(), F. = F., Q = Q))
+  })
+  
+  list(ll_no_approx = ll_no_approx, ll_approx = ll_approx)
+}) 
+```
+
+    ## Ignoring terms with -infinite normalized log weights
+    ## Ignoring terms with -infinite normalized log weights
+    ## Ignoring terms with -infinite normalized log weights
+    ## Ignoring terms with -infinite normalized log weights
+    ## Ignoring terms with -infinite normalized log weights
+    ## Ignoring terms with -infinite normalized log weights
+    ## Ignoring terms with -infinite normalized log weights
+    ## Ignoring terms with -infinite normalized log weights
+    ## Ignoring terms with -infinite normalized log weights
+    ## Ignoring terms with -infinite normalized log weights
+
+``` r
+par(mar = c(5, 4, 1, 1))
+hist(
+  ll_compare$ll_no_approx, main = "", breaks = 20L, 
+  xlab = "Log-likelihood approximation -- no aprox")
+```
+
+![](./README-fig/show_comp_arell_aprx-1.png)
+
+``` r
+hist(
+  ll_compare$ll_approx   , main = "", breaks = 20L, 
+  xlab = "Log-likelihood approximation -- aprox")
+```
+
+![](./README-fig/show_comp_arell_aprx-2.png)
+
+The latter seems to have a small positive bias.
+
+``` r
+with(ll_compare, t.test(ll_no_approx, ll_approx))
+```
+
+    ## 
+    ##  Welch Two Sample t-test
+    ## 
+    ## data:  ll_no_approx and ll_approx
+    ## t = -1.9, df = 200, p-value = 0.06
+    ## alternative hypothesis: true difference in means is not equal to 0
+    ## 95 percent confidence interval:
+    ##  -0.39189  0.01063
+    ## sample estimates:
+    ## mean of x mean of y 
+    ##     -2008     -2008
+
+The fact that it is small is nice because now we can get a much better approximation quickly of e.g., the log-likelihood as shown below.
+
+``` r
+ll_approx <- sapply(1:10, function(seed){
+  N_use <- 100000L
+  
+  ll_func <- mssm(
+    fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
+    random = ~ Z, ti = time_idx, control = mssm_control(
+      n_threads = 5L, N_part = N_use, what = "log_density", 
+      KD_N_max = 100L, aprx_eps = 1e-2, seed = seed, 
+      which_ll_cp = "KD"))
+  
+  logLik(ll_func$pf_filter(
+    cfix = cfix, disp = numeric(), F. = F., Q = Q))
+}) 
+```
+
+    ## Ignoring terms with -infinite normalized log weights
+    ## Ignoring terms with -infinite normalized log weights
+    ## Ignoring terms with -infinite normalized log weights
+    ## Ignoring terms with -infinite normalized log weights
+    ## Ignoring terms with -infinite normalized log weights
+    ## Ignoring terms with -infinite normalized log weights
+    ## Ignoring terms with -infinite normalized log weights
+    ## Ignoring terms with -infinite normalized log weights
+    ## Ignoring terms with -infinite normalized log weights
+    ## Ignoring terms with -infinite normalized log weights
+
+``` r
+# approximate log-likelihood
+sd(ll_approx)
+```
+
+    ## [1] 0.04254
+
+``` r
+# compare sd with 
+sd(ll_compare$ll_no_approx)
+```
+
+    ## [1] 0.721
 
 Fast Sum-Kernel Approximation
 -----------------------------
@@ -390,7 +606,7 @@ invisible(list2env(get_sims(5000L), environment()))
 par(mar = c(5, 4, .5, .5))
 plot(as.matrix(sims[, c("X1", "X2")]), col = sims$grp + 1L)
 
-# find KD-tree and add borders 
+# find k-d tree and add borders 
 out <- mssm:::test_KD_note(X, 50L)
 out$indices <- out$indices + 1L
 n_ele <- drop(out$n_elems)
@@ -423,11 +639,11 @@ microbenchmark::microbenchmark(
 ```
 
     ## Unit: milliseconds
-    ##         expr     min      lq    mean  median      uq     max neval
-    ##  dual tree 1  112.60  114.45  118.27  115.88  119.01  138.05    10
-    ##  dual tree 6   41.18   42.13   46.26   43.47   52.61   53.61    10
-    ##      naive 1 3322.36 3367.28 3451.26 3464.88 3503.88 3616.26    10
-    ##      naive 6  941.73  954.22 1005.04  963.05 1059.27 1135.02    10
+    ##         expr     min      lq    mean  median      uq    max neval
+    ##  dual tree 1  117.52  119.60  132.43  131.48  140.49  165.7    10
+    ##  dual tree 6   42.94   47.77   54.38   52.62   61.77   66.2    10
+    ##      naive 1 3350.31 3560.50 3716.53 3658.46 3855.03 4280.1    10
+    ##      naive 6 1174.50 1212.13 1276.23 1242.48 1303.59 1576.5    10
 
 ``` r
 # The functions return the un-normalized log weights. We first compare
@@ -508,20 +724,20 @@ meds
 ```
 
     ##          method
-    ## N         Dual-tree     Naive Dual-tree 1
-    ##   384      0.001713  0.001186    0.004205
-    ##   768      0.003232  0.002979    0.008134
-    ##   1536     0.005331  0.010871    0.014012
-    ##   3072     0.009384  0.038602    0.025541
-    ##   6144     0.022175  0.174188    0.053972
-    ##   12288    0.044357  0.655904    0.109632
-    ##   24576    0.065755  2.634866    0.190534
-    ##   49152    0.131258 10.634452    0.393239
-    ##   98304    0.258856        NA          NA
-    ##   196608   0.511701        NA          NA
-    ##   393216   1.095187        NA          NA
-    ##   786432   2.327251        NA          NA
-    ##   1572864  4.631362        NA          NA
+    ## N         Dual-tree      Naive Dual-tree 1
+    ##   384      0.001173  0.0007221    0.003361
+    ##   768      0.002625  0.0026589    0.006639
+    ##   1536     0.004571  0.0095613    0.012272
+    ##   3072     0.008974  0.0377994    0.024477
+    ##   6144     0.021037  0.1899465    0.053030
+    ##   12288    0.038194  0.6819931    0.105499
+    ##   24576    0.078382  2.9246776    0.193367
+    ##   49152    0.124139 10.9888913    0.375339
+    ##   98304    0.246900         NA          NA
+    ##   196608   0.561036         NA          NA
+    ##   393216   1.050689         NA          NA
+    ##   786432   2.086806         NA          NA
+    ##   1572864  4.452460         NA          NA
 
 ``` r
 par(mar = c(5, 4, .5, .5))
@@ -554,8 +770,8 @@ Function Definitions
 # Returns:
 #   List with estimates and the log-likelihood approximation at each iteration. 
 sgd <- function(
-  object, n_it = 150L, 
-  lrs = 1e-3 * c(rep(1L, 49), ((50:n_it) - 40)^(-1/2)), avg_start = 100L,
+  object, n_it = 250L, 
+  lrs = 1e-3 * (1:n_it)^(-1/2), avg_start = max(1L, as.integer(n_it * 4L / 5L)),
   cfix, F., Q,  verbose = FALSE)
 {
   # make checks
@@ -602,7 +818,8 @@ sgd <- function(
   max_half <- 25L
   for(i in 1:n_it + 1L){
     # get gradient. First, run the particle filter
-    filter_out <- object$pf_filter(cfix = cfix, disp = numeric(), F. = F., Q = Q)
+    filter_out <- object$pf_filter(
+      cfix = cfix, disp = numeric(), F. = F., Q = Q)
     lls[i - 1L] <- c(logLik(filter_out))
     
     # then get the gradient associated with each particle and the log 
@@ -634,7 +851,7 @@ sgd <- function(
       stop("failed to find solution within constraints")
     
     # print information if requested 
-    if(verbose && (i - 2L) %% 20L == 0L){
+    if(verbose){
       cat(sprintf(
         "\nIt %5d: log-likelihood (current, max) %12.2f, %12.2f\n", 
         i - 1L, logLik(filter_out), max(lls, na.rm = TRUE)), 

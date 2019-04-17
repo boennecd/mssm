@@ -14,10 +14,12 @@ inline comp_out set_what_compute(const std::string &what){
 control_obj::control_obj
   (const arma::uword n_threads, const double nu, const double covar_fac,
    const double ftol_rel, const arma::uword N_part, const std::string &what,
-   const unsigned int trace):
+   const unsigned int trace, const arma::uword KD_N_min,
+   const double aprx_eps):
   pool(new thread_pool(std::max(n_threads, (unsigned int)1L))), nu(nu),
   covar_fac(covar_fac), ftol_rel(ftol_rel), N_part(N_part),
-  what_stat(set_what_compute(what)), trace(trace) { }
+  what_stat(set_what_compute(what)), trace(trace), KD_N_min(KD_N_min),
+  aprx_eps(aprx_eps) { }
 
 thread_pool& control_obj::get_pool() const {
   return *pool;

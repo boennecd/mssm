@@ -16,12 +16,12 @@ protected:
   /* does the computation that depends on the old and new particle cloud */
   virtual void set_ll_state_state
     (const cdist&, particle_cloud&, particle_cloud&, const comp_stat_util&,
-     thread_pool&, const trans_obj&) const = 0;
+     const control_obj&, const trans_obj&) const = 0;
 
   void set_ll_n_stat_
     (const problem_data&, particle_cloud*, particle_cloud&,
      const cdist&, const arma::uword) const;
-  public:
+public:
   /* compute the needed conditional log likelihoods and the requested
    * statistics.
    * It assumes that the dimension of the statistic is correct and that the
@@ -44,7 +44,15 @@ class stats_comp_helper_no_aprx final : public stats_comp_helper {
 protected:
   void set_ll_state_state
   (const cdist&, particle_cloud&, particle_cloud&, const comp_stat_util&,
-   thread_pool&, const trans_obj&) const final override;
+   const  control_obj&, const trans_obj&) const final override;
+};
+
+/* return an object that makes an O(N log(N)) time approximation */
+class stats_comp_helper_aprx_KD final : public stats_comp_helper {
+protected:
+  void set_ll_state_state
+  (const cdist&, particle_cloud&, particle_cloud&, const comp_stat_util&,
+   const control_obj&, const trans_obj&) const final override;
 };
 
 #endif

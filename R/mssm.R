@@ -1,3 +1,45 @@
+#' @title Get Multivariate State Space Model Function
+#' @description
+#' Returns an object which can be used to run a particle filter.
+#'
+#' @param fixed \code{\link{formula}} with outcome variable on the left hand
+#' side and covariates with fixed effects on the right hand side.
+#' @param family family for the observed outcome given the state variables
+#' and covariates.
+#' @param data \code{\link{data.frame}} or environment containing the variables
+#' in \code{fixed} and \code{random}.
+#' @param random \code{\link{formula}} for covariates with a random effect.
+#' Left hand side is ignored.
+#' @param weights optional prior weights.
+#' @param offsets optional a priori known component in the linear predictor.
+#' @param ti integer vector with time indices matching with each observation of
+#' \code{fixed} and \code{random}.
+#' @param control list with arguments passed to \code{\link{mssm_control}}.
+#'
+#' @return
+#' An object of class \code{mssmFunc} with the following elements
+#' \item{pf_filter}{function to perform particle filtering. See the
+#' \link{mssm-pf}.}
+#' \item{terms_fixed}{\code{\link{terms.object}} for the covariates with
+#' fixed effects.}
+#' \item{terms_random}{\code{\link{terms.object}} for the covariates with
+#' random effects.}
+#' \item{y}{vector with outcomes.}
+#' \item{X}{covariates with fixed effects.}
+#' \item{Z}{covariates with random effects.}
+#' \item{ti}{time indices for each observation.}
+#' \item{weights}{prior weights for each observation.}
+#' \item{offsets}{a priori known component in the linear predictor for
+#' each observation.}
+#' \item{call}{the matched call.}
+#' \item{family}{character describing the conditional distribution of the
+#' outcomes.}
+#'
+#' @seealso
+#' The README of the package contains examples of how to use this function.
+#' See \url{https://github.com/boennecd/mssm}.
+#'
+#' @importFrom stats model.frame model.matrix model.response terms
 #' @export
 mssm <- function(
   fixed, family, data, random, weights, offsets, ti, control = mssm_control())
@@ -69,7 +111,7 @@ mssm <- function(
       covar_fac = control$covar_fac, ftol_rel = control$ftol_rel,
       N_part = control$N_part, what = control$what,
       which_sampler = control$which_sampler, which_ll_cp = control$which_ll_cp,
-      trace)
+      trace, KD_N_max = control$KD_N_max, aprx_eps = control$aprx_eps)
 
     # TODO: test output
     structure(c(list(pf_output = out), output_list), class = "mssm")
@@ -81,17 +123,94 @@ mssm <- function(
     c(list(pf_filter = out_func), output_list), class = "mssmFunc")
 }
 
+#' @title Particle Filter Function for Multivariate State Space Model
+#' @name mssm-pf
+#' @description
+#' Function returned from \code{\link{mssm}} which can be used to perform
+#' particle filtering given values for the parameters in the model.
+#'
+#' @param cfix coefficient for fixed effects.
+#' @param disp additional parameters for the family (e.g., a dispersion
+#' parameter).
+#' @param F. matrix in the transition density of the state vector.
+#' @param Q covariance matrix in the transition density of the state vector.
+#' @param Q0 optional covariance matrix at the first time point. Default is
+#' the covariance matrix in the time invariant distribution.
+#' @param mu0 optional mean at the first time point. Default is
+#' the zero vector.
+#' @param trace integer controlling whether information should be printed
+#' during particle filtering. Zero yields no information.
+#' @param seed integer to pass to \code{\link{set.seed}}.
+#'
+#' @return
+#' An object of class \code{mssm} with the following elements
+#' \item{pf_output}{A list with an element for each time period. Each element
+#' is a list with
+#' \code{particles}: the sampled particles,
+#' \code{stats}: additional object that is requested to be computed with
+#' each particle,
+#' \code{ws:} unnormalized log particle weights for the filtering distribution,
+#' and
+#' \code{ws_normalized:} normalized log particle weights for the filtering
+#' distribution.}
+#' \item{remaining elements}{same as return by \code{\link{mssm}}.}
+#'
+#' If gradient approximation is requested then the first elements of
+#' \code{stats} are w.r.t. to fixed coefficients, the next elements are
+#' w.r.t. the matrix in the map from the previous state vector to the mean
+#' of the next, and the last element is w.r.t. the covariance matrix. See
+#' the example in the README at \url{https://github.com/boennecd/mssm}.
+#'
+NULL
+
+#' @title Auxiliary for Controlling Multivariate State Space Model Fitting
+#' @description
+#' Auxiliary function for \code{\link{mssm}}.
+#'
+#' @param N_part integer greater than zero for the number of particles to use.
+#' @param n_threads integer greater than zero for the number of threads to use.
+#' @param covar_fac positive numeric scalar used to scale the covariance
+#' matrix in the proposal distribution.
+#' @param ftol_rel positive numeric scalar with convergence threshold passed
+#' to \code{\link{nloptr}} if the mode approximation method is used for the
+#' proposal distribution.
+#' @param nu degrees of freedom to use for the multivariate \eqn{t}-distribution
+#' used as the proposal distribution. A multivariate normal distribution is
+#' used if \code{nu <= 2}.
+#' @param what character indicating what to approximate. \code{"log_density"}
+#' implies only the log-likelihood. \code{"gradient"} also yields a gradient
+#' approximation.
+#' @param which_sampler character indicating what type of proposal
+#' distribution to use. \code{"mode_aprx"} yields a Taylor approximation at
+#' the mode. \code{"bootstrap"} yields a proposal distribution similar to the
+#' common bootstrap filter.
+#' @param which_ll_cp character indicating what type of computation should be
+#' performed in each iteration of the particle filter. \code{"no_aprx"} yields
+#' no approximation. \code{"KD"} yields an approximation using a dual k-d tree
+#' method.
+#' @param seed integer with seed to pass to \code{\link{set.seed}}.
+#' @param KD_N_max integer greater than zero with the maximum number of
+#' particles to be in each leaf of the two k-d trees if the dual k-d trees
+#' method is used.
+#' @param aprx_eps positive numeric scalar with the maximum error if the
+#' dual k-d tree method is used.
+#'
+#' @seealso
+#' See README of the package for details of the dual k-d tree method
+#' at \url{https://github.com/boennecd/mssm}.
+#'
 #' @export
 mssm_control <- function(
   N_part = 1000L, n_threads = 1L, covar_fac = 1.2, ftol_rel = 1e-6, nu = 8.,
   what = "log_density", which_sampler = "mode_aprx", which_ll_cp = "no_aprx",
-  seed = 1L){
+  seed = 1L, KD_N_max = 10L, aprx_eps = 1e-3){
   # TODO: check input arguments
   # TODO: test output
   list(
     N_part = N_part, n_threads = n_threads, covar_fac = covar_fac,
     ftol_rel = ftol_rel, what = what, which_sampler = which_sampler,
-    which_ll_cp = which_ll_cp, nu = nu, seed = seed)
+    which_ll_cp = which_ll_cp, nu = nu, seed = seed, KD_N_max = KD_N_max,
+    aprx_eps = aprx_eps)
 }
 
 .get_Q0 <- function(Qmat, Fmat){
@@ -113,16 +232,48 @@ mssm_control <- function(
   out
 }
 
+#' @title Approximate Log-likelihood for a mssm Object
+#' @description
+#' Function to extract the log-likelihood from a \code{mssm} object.
+#'
+#' @param object an object of class \code{mssm}.
+#' @param ... un-used.
+#'
+#' @return
+#' A \code{logLik} object. The \code{log_lik_terms} attribute contains
+#' the log-likelihood contributions from each time point.
+#'
 #' @method logLik mssm
 #' @export
-logLik.mssm <- function(object){
+logLik.mssm <- function(object, ...){
   stopifnot(inherits(object, "mssm"))
-  ll <- sum(sapply(object$pf_output, function(x) mean(x$ws)))
+  any_inf <- FALSE
+  ll <- sum(log_lik_terms <- sapply(object$pf_output, function(x){
+    keep <- drop(x$ws_normalized > -Inf)
+    any_inf <<- any(!keep) || any_inf
+    mean(x$ws[keep])
+  }))
+  if(any_inf)
+    message("Ignoring terms with -infinite normalized log weights")
   # TODO: set nobs and df
   # TODO: test output
-  structure(ll, nobs = NA_integer_, df = NA_integer_, class = "logLik")
+  structure(ll, nobs = NA_integer_, df = NA_integer_, class = "logLik",
+            log_lik_terms = log_lik_terms)
 }
 
+
+#' @title Plot Predicted State Variables for mssm Object.
+#' @description
+#' Plots the predicted mean and pointwise prediction interval of the state
+#' variables for the filtering distribution.
+#'
+#' @param x an object of class \code{mssm}.
+#' @param y un-used.
+#' @param qs two-dimensional numeric vector with bounds of the prediction
+#' interval.
+#' @param ... un-used.
+#'
+#' @importFrom graphics plot lines par
 #' @method plot mssm
 #' @export
 plot.mssm <- function(x, y, qs = c(.05, .95), ...){

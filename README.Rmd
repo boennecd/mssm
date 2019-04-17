@@ -25,7 +25,8 @@ $$y_{it} \sim g(\eta_{it}),\qquad i\in I_t$$
 $$\eta_{it} = \vec\gamma^\top\vec x_{it} +\vec\beta_t^\top\vec z_{it}$$
 $$\vec\beta_t = F\vec\beta_{t-1}+\vec\epsilon_t, \qquad \vec\epsilon_t\sim N(\vec 0, Q)$$
 
-where $g$ is simple distribution and $I_t$, $y_{it}$, $\vec x_{it}$, and 
+where $g$ is simple distribution, we observe $t=1,\dots,T$ periods, and $I_t$, 
+$y_{it}$, $\vec x_{it}$, and 
 $\vec z_{it}$ are known. What is multivariate is 
 $\vec y_t = \{y_{it}\}_{i\in I_t}$ (though, $\vec \beta_t$ can also be 
 multivariate) and this package is written to scale well 
@@ -34,6 +35,13 @@ particle filter as suggested by @Lin05. This is particular type of filter
 can be used in the method suggested by @Poyiadjis11. I will show an example
 of how to use the package through the rest of the document and highlight some 
 implementation details. 
+
+The package is not on CRAN but you can be installed from Github using e.g., 
+
+```{r eval = FALSE}
+devtools::install_github("boennecd/mssm")
+```
+
 
 ## Table of Contents
 
@@ -85,9 +93,14 @@ head(dat)
 table(dat$y)
 ```
 
+In the above, we simulate `r n_periods` (`n_periods`) with `r n_obs` (`n_obs`)
+individuals. Each individual has a fixed covaraite, `X2`, and two time-varying
+covariates, `X1` and `Z`. One of the time-varying covariates, `Z`, has a 
+random slope. Further, the intercept is also random. 
+
 ### Log-Likelihood Approximations
 
-Then we estimate a generalized linear model without random effects.
+We estimate a generalized linear model without random effects.
 
 ```{r fit_glm}
 glm_fit <- glm(y ~ X1 + X2 + Z, poisson(), dat)
@@ -98,14 +111,13 @@ logLik(glm_fit)
 Next, we make a log-likelihood approximation with the implemented particle at 
 the true parameters with the `mssm` function.
 
-```{r fit_mssm, cache = 1}
+```{r fit_mssm}
 library(mssm)
 ll_func <- mssm(
   fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
   # make it explict that there is an intercept (not needed)
   random = ~ 1 + Z, ti = time_idx, control = mssm_control(
-    n_threads = 5L, N_part = 500L, what = "log_density", 
-    seed = 2L))
+    n_threads = 5L, N_part = 500L, what = "log_density"))
 
 system.time(
   mssm_obj <- ll_func$pf_filter(
@@ -161,10 +173,9 @@ instead.
 local({
   ll_boot <- mssm(
     fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
-    # make it explict that there is an intercept (not needed)
-    random = ~ 1 + Z, ti = time_idx, control = mssm_control(
+    random = ~ Z, ti = time_idx, control = mssm_control(
       n_threads = 5L, N_part = 500L, what = "log_density", 
-      seed = 2L, which_sampler = "bootstrap"))
+      which_sampler = "bootstrap"))
   
   print(system.time(
     boot_fit <- ll_boot$pf_filter(
@@ -220,8 +231,8 @@ allows the user to perform subsequent maximization. The definition of the
 # Returns:
 #   List with estimates and the log-likelihood approximation at each iteration. 
 sgd <- function(
-  object, n_it = 150L, 
-  lrs = 1e-3 * c(rep(1L, 49), ((50:n_it) - 40)^(-1/2)), avg_start = 100L,
+  object, n_it = 250L, 
+  lrs = 1e-3 * (1:n_it)^(-1/2), avg_start = max(1L, as.integer(n_it * 4L / 5L)),
   cfix, F., Q,  verbose = FALSE)
 {
   # make checks
@@ -268,7 +279,8 @@ sgd <- function(
   max_half <- 25L
   for(i in 1:n_it + 1L){
     # get gradient. First, run the particle filter
-    filter_out <- object$pf_filter(cfix = cfix, disp = numeric(), F. = F., Q = Q)
+    filter_out <- object$pf_filter(
+      cfix = cfix, disp = numeric(), F. = F., Q = Q)
     lls[i - 1L] <- c(logLik(filter_out))
     
     # then get the gradient associated with each particle and the log 
@@ -300,7 +312,7 @@ sgd <- function(
       stop("failed to find solution within constraints")
     
     # print information if requested 
-    if(verbose && (i - 2L) %% 20L == 0L){
+    if(verbose){
       cat(sprintf(
         "\nIt %5d: log-likelihood (current, max) %12.2f, %12.2f\n", 
         i - 1L, logLik(filter_out), max(lls, na.rm = TRUE)), 
@@ -323,10 +335,8 @@ sgd <- function(
 # setup mssmFunc object to use
 ll_func <- mssm(
   fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
-  # make it explict that there is an intercept (not needed)
-  random = ~ 1 + Z, ti = time_idx, control = mssm_control(
-    n_threads = 5L, N_part = 100L, what = "gradient", 
-    seed = 2L))
+  random = ~ Z, ti = time_idx, control = mssm_control(
+    n_threads = 5L, N_part = 200L, what = "gradient"))
 
 # use stochastic gradient descent
 system.time(
@@ -334,8 +344,8 @@ system.time(
     ll_func, F. = diag(.1, 2), Q = diag(.1^2, 2), cfix = coef(glm_fit)))
 ```
 
-Plot the approximate log-likelihoods at each iteration and show the 
-final estimates. 
+A plot of the approximate log-likelihoods at each iteration are shown below 
+along with the final estimates. 
 
 ```{r show_use_sgd, fig.height = .fig_height_small}
 tail(res$logLik, 1L) # final log-likelihood approximation
@@ -347,6 +357,166 @@ plot(tail(res$logLik, 100L), type = "l") # only the final iterations
 res$F. 
 res$Q
 res$cfix
+```
+
+### Faster Approximation
+One drawback with the particle filter we use is that it has $\mathcal{O}(N^2)$ 
+computational complexity where $N$ is the number of particles. We can see 
+this by adjusting the number of particles. 
+
+```{r comp_w_n_part, cache = 1}
+local({
+  # assign function that returns a function that use given number of particles
+  func <- function(N){
+    ll_func <- mssm(
+      fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
+      random = ~ Z, ti = time_idx, control = mssm_control(
+        n_threads = 5L, N_part = N, what = "log_density"))
+    function()
+      ll_func$pf_filter(
+        cfix = coef(glm_fit), disp = numeric(), F. = diag(1e-8, 2), 
+        Q = diag(1e-4^2, 2))
+      
+  }
+  
+  f_100  <- func( 100)
+  f_200  <- func( 200)
+  f_400  <- func( 400)
+  f_800  <- func( 800)
+  f_1600 <- func(1600)
+  
+  # benchmark. Should grow ~ N^2
+  microbenchmark::microbenchmark(
+    `100` = f_100(), `200` = f_200(), `400` = f_400(), `800` = f_800(),
+    `1600` = f_1600(), times = 3L)
+})
+```
+
+A solution is to use the dual k-d tree method I cover later. The computational
+complexity is $\mathcal{O}(N \log N)$ for this method which is somewhat 
+indicated by the run times shown below.
+
+```{r KD_comp_w_n_part, cache = 1}
+local({
+  # assign function that returns a function that use given number of particles
+  func <- function(N){
+    ll_func <- mssm(
+      fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
+      random = ~ Z, ti = time_idx, control = mssm_control(
+        n_threads = 5L, N_part = N, what = "log_density", 
+        which_ll_cp = "KD", KD_N_max = 6L, aprx_eps = 1e-2))
+    function()
+      ll_func$pf_filter(
+        cfix = coef(glm_fit), disp = numeric(), F. = diag(1e-8, 2), 
+        Q = diag(1e-4^2, 2))
+      
+  }
+  
+  f_100   <- func(  100)
+  f_200   <- func(  200)
+  f_400   <- func(  400)
+  f_800   <- func(  800)
+  f_1600  <- func( 1600)
+  f_51200 <- func(51200)
+  
+  # benchmark. Should grow ~ N log N
+  microbenchmark::microbenchmark(
+    `100` = f_100(), `200` = f_200(), `400` = f_400(), `800` = f_800(), 
+    `1600` = f_1600(), `51200` = f_51200(), times = 3L)
+})
+```
+
+The `aprx_eps` controls the size of the error. To be precise about what this
+value does then we need to some notation for the complete likelihood 
+(the likelihood where we observe $\vec\beta_1,\dots,\vec\beta_T$s). This is
+
+$$L = \mu_1(\vec \beta_1)g_1(\vec y_1 \mid \vec \beta_1)\prod_{t=2}^Tf(\vec\beta_t \mid\vec\beta_{t-1})g_t(y_t\mid\beta_t)$$
+
+where $g_t$ is conditional distribution $\vec y_t$ given $\vec\beta_t$, $f$ is 
+the conditional distribution of $\vec\beta_t$ given $\vec\beta_{t-1}$, and
+$\mu$ is the time-invariant distribution of $\vec\beta$. Let $w_t^{(j)}$ be the weight of particle 
+$j$ at time $t$ and $\vec \beta_t^{(j)}$ be the $j$th particle at time $t$. 
+Then we ensure the error in our evaluation of terms 
+$w_{t-1}^{(j)}f(\vec\beta_t^{(i)} \mid \vec\beta_{t-1}^{(j)})$ never 
+exceeds
+
+$$w_{t-1} \frac{u - l}{(u + l)/2}$$
+where $u$ and $l$ are respectively an upper and lower bound of 
+$f(\vec\beta_t^{(i)} \mid \vec\beta_{t-1}^{(j)})$. 
+The question is how big the error is. 
+Thus, we consider the error in the log-likelihood approximation at the 
+true parameters. 
+
+```{r comp_arell_aprx, cache = 1, fig.height = .fig_height_small}
+ll_compare <- local({
+  N_use <- 500L
+  # we alter the seed in each run
+  ll_no_approx <- sapply(1:100, function(seed){
+    ll_func <- mssm(
+      fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
+      random = ~ Z, ti = time_idx, control = mssm_control(
+        n_threads = 5L, N_part = N_use, what = "log_density", 
+        seed = seed))
+    
+    logLik(ll_func$pf_filter(
+      cfix = cfix, disp = numeric(), F. = F., Q = Q))
+  })
+  
+  ll_approx <- sapply(1:100, function(seed){
+    ll_func <- mssm(
+      fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
+      random = ~ Z, ti = time_idx, control = mssm_control(
+        n_threads = 5L, N_part = N_use, what = "log_density", 
+        KD_N_max = 6L, aprx_eps = 1e-2, seed = seed, 
+        which_ll_cp = "KD"))
+    
+    logLik(ll_func$pf_filter(
+      cfix = cfix, disp = numeric(), F. = F., Q = Q))
+  })
+  
+  list(ll_no_approx = ll_no_approx, ll_approx = ll_approx)
+}) 
+```
+
+```{r show_comp_arell_aprx, fig.height = .fig_height_small}
+par(mar = c(5, 4, 1, 1))
+hist(
+  ll_compare$ll_no_approx, main = "", breaks = 20L, 
+  xlab = "Log-likelihood approximation -- no aprox")
+hist(
+  ll_compare$ll_approx   , main = "", breaks = 20L, 
+  xlab = "Log-likelihood approximation -- aprox")
+```
+
+The latter seems to have a small positive bias.
+
+```{r}
+with(ll_compare, t.test(ll_no_approx, ll_approx))
+```
+
+The fact that it is small is nice because now we can get a much better 
+approximation quickly of e.g., the log-likelihood as shown below.
+
+```{r show_ll_quick, cache = 1}
+ll_approx <- sapply(1:10, function(seed){
+  N_use <- 100000L
+  
+  ll_func <- mssm(
+    fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
+    random = ~ Z, ti = time_idx, control = mssm_control(
+      n_threads = 5L, N_part = N_use, what = "log_density", 
+      KD_N_max = 100L, aprx_eps = 1e-2, seed = seed, 
+      which_ll_cp = "KD"))
+  
+  logLik(ll_func$pf_filter(
+    cfix = cfix, disp = numeric(), F. = F., Q = Q))
+}) 
+
+# approximate log-likelihood
+sd(ll_approx)
+
+# compare sd with 
+sd(ll_compare$ll_no_approx)
 ```
 
 ## Fast Sum-Kernel Approximation
@@ -419,7 +589,7 @@ invisible(list2env(get_sims(5000L), environment()))
 par(mar = c(5, 4, .5, .5))
 plot(as.matrix(sims[, c("X1", "X2")]), col = sims$grp + 1L)
 
-# find KD-tree and add borders 
+# find k-d tree and add borders 
 out <- mssm:::test_KD_note(X, 50L)
 out$indices <- out$indices + 1L
 n_ele <- drop(out$n_elems)

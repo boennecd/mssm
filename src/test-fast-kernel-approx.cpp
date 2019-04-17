@@ -18,7 +18,7 @@ context("Test source_node") {
     KD_note node = get_KD_tree(X, 2L);
     expect_true(!node.is_leaf());
 
-    source_node pn(X, ws, node);
+    source_node<false> pn(X, ws, node, nullptr);
     expect_true(!pn.node.is_leaf());
 
     {

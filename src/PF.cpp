@@ -43,7 +43,9 @@ std::vector<particle_cloud> PF
     if(trace > 0){
       Rprintf("Effective sample size at %4d: %12.1f\n", i + 1L, ess);
       Rcpp::Rcout << "cloud mean: " << new_cloud.get_cloud_mean().t()
-                  << "stats mean: " << new_cloud.get_stats_mean().t();
+                  << "stats mean: " << new_cloud.get_stats_mean().t()
+                  << "log-likelihood contribution is: "
+                  << arma::mean(new_cloud.ws) << '\n';
 
     }
 
