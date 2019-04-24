@@ -201,7 +201,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   0.753   0.018   0.197
+    ##   0.748   0.012   0.189
 
 ``` r
 # returns the log-likelihood approximation
@@ -286,7 +286,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   0.660   0.010   0.172
+    ##   0.704   0.011   0.187
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -661,19 +661,19 @@ Next, we compute the run-times for the previous examples and compare the approxi
 microbenchmark::microbenchmark(
   `dual tree 1` = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, 
                                eps = 5e-3, n_threads = 1L),
-  `dual tree 6` = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, 
+  `dual tree 4` = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, 
                                eps = 5e-3, n_threads = 4L),
   `naive 1`     = mssm:::naive(X = X, ws = ws, Y = X, n_threads = 1L),
-  `naive 6`     = mssm:::naive(X = X, ws = ws, Y = X, n_threads = 4L),
+  `naive 4`     = mssm:::naive(X = X, ws = ws, Y = X, n_threads = 4L),
   times = 10L)
 ```
 
     ## Unit: milliseconds
-    ##         expr     min      lq   mean  median      uq     max neval
-    ##  dual tree 1  116.98  118.34  121.5  118.93  121.73  135.52    10
-    ##  dual tree 6   41.45   41.82   43.4   41.96   43.52   51.77    10
-    ##      naive 1 3318.78 3335.22 3409.1 3382.32 3509.36 3546.91    10
-    ##      naive 6  873.27  935.32  965.1  967.98  992.91 1042.07    10
+    ##         expr     min      lq    mean median      uq     max neval
+    ##  dual tree 1  113.95  115.77  117.35  116.8  119.81  120.81    10
+    ##  dual tree 4   40.73   41.44   42.24   41.6   42.63   47.41    10
+    ##      naive 1 3272.00 3273.75 3341.20 3319.9 3384.08 3493.53    10
+    ##      naive 4  901.58  918.21  930.89  930.8  942.23  968.53    10
 
 ``` r
 # The functions return the un-normalized log weights. We first compare
@@ -730,7 +730,7 @@ run_times <- lapply(Ns, function(N){
     `dual-tree 1` = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
                                  n_threads = 1L), 
     times = 5L)
-})
+}) 
 
 Ns_xtra <- 2^(15:19)
 run_times_xtra <- lapply(Ns_xtra, function(N){
@@ -754,20 +754,20 @@ meds
 ```
 
     ##          method
-    ## N         Dual-tree      Naive Dual-tree 1
-    ##   384      0.001173  0.0007221    0.003361
-    ##   768      0.002625  0.0026589    0.006639
-    ##   1536     0.004571  0.0095613    0.012272
-    ##   3072     0.008974  0.0377994    0.024477
-    ##   6144     0.021037  0.1899465    0.053030
-    ##   12288    0.038194  0.6819931    0.105499
-    ##   24576    0.078382  2.9246776    0.193367
-    ##   49152    0.124139 10.9888913    0.375339
-    ##   98304    0.246900         NA          NA
-    ##   196608   0.561036         NA          NA
-    ##   393216   1.050689         NA          NA
-    ##   786432   2.086806         NA          NA
-    ##   1572864  4.452460         NA          NA
+    ## N         Dual-tree     Naive Dual-tree 1
+    ##   384      0.001417  0.001107    0.003435
+    ##   768      0.002596  0.002600    0.006405
+    ##   1536     0.004348  0.009264    0.011660
+    ##   3072     0.008906  0.039025    0.024673
+    ##   6144     0.019200  0.160350    0.050552
+    ##   12288    0.037876  0.665139    0.102564
+    ##   24576    0.064317  2.693381    0.188294
+    ##   49152    0.122846 10.863833    0.368465
+    ##   98304    0.250208        NA          NA
+    ##   196608   0.500599        NA          NA
+    ##   393216   1.100709        NA          NA
+    ##   786432   2.087224        NA          NA
+    ##   1572864  4.352881        NA          NA
 
 ``` r
 par(mar = c(5, 4, 1, 1))

@@ -120,7 +120,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_mssm_sample_mv_normal", (DL_FUNC) &_mssm_sample_mv_normal, 3},
     {"_mssm_sample_mv_tdist", (DL_FUNC) &_mssm_sample_mv_tdist, 4},
     {"_mssm_pf_filter", (DL_FUNC) &_mssm_pf_filter, 25},
-    {"run_testthat_tests",     (DL_FUNC) &run_testthat_tests,      0},
+    {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 0},
     {NULL, NULL, 0}
 };
 

@@ -179,4 +179,57 @@ inline double normalize_log_weights(arma::vec &low_ws)
 /* wrapper for dsyr. Only updates the upper half */
 void arma_dsyr(arma::mat&, const arma::vec&, const double);
 
+template<std::size_t size_outer, std::size_t size_inner>
+class loop_nest_util {
+  const std::size_t N_outer, N_inner;
+  bool first_call = true;
+  std::size_t i = 0L, j = 0L;
+
+public:
+  const std::size_t
+    N_blocks_outer =
+      N_outer / size_outer + (N_outer % size_outer > 0L),
+    N_blocks_inner =
+      N_inner / size_inner + (N_inner % size_inner > 0L),
+    N_it = N_blocks_outer * N_blocks_inner;
+
+  loop_nest_util(std::size_t N_outer, std::size_t N_inner):
+    N_outer(N_outer), N_inner(N_inner)
+  {
+    static_assert(size_outer > 0L,
+                  "size_outer must be stricly greater than zero");
+    static_assert(size_inner > 0L,
+                  "size_inner must be stricly greater than zero");
+  }
+
+  struct loop_data{
+    std::size_t outer_start, outer_end, inner_start, inner_end;
+  };
+
+  /* return [start, end) for nested loop */
+  loop_data operator()()
+  {
+    if(!first_call){
+      ++j;
+      if(j >= N_blocks_inner){
+        ++i;
+        j = 0L;
+      }
+    } else
+      first_call = false;
+
+#ifdef MSSM_DEBUG
+    if(i >= N_blocks_outer)
+      throw std::invalid_argument("to many calls to loop_nest_util::operator()");
+#endif
+
+    std::size_t outer_start = i * size_outer, inner_start = j * size_inner;
+
+    return {
+      outer_start, std::min(outer_start + size_outer, N_outer),
+      inner_start, std::min(inner_start + size_inner, N_inner)
+    };
+  }
+};
+
 #endif

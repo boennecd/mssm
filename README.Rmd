@@ -637,10 +637,10 @@ use in the methods.
 microbenchmark::microbenchmark(
   `dual tree 1` = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, 
                                eps = 5e-3, n_threads = 1L),
-  `dual tree 6` = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, 
+  `dual tree 4` = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, 
                                eps = 5e-3, n_threads = 4L),
   `naive 1`     = mssm:::naive(X = X, ws = ws, Y = X, n_threads = 1L),
-  `naive 6`     = mssm:::naive(X = X, ws = ws, Y = X, n_threads = 4L),
+  `naive 4`     = mssm:::naive(X = X, ws = ws, Y = X, n_threads = 4L),
   times = 10L)
 
 # The functions return the un-normalized log weights. We first compare
@@ -683,7 +683,7 @@ run_times <- lapply(Ns, function(N){
     `dual-tree 1` = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
                                  n_threads = 1L), 
     times = 5L)
-})
+}) 
 
 Ns_xtra <- 2^(15:19)
 run_times_xtra <- lapply(Ns_xtra, function(N){

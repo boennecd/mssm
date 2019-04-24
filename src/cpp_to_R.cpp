@@ -33,14 +33,17 @@ Rcpp::List test_KD_note(const arma::mat &X, const arma::uword N_min){
     Rcpp::Named("n_elems") = std::move(n_elems));
 }
 
+/* TODO: could use std::bind */
 struct naive_inner_loop {
+  static constexpr std::size_t N_outer = 10L;
+
   const arma::uword i_start, i_end;
   const arma::vec &ws_log;
   const arma::mat &X, &Y;
   const trans_obj &kernel;
   arma::vec &out;
 
-  arma::vec weights_inner;
+  arma::mat weights_inner;
   const arma::uword N;
 
   naive_inner_loop
@@ -48,22 +51,39 @@ struct naive_inner_loop {
      const arma::vec &ws_log, const arma::mat &X, const arma::mat &Y,
      const trans_obj &kernel, arma::vec &out):
     i_start(i_start), i_end(i_end), ws_log(ws_log), X(X), Y(Y),
-    kernel(kernel), out(out), weights_inner(X.n_cols), N(Y.n_rows) { }
+    kernel(kernel), out(out), weights_inner(X.n_cols, N_outer), N(Y.n_rows) { }
 
   void operator()(){
-    for(unsigned int i = i_start; i < i_end; ++i){
-      const double *y = Y.colptr(i);
-      double max_weight = std::numeric_limits<double>::lowest();
-      for(unsigned int j = 0; j < X.n_cols; ++j){
-        weights_inner[j] = kernel(X.colptr(j), y, N, ws_log[j]);
-        if(weights_inner[j] > max_weight)
-          max_weight = weights_inner[j];
-      }
+    static constexpr std::size_t N_X = 10L;
+    loop_nest_util<N_outer, N_X> loop_util(i_end - i_start, X.n_cols);
 
-      out[i] = log_sum_log(weights_inner, max_weight);
+    std::array<double, N_outer> max_ws;
+
+    for(unsigned int k = 0; k < loop_util.N_it; ++k){
+      auto dat = loop_util();
+      const bool is_new_it = dat.inner_start < 1L,
+        is_final_inner_it = dat.inner_end >= X.n_cols;
+      if(is_new_it)
+        max_ws.fill(-std::numeric_limits<double>::infinity());
+
+      for(unsigned int ii = dat.outer_start, o = 0L; ii < dat.outer_end;
+          ++ii, ++o){
+        auto i = ii + i_start;
+        double &max_weight = max_ws[o];
+        const double *y = Y.colptr(i);
+        double *wi = weights_inner.colptr(o) + dat.inner_start;
+
+        for(unsigned int j = dat.inner_start; j < dat.inner_end; ++j, ++wi){
+          *wi = kernel(X.colptr(j), y, N, ws_log[j]);
+          if(*wi > max_weight)
+            max_weight = *wi;
+        }
+
+        if(is_final_inner_it)
+          out[i] = log_sum_log(weights_inner.unsafe_col(o), max_ws[o]);
+      }
     }
   }
-
 };
 
 // [[Rcpp::export]]
