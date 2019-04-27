@@ -1,6 +1,7 @@
 #ifndef KD_TREE_H
 #define KD_TREE_H
 #include "arma.h"
+#include "thread_pool.h"
 
 #ifdef MSSM_DEBUG
 #include <iostream>
@@ -35,6 +36,7 @@ class KD_note {
   std::unique_ptr<std::vector<arma::uword> > idx;
   std::unique_ptr<KD_note> left;
   std::unique_ptr<KD_note> right;
+  arma::uword depth;
 public:
   const arma::uword n_elem;
   bool is_leaf() const {
@@ -46,18 +48,72 @@ public:
   std::vector<const KD_note*> get_leafs() const;
   const KD_note& get_left () const;
   const KD_note& get_right() const;
+  /* assumes 'set_depth' has been called */
+  arma::uword get_depth() const {
+    return depth;
+  }
+
+  /* return the start index and end index. Only valid if data is sorted by
+   * using the 'get_indices_parent' and 'set_indices' member functions */
+  arma::uword get_start() const {
+    if(is_leaf())
+      return idx->front();
+
+    return left->get_start();
+  }
+  arma::uword get_end() const {
+    if(is_leaf())
+      return idx->back() + 1L;
+
+    return right->get_end();
+  }
 
   KD_note(KD_note&&) = default;
 
-  friend KD_note get_KD_tree(const arma::mat&, const arma::uword);
+  friend KD_note get_KD_tree(
+      const arma::mat&, const arma::uword, thread_pool&);
 
 private:
-  KD_note(const arma::mat&, const arma::uword, idx_ptr&, row_order*,
-          const arma::uword, const hyper_rectangle*);
+  KD_note(const arma::mat&, const arma::uword, idx_ptr&&, row_order*,
+          const arma::uword, const hyper_rectangle*,
+          thread_pool&, std::vector<std::future<void> >&, std::mutex&);
 
-  void get_indices_parent(arma::uword *);
+  void get_indices_parent(arma::uword*);
+
+  /* util class used in constructor */
+  struct set_child {
+    std::unique_ptr<KD_note> &ptr;
+    idx_ptr indices;
+    hyper_rectangle child_rect;
+    const arma::mat &X;
+    const arma::uword N_min;
+    row_order *order;
+    const arma::uword depth;
+    thread_pool &pool;
+    std::vector<std::future<void> > &futures;
+    std::mutex &lc;
+
+    void operator()()
+    {
+      ptr.reset(new KD_note(
+          X, N_min, std::move(indices), order, depth + 1L, &child_rect,
+          pool, futures, lc));
+    }
+  };
+
+  void set_depth() {
+    if(is_leaf()){
+      depth = 1L;
+      return;
+    }
+
+    left ->set_depth();
+    right->set_depth();
+
+    depth = std::max(left->depth, right->depth) + 1L;
+  }
 };
 
-KD_note get_KD_tree(const arma::mat&, const arma::uword);
+KD_note get_KD_tree(const arma::mat&, const arma::uword, thread_pool&);
 
 #endif

@@ -15,7 +15,8 @@ context("Test source_node") {
                                 -.3,  -1});
     auto ws = create_vec<4L>({ log(.1), log(.4), log(.3), log(.2) });
 
-    KD_note node = get_KD_tree(X, 2L);
+    thread_pool pool(1L);
+    KD_note node = get_KD_tree(X, 2L, pool);
     expect_true(!node.is_leaf());
 
     source_node<false> pn(X, ws, node, nullptr);

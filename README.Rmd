@@ -245,7 +245,7 @@ penalties). The definition of the
 #       current state given the previous state.
 #   Q: starting value for covariance matrix in conditional distribution of the 
 #      current state given the previous. 
-#   verbose: TRUE if output should be printed doing estmation. 
+#   verbose: TRUE if output should be printed during estmation. 
 # 
 # Returns:
 #   List with estimates and the log-likelihood approximation at each iteration. 
@@ -467,11 +467,11 @@ The question is how big the error is.
 Thus, we consider the error in the log-likelihood approximation at the 
 true parameters. 
 
-```{r comp_arell_aprx, cache = 1, fig.height = .fig_height_small}
+```{r comp_all_vs_aprx, cache = 1, fig.height = .fig_height_small, message = FALSE}
 ll_compare <- local({
-  N_use <- 500L
+  N_use <- 500L 
   # we alter the seed in each run. First, the exact method
-  ll_no_approx <- sapply(1:100, function(seed){
+  ll_no_approx <- sapply(1:1000, function(seed){
     ll_func <- mssm(
       fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
       random = ~ Z, ti = time_idx, control = mssm_control(
@@ -483,7 +483,7 @@ ll_compare <- local({
   })
   
   # then the approximation
-  ll_approx <- sapply(1:100, function(seed){
+  ll_approx <- sapply(1:1000, function(seed){
     ll_func <- mssm(
       fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
       random = ~ Z, ti = time_idx, control = mssm_control(
@@ -509,19 +509,20 @@ hist(
   xlab = "Log-likelihood approximation -- aprox")
 ```
 
-The latter seems to have a small positive bias.
+We can make a t-test for whether there is a difference between the two 
+log-likelihood estimates
 
-```{r}
+```{r t_test_comp_ll}
 with(ll_compare, t.test(ll_no_approx, ll_approx))
 ```
 
-The fact that it is small is nice because now we can get a much better 
-approximation (in terms of variance) quickly of e.g., the log-likelihood 
-as shown below.
+The fact that there may only be a small difference if any is nice because 
+now we can get a much better approximation (in terms of variance) quickly 
+of e.g., the log-likelihood as shown below.
 
-```{r show_ll_quick, cache = 1}
+```{r show_ll_quick, cache = 1, message = FALSE}
 ll_approx <- sapply(1:10, function(seed){
-  N_use <- 100000L # many more particles
+  N_use <- 10000L # many more particles
   
   ll_func <- mssm(
     fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
@@ -536,10 +537,11 @@ ll_approx <- sapply(1:10, function(seed){
 
 # approximate log-likelihood
 sd(ll_approx)
-mean(ll_approx)
+print(mean(ll_approx), digits = 6)
 
 # compare sd with 
 sd(ll_compare$ll_no_approx)
+print(mean(ll_compare$ll_no_approx), digits = 6)
 ```
 
 ## Fast Sum-Kernel Approximation
@@ -674,7 +676,7 @@ dotted line is dual-tree method using 1 thread.
 
 ```{r run_times_N, cache = 1}
 Ns <- 2^(7:14)
-run_times <- lapply(Ns, function(N){
+run_times <- lapply(Ns, function(N){ 
   invisible(list2env(get_sims(N), environment()))
   microbenchmark::microbenchmark(
     `dual-tree`   = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 

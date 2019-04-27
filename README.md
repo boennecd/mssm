@@ -201,7 +201,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   0.748   0.012   0.189
+    ##   0.726   0.017   0.184
 
 ``` r
 # returns the log-likelihood approximation
@@ -286,7 +286,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   0.704   0.011   0.187
+    ##   0.699   0.018   0.177
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -321,7 +321,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 201.825   1.315  46.881
+    ## 197.772   1.313  46.214
 
 A plot of the approximate log-likelihoods at each iteration is shown below along with the final estimates.
 
@@ -401,11 +401,11 @@ local({
 
     ## Unit: milliseconds
     ##  expr     min      lq    mean  median      uq     max neval
-    ##   100   24.02   24.93   26.01   25.85   27.00   28.16     3
-    ##   200   47.53   48.60   50.60   49.67   52.14   54.61     3
-    ##   400  135.57  135.90  138.64  136.23  140.17  144.11     3
-    ##   800  374.26  382.28  405.15  390.31  420.59  450.88     3
-    ##  1600 1257.33 1271.76 1304.84 1286.20 1328.60 1370.99     3
+    ##   100   26.46   26.47   26.65   26.47   26.75   27.02     3
+    ##   200   48.32   48.57   53.33   48.82   55.84   62.85     3
+    ##   400  133.55  136.27  137.60  139.00  139.62  140.24     3
+    ##   800  370.77  375.85  389.61  380.93  399.03  417.14     3
+    ##  1600 1240.82 1283.76 1317.30 1326.71 1355.54 1384.38     3
 
 A solution is to use the dual k-d tree method I cover later. The computational complexity is ![\\mathcal{O}(N \\log N)](https://chart.googleapis.com/chart?cht=tx&chl=%5Cmathcal%7BO%7D%28N%20%5Clog%20N%29 "\mathcal{O}(N \log N)") for this method which is somewhat indicated by the run times shown below.
 
@@ -441,12 +441,12 @@ local({
 
     ## Unit: milliseconds
     ##   expr      min       lq     mean   median       uq      max neval
-    ##    100    36.62    38.26    39.65    39.91    41.17    42.43     3
-    ##    200    76.98    84.21    88.51    91.44    94.28    97.12     3
-    ##    400   161.32   165.31   167.39   169.30   170.43   171.56     3
-    ##    800   290.58   301.19   310.78   311.81   320.88   329.95     3
-    ##   1600   530.80   578.54   598.78   626.28   632.77   639.25     3
-    ##  51200 13169.70 13306.89 13389.39 13444.08 13499.23 13554.37     3
+    ##    100    36.01    36.41    37.11    36.82    37.66    38.50     3
+    ##    200    68.12    70.65    74.38    73.17    77.52    81.86     3
+    ##    400   139.96   140.17   144.89   140.37   147.35   154.33     3
+    ##    800   255.56   271.34   286.27   287.12   301.62   316.13     3
+    ##   1600   522.70   531.49   539.54   540.28   547.96   555.65     3
+    ##  51200 10374.17 10680.59 10797.32 10987.01 11008.90 11030.78     3
 
 The `aprx_eps` controls the size of the error. To be precise about what this value does then we need to some notation for the complete likelihood (the likelihood where we observe ![\\vec\\beta\_1,\\dots,\\vec\\beta\_T](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_1%2C%5Cdots%2C%5Cvec%5Cbeta_T "\vec\beta_1,\dots,\vec\beta_T")s). This is
 
@@ -460,9 +460,9 @@ where ![g\_t](https://chart.googleapis.com/chart?cht=tx&chl=g_t "g_t") is condit
 
 ``` r
 ll_compare <- local({
-  N_use <- 500L
+  N_use <- 500L 
   # we alter the seed in each run. First, the exact method
-  ll_no_approx <- sapply(1:100, function(seed){
+  ll_no_approx <- sapply(1:1000, function(seed){
     ll_func <- mssm(
       fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
       random = ~ Z, ti = time_idx, control = mssm_control(
@@ -474,7 +474,7 @@ ll_compare <- local({
   })
   
   # then the approximation
-  ll_approx <- sapply(1:100, function(seed){
+  ll_approx <- sapply(1:1000, function(seed){
     ll_func <- mssm(
       fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
       random = ~ Z, ti = time_idx, control = mssm_control(
@@ -489,17 +489,6 @@ ll_compare <- local({
   list(ll_no_approx = ll_no_approx, ll_approx = ll_approx)
 }) 
 ```
-
-    ## Ignoring terms with -infinite normalized log weights
-    ## Ignoring terms with -infinite normalized log weights
-    ## Ignoring terms with -infinite normalized log weights
-    ## Ignoring terms with -infinite normalized log weights
-    ## Ignoring terms with -infinite normalized log weights
-    ## Ignoring terms with -infinite normalized log weights
-    ## Ignoring terms with -infinite normalized log weights
-    ## Ignoring terms with -infinite normalized log weights
-    ## Ignoring terms with -infinite normalized log weights
-    ## Ignoring terms with -infinite normalized log weights
 
 ``` r
 par(mar = c(5, 4, 1, 1))
@@ -518,7 +507,7 @@ hist(
 
 ![](./README-fig/show_comp_arell_aprx-2.png)
 
-The latter seems to have a small positive bias.
+We can make a t-test for whether there is a difference between the two log-likelihood estimates
 
 ``` r
 with(ll_compare, t.test(ll_no_approx, ll_approx))
@@ -528,19 +517,19 @@ with(ll_compare, t.test(ll_no_approx, ll_approx))
     ##  Welch Two Sample t-test
     ## 
     ## data:  ll_no_approx and ll_approx
-    ## t = -1.9, df = 200, p-value = 0.06
+    ## t = -6, df = 2000, p-value = 0.000000002
     ## alternative hypothesis: true difference in means is not equal to 0
     ## 95 percent confidence interval:
-    ##  -0.39189  0.01063
+    ##  -0.2547 -0.1299
     ## sample estimates:
     ## mean of x mean of y 
     ##     -2008     -2008
 
-The fact that it is small is nice because now we can get a much better approximation (in terms of variance) quickly of e.g., the log-likelihood as shown below.
+The fact that there may only be a small difference if any is nice because now we can get a much better approximation (in terms of variance) quickly of e.g., the log-likelihood as shown below.
 
 ``` r
 ll_approx <- sapply(1:10, function(seed){
-  N_use <- 100000L # many more particles
+  N_use <- 10000L # many more particles
   
   ll_func <- mssm(
     fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
@@ -552,38 +541,31 @@ ll_approx <- sapply(1:10, function(seed){
   logLik(ll_func$pf_filter(
     cfix = cfix, disp = numeric(), F. = F., Q = Q))
 }) 
-```
 
-    ## Ignoring terms with -infinite normalized log weights
-    ## Ignoring terms with -infinite normalized log weights
-    ## Ignoring terms with -infinite normalized log weights
-    ## Ignoring terms with -infinite normalized log weights
-    ## Ignoring terms with -infinite normalized log weights
-    ## Ignoring terms with -infinite normalized log weights
-    ## Ignoring terms with -infinite normalized log weights
-    ## Ignoring terms with -infinite normalized log weights
-    ## Ignoring terms with -infinite normalized log weights
-    ## Ignoring terms with -infinite normalized log weights
-
-``` r
 # approximate log-likelihood
 sd(ll_approx)
 ```
 
-    ## [1] 0.04254
+    ## [1] 0.1955
 
 ``` r
-mean(ll_approx)
+print(mean(ll_approx), digits = 6)
 ```
 
-    ## [1] -2008
+    ## [1] -2008.06
 
 ``` r
 # compare sd with 
 sd(ll_compare$ll_no_approx)
 ```
 
-    ## [1] 0.721
+    ## [1] 0.7112
+
+``` r
+print(mean(ll_compare$ll_no_approx), digits = 6)
+```
+
+    ## [1] -2008.18
 
 Fast Sum-Kernel Approximation
 -----------------------------
@@ -669,11 +651,11 @@ microbenchmark::microbenchmark(
 ```
 
     ## Unit: milliseconds
-    ##         expr     min      lq    mean median      uq     max neval
-    ##  dual tree 1  113.95  115.77  117.35  116.8  119.81  120.81    10
-    ##  dual tree 4   40.73   41.44   42.24   41.6   42.63   47.41    10
-    ##      naive 1 3272.00 3273.75 3341.20 3319.9 3384.08 3493.53    10
-    ##      naive 4  901.58  918.21  930.89  930.8  942.23  968.53    10
+    ##         expr     min      lq    mean  median      uq     max neval
+    ##  dual tree 1  104.67  106.54  127.08  115.22  121.15  205.86    10
+    ##  dual tree 4   39.99   40.94   45.51   43.46   52.61   53.79    10
+    ##      naive 1 3324.86 3408.96 3777.23 3472.46 3785.17 5996.33    10
+    ##      naive 4  994.16 1134.45 1268.40 1168.06 1322.70 2080.62    10
 
 ``` r
 # The functions return the un-normalized log weights. We first compare
@@ -721,7 +703,7 @@ Finally, we compare the run-times as function of ![N = N\_s = N\_q](https://char
 
 ``` r
 Ns <- 2^(7:14)
-run_times <- lapply(Ns, function(N){
+run_times <- lapply(Ns, function(N){ 
   invisible(list2env(get_sims(N), environment()))
   microbenchmark::microbenchmark(
     `dual-tree`   = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
@@ -755,19 +737,19 @@ meds
 
     ##          method
     ## N         Dual-tree     Naive Dual-tree 1
-    ##   384      0.001417  0.001107    0.003435
-    ##   768      0.002596  0.002600    0.006405
-    ##   1536     0.004348  0.009264    0.011660
-    ##   3072     0.008906  0.039025    0.024673
-    ##   6144     0.019200  0.160350    0.050552
-    ##   12288    0.037876  0.665139    0.102564
-    ##   24576    0.064317  2.693381    0.188294
-    ##   49152    0.122846 10.863833    0.368465
-    ##   98304    0.250208        NA          NA
-    ##   196608   0.500599        NA          NA
-    ##   393216   1.100709        NA          NA
-    ##   786432   2.087224        NA          NA
-    ##   1572864  4.352881        NA          NA
+    ##   384      0.001317  0.001071    0.003454
+    ##   768      0.002412  0.002982    0.006449
+    ##   1536     0.004489  0.009315    0.011437
+    ##   3072     0.008899  0.036396    0.022211
+    ##   6144     0.018389  0.148294    0.046091
+    ##   12288    0.036700  0.597335    0.091370
+    ##   24576    0.063388  2.549931    0.169758
+    ##   49152    0.115751 10.655087    0.317457
+    ##   98304    0.260871        NA          NA
+    ##   196608   0.509908        NA          NA
+    ##   393216   0.962727        NA          NA
+    ##   786432   1.832220        NA          NA
+    ##   1572864  3.952357        NA          NA
 
 ``` r
 par(mar = c(5, 4, 1, 1))
@@ -795,7 +777,7 @@ Function Definitions
 #       current state given the previous state.
 #   Q: starting value for covariance matrix in conditional distribution of the 
 #      current state given the previous. 
-#   verbose: TRUE if output should be printed doing estmation. 
+#   verbose: TRUE if output should be printed during estmation. 
 # 
 # Returns:
 #   List with estimates and the log-likelihood approximation at each iteration. 

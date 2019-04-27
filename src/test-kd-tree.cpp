@@ -7,16 +7,18 @@ context("Test KD-tree") {
   test_that("kd-tree splits as expected in 1D") {
     auto X = create_mat<1L, 4L>({ 4., 1., 2., 3. });
 
+    thread_pool pool(1L);
+
     {
-      KD_note note = get_KD_tree(X, 10L);
+      KD_note note = get_KD_tree(X, 10L, pool);
       expect_true(note.is_leaf());
     }
     {
-      KD_note note = get_KD_tree(X, 4L);
+      KD_note note = get_KD_tree(X, 4L, pool);
       expect_true(note.is_leaf());
     }
     {
-      KD_note note = get_KD_tree(X, 3L);
+      KD_note note = get_KD_tree(X, 3L, pool);
       expect_true(!note.is_leaf());
       auto leafs = note.get_leafs();
       expect_true(leafs.size() == 2L);

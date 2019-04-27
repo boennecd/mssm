@@ -44,4 +44,16 @@ test_that("get the same with 'poisson_log'", {
     cfix = poisson_log$cfix, F. = poisson_log$F., Q = poisson_log$Q,
     disp = numeric())
   expect_known_value(func_out[mssm_ele_to_check], "mssm-poisson-log-kd.RDS")
+
+  #####
+  # w/ larger epsilon
+  ctrl$aprx_eps <- .1
+
+  func <- mssm(
+    fixed = y ~ x + Z, random = ~ Z, family = poisson(),
+    data = poisson_log$data, ti = time_idx, control = ctrl)
+  func_out <- func$pf_filter(
+    cfix = poisson_log$cfix, F. = poisson_log$F., Q = poisson_log$Q,
+    disp = numeric())
+  expect_known_value(func_out[mssm_ele_to_check], "mssm-poisson-log-kd-large-eps.RDS")
 })

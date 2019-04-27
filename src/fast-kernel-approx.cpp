@@ -24,14 +24,15 @@ using get_X_root_output =
  * and weights. It returns a permutation vector to undo the permutation */
 template<bool has_extra>
 get_X_root_output<has_extra> get_X_root
-  (arma::mat &X, arma::vec &ws, const arma::uword N_min, arma::mat *xtra)
+  (arma::mat &X, arma::vec &ws, const arma::uword N_min, arma::mat *xtra,
+   thread_pool &pool)
 {
   get_X_root_output<has_extra> out;
   auto &node = std::get<0>(out);
   auto &snode = std::get<1>(out);
   auto &old_idx = std::get<2>(out);
 
-  node.reset(new KD_note(get_KD_tree(X, N_min)));
+  node.reset(new KD_note(get_KD_tree(X, N_min, pool)));
 
   /* make permutation to get original order */
   arma::uvec new_idx = node->get_indices_parent();
@@ -61,14 +62,15 @@ using get_Y_root_output =
  * It returns a permutation vector to undo the permutation */
 template<bool has_extra>
 get_Y_root_output get_Y_root
-  (arma::mat &Y, const arma::uword N_min, arma::mat *xtra)
+  (arma::mat &Y, const arma::uword N_min, arma::mat *xtra,
+   thread_pool &pool)
 {
   get_Y_root_output out;
   auto &node  = std::get<0L>(out);
   auto &snode = std::get<1L>(out);
   auto &old_idx = std::get<2>(out);
 
-  node.reset(new KD_note(get_KD_tree(Y, N_min)));
+  node.reset(new KD_note(get_KD_tree(Y, N_min, pool)));
 
   /* make permutation to get original order */
   arma::uvec new_idx = node->get_indices_parent();
@@ -108,17 +110,9 @@ void comp_w_centroid
    const bool is_single_threaded, arma::mat *Y_extra,
    FSKA_cpp_xtra_func &extra_func)
 {
-  if(!Y_node.node.is_leaf()){
-    comp_w_centroid<has_extra>
-    (log_weights, X_node, *Y_node.left , Y, kernel, is_single_threaded,
-     Y_extra, extra_func);
-    comp_w_centroid<has_extra>
-    (log_weights, X_node, *Y_node.right, Y, kernel, is_single_threaded,
-     Y_extra, extra_func);
-    return;
-  }
+  const arma::uword start = Y_node.node.get_start(),
+                    end   = Y_node.node.get_end();
 
-  const std::vector<arma::uword> &idx = Y_node.node.get_indices();
   const arma::vec &X_centroid = X_node.centroid;
   double x_weight_log = std::log(X_node.weight);
   const double *xp = X_centroid.begin(),
@@ -128,10 +122,10 @@ void comp_w_centroid
   arma::vec out;
   double *o = nullptr;
   if(!is_single_threaded){
-    out.set_size(idx.size());
+    out.set_size(end - start);
     o = out.begin();
   }
-  for(auto i : idx){
+  for(arma::uword i = start; i < end; ++i){
     double new_term = kernel(xp, Y.colptr(i), N, x_weight_log) ;
     if(!is_single_threaded){
       *(o++) = new_term;
@@ -147,12 +141,42 @@ void comp_w_centroid
   if(is_single_threaded)
     return;
 
+  /* travers down the tree from left to right. We use that data is sorted and
+   * we only lock one lock at a time */
   o = out.begin();
-  std::lock_guard<std::mutex> guard(*Y_node.idx_mutex);
-  for(auto i : idx)
-    set_func<has_extra>(
-      log_weights[i], *(o++), xp, Y.colptr(i), xp_extra,
-      Y_extra->colptr(i), &extra_func);
+  thread_local std::vector<const query_node*> tasks;
+  const std::size_t required_size = Y_node.node.get_depth() + 1L;
+  if(tasks.size() < required_size)
+    tasks = std::vector<const query_node*>(required_size);
+
+  int yi = 0L;
+  tasks.front() = &Y_node;
+  const query_node** yip = tasks.data();
+  while(yi > -1){
+    const query_node* this_node = *yip;
+
+    if(this_node->node.is_leaf()){
+      const arma::uword this_end = this_node->node.get_end();
+      arma::uword i = this_node->node.get_start();
+
+      {
+        std::lock_guard<std::mutex> gr(*this_node->idx_mutex);
+        for(; i < this_end; ++i)
+          set_func<has_extra>(
+            log_weights[i], *(o++), xp, Y.colptr(i), xp_extra,
+            Y_extra->colptr(i), &extra_func);
+      }
+
+      --yip;
+      --yi;
+      continue;
+
+    }
+
+    *   yip  = this_node->right.get();
+    *(++yip) = this_node->left.get();
+      ++yi;
+  }
 }
 
 template<bool has_extra>
@@ -182,21 +206,22 @@ void comp_all<false>(
 {
   comp_all_check(X_node, Y_node);
 
-  const std::vector<arma::uword> &idx_y = Y_node.node.get_indices(),
-    &idx_x = X_node.node.get_indices();
-  arma::vec x_y_ws(idx_x.size());
+  const arma::uword
+    start_X = X_node.node.get_start(), end_X = X_node.node.get_end(),
+    start_Y = Y_node.node.get_start(), end_Y = Y_node.node.get_end();
+  arma::vec x_y_ws(end_X - start_X);
 
   arma::vec out;
   double *o = nullptr;
   if(!is_single_threaded){
-    out.set_size(idx_x.size());
+    out.set_size(end_X - start_X);
     o = out.begin();
   }
-  for(auto i_y : idx_y){
+  for(arma::uword i_y = start_Y; i_y < end_Y; ++i_y){
     const arma::uword N = Y.n_rows;
     double max_log_w = std::numeric_limits<double>::lowest();
     double *x_y_ws_i = x_y_ws.begin();
-    for(auto i_x : idx_x){
+    for(arma::uword i_x = start_X; i_x < end_X; ++i_x){
       *x_y_ws_i = kernel(X.colptr(i_x), Y.colptr(i_y), N, ws_log[i_x]);
       if(*x_y_ws_i > max_log_w)
         max_log_w = *x_y_ws_i;
@@ -221,7 +246,7 @@ void comp_all<false>(
 
   o = out.begin();
   std::lock_guard<std::mutex> guard(*Y_node.idx_mutex);
-  for(auto i_y : idx_y)
+  for(arma::uword i_y = start_Y; i_y < end_Y; ++i_y)
     set_func<false>(
       log_weights[i_y], *(o++), nullptr, nullptr, nullptr, nullptr, nullptr);
 }
@@ -235,9 +260,10 @@ void comp_all<true>(
 {
   comp_all_check(X_node, Y_node);
 
-  const std::vector<arma::uword> &idx_y = Y_node.node.get_indices(),
-    &idx_x = X_node.node.get_indices();
-  arma::vec x_y_ws(idx_x.size());
+  const arma::uword
+    start_X = X_node.node.get_start(), end_X = X_node.node.get_end(),
+    start_Y = Y_node.node.get_start(), end_Y = Y_node.node.get_end();
+  arma::vec x_y_ws(end_X - start_X);
 
   typedef std::unique_ptr<std::lock_guard<std::mutex> > ptr_gaurd;
   /* TODO: not good. Going to be locked for a long time... */
@@ -247,10 +273,10 @@ void comp_all<true>(
     ptr_gaurd(new std::lock_guard<std::mutex>(*Y_node.idx_mutex));
 
   const arma::uword N = Y.n_rows;
-  for(auto i_y : idx_y){
+  for(arma::uword i_y = start_Y; i_y < end_Y; ++i_y){
     const double *yp = Y       .colptr(i_y);
     double *yp_extra = Y_extra->colptr(i_y);
-    for(auto i_x : idx_x){
+    for(arma::uword i_x = start_X; i_x < end_X; ++i_x){
       const double *xp = X  .colptr(i_x),
         *xp_extra = X_extra->colptr(i_x);
       double log_w = kernel(xp, yp, N, ws_log[i_x]);
@@ -394,25 +420,24 @@ FSKA_cpp_permutation FSKA_cpp(
 #endif
 
   /* transform X and Y before doing any computation */
-{
-  auto t1 = pool.submit(std::bind(
-    &trans_obj::trans_X, &kernel, ref(X)));
-  auto t2 = pool.submit(std::bind(
-    &trans_obj::trans_Y, &kernel, ref(Y)));
-  t1.get();
-  t2.get();
-}
+  {
+    auto t1 = pool.submit(std::bind(
+      &trans_obj::trans_X, &kernel, ref(X)));
+    auto t2 = pool.submit(std::bind(
+      &trans_obj::trans_Y, &kernel, ref(Y)));
+    t1.get();
+    t2.get();
+  }
+
+  /* arma::mat &Y, const arma::uword N_min, arma::mat *xtra,
+   thread_pool &pool*/
 
   /* form trees */
-  auto f1 = pool.submit(std::bind(
-    get_X_root<has_extra>, ref(X), ref(ws_log), N_min, X_extra));
-  auto f2 = pool.submit(std::bind(
-    get_Y_root<has_extra>, ref(Y), N_min, Y_extra));
+  auto X_root = get_X_root<has_extra>(X, ws_log, N_min, X_extra, pool);
+  auto Y_root = get_Y_root<has_extra>(Y,         N_min, Y_extra, pool);
 
   std::list<std::future<void> > futures;
-  auto X_root = f1.get();
   source_node<has_extra> &X_root_source = *std::get<1L>(X_root);
-  auto Y_root = f2.get();
   query_node &Y_root_query   = *std::get<1L>(Y_root);
 
   /* compute weights etc. */

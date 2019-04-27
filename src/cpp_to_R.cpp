@@ -11,7 +11,8 @@ using Rcpp::Named;
 
 // [[Rcpp::export]]
 Rcpp::List test_KD_note(const arma::mat &X, const arma::uword N_min){
-  KD_note root = get_KD_tree(X, N_min);
+  thread_pool pool(1L);
+  KD_note root = get_KD_tree(X, N_min, pool);
 
   /* find leafs */
   auto leafs = root.get_leafs();

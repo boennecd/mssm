@@ -3,6 +3,8 @@
 
 using std::domain_error;
 using std::invalid_argument;
+using std::ref;
+using std::cref;
 
 class row_order {
   using idx_ptr = std::unique_ptr<std::vector<arma::uword> >;
@@ -21,21 +23,38 @@ public:
     (std::vector<arma::uword>&, const hyper_rectangle&);
 };
 
-KD_note get_KD_tree(const arma::mat &X, const arma::uword N_min){
+KD_note get_KD_tree
+  (const arma::mat &X, const arma::uword N_min, thread_pool &pool){
   std::unique_ptr<std::vector<arma::uword> > idx_in;
 
-  return KD_note(X, N_min, idx_in, nullptr, 0L, nullptr);
+  std::vector<std::future<void> > futures;
+  std::mutex lc;
+
+  auto out = KD_note(X, N_min, std::move(idx_in), nullptr, 0L, nullptr, pool,
+                     futures, lc);
+
+  out.set_depth();
+
+  return out;
 }
 
 KD_note::KD_note(
-  const arma::mat &X, const arma::uword N_min, idx_ptr &idx_in,
-  row_order *order, const arma::uword depth, const hyper_rectangle *rect):
-  n_elem(idx_in ? idx_in->size() : X.n_cols)
+  const arma::mat &X, const arma::uword N_min, idx_ptr &&idx_in_r,
+  row_order *order, const arma::uword depth, const hyper_rectangle *rect,
+  thread_pool &pool, std::vector<std::future<void> > &futures,
+  std::mutex &lc):
+  n_elem(idx_in_r ? idx_in_r->size() : X.n_cols)
   {
+    /* fraction at which to start multi-threading */
+    static constexpr double frac_mult = .01;        /* ~ 2^7 split */
+    static constexpr unsigned int max_nodes = 300L; /* ~ 2^1 + 2^2 + ... + 2^x */
+
+    idx_ptr idx_in(std::move(idx_in_r));
     std::unique_ptr<row_order> ord_ptr;
     std::unique_ptr<hyper_rectangle> rect_ptr;
-    if(!order){
-      /* first call */
+
+    const bool is_first_call = !order;
+    if(is_first_call){
       idx_in.reset(new std::vector<arma::uword>(X.n_cols));
       std::iota(idx_in->begin(), idx_in->end(), 0L);
       ord_ptr.reset(new row_order(X));
@@ -43,6 +62,7 @@ KD_note::KD_note(
       rect_ptr.reset(new hyper_rectangle(X, *idx_in));
       rect = rect_ptr.get();
 
+      futures.reserve(max_nodes);
     }
 
     bool do_split = idx_in->size() > N_min;
@@ -60,12 +80,50 @@ KD_note::KD_note(
         rect_left .shrink(X, *idx_left , split_dim.dim);
         rect_right.shrink(X, *idx_right, split_dim.dim);
       }
-      idx_in.reset(); /* do not need indices anymore */
 
-      left .reset(
-        new KD_note(X, N_min, idx_left , order, depth + 1L, &rect_left));
-      right.reset(
-        new KD_note(X, N_min, idx_right, order, depth + 1L, &rect_right));
+      const bool
+        finish =  idx_in->size() <= 50L or
+          (double)idx_in->size() <= (double)X.n_cols * frac_mult;
+
+      /* set left and right child */
+      auto get_worker =
+        [&](std::unique_ptr<KD_note> &ptr, idx_ptr &&indices,
+            hyper_rectangle new_rect) {
+          return set_child {
+            ptr, std::move(indices), new_rect, X, N_min, order, depth, pool,
+            futures, lc};
+      };
+
+      auto task_left  = get_worker(
+             left , std::move(idx_left ), std::move(rect_left)),
+           task_right = get_worker(
+             right, std::move(idx_right), std::move(rect_right));
+
+      if(finish){
+        task_left();
+        task_right();
+
+      } else {
+        std::lock_guard<std::mutex> ga(lc);
+        futures.push_back(pool.submit(std::move(task_left )));
+        futures.push_back(pool.submit(std::move(task_right)));
+
+      }
+
+      if(is_first_call)
+        /* We cannot return before all futures are done */
+        while(!futures.empty()){
+          std::future_status status;
+          auto &current_back = futures.back();
+          status = current_back.wait_for(std::chrono::nanoseconds(1L));
+          if(status == std::future_status::ready){
+            std::lock_guard<std::mutex> ga(lc);
+            if(&current_back == &futures.back())
+              futures.pop_back();
+
+          } else
+            std::this_thread::yield();
+        }
 
       return;
     }
