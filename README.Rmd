@@ -215,8 +215,6 @@ mssm_glm <- ll_func$pf_filter(
 logLik(mssm_glm)
 ```
 
-TODO: I am not sure why we get a lower log-likelihood with the above. 
-
 ### Parameter Estimation
 
 We will need to estimate the parameters for real applications. We could do 
@@ -496,7 +494,7 @@ ll_compare <- local({
   })
   
   list(ll_no_approx = ll_no_approx, ll_approx = ll_approx)
-}) 
+})
 ```
 
 ```{r show_comp_arell_aprx, fig.height = .fig_height_small}

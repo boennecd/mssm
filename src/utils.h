@@ -30,7 +30,7 @@ inline double norm_square(const double *d1, const double *d2, arma::uword N){
 }
 
 /* class for arma object which takes a copy of the current value, set the
- * elements to zero and adds the copy back when the this objects is
+ * elements to zero and adds the copy back when this objects is
  * destructed. */
 template<typename T>
 class add_back {
@@ -49,6 +49,8 @@ public:
   ~add_back(){
     if(arma::size(org) == arma::size(copy))
       org += copy;
+    else
+      Rcpp::Rcout << "'add_back' failed due to changed size\n";
   }
 };
 

@@ -247,14 +247,11 @@ mssm_control <- function(
 #' @export
 logLik.mssm <- function(object, ...){
   stopifnot(inherits(object, "mssm"))
-  any_inf <- FALSE
   ll <- sum(log_lik_terms <- sapply(object$pf_output, function(x){
-    keep <- drop(x$ws_normalized > -Inf)
-    any_inf <<- any(!keep) || any_inf
-    mean(x$ws[keep])
+    x <- x$ws
+    ma <- max(x)
+    log(sum(exp(x - ma))) + ma - log(length(x))
   }))
-  if(any_inf)
-    message("Ignoring terms with -infinite normalized log weights")
   # TODO: set nobs and df
   # TODO: test output
   structure(ll, nobs = NA_integer_, df = NA_integer_, class = "logLik",

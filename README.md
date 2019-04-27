@@ -201,14 +201,14 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   0.726   0.017   0.184
+    ##   0.760   0.009   0.195
 
 ``` r
 # returns the log-likelihood approximation
 logLik(mssm_obj)
 ```
 
-    ## 'log Lik.' -2008 (df=NA)
+    ## 'log Lik.' -1997 (df=NA)
 
 As expected, we get a much higher log-likelihood. We can e.g., compare this to a model where we use splines instead for each of the two random effects.
 
@@ -286,7 +286,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   0.699   0.018   0.177
+    ##   0.704   0.000   0.174
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -299,9 +299,7 @@ mssm_glm <- ll_func$pf_filter(
 logLik(mssm_glm)
 ```
 
-    ## 'log Lik.' -2297 (df=NA)
-
-TODO: I am not sure why we get a lower log-likelihood with the above.
+    ## 'log Lik.' -2291 (df=NA)
 
 ### Parameter Estimation
 
@@ -321,7 +319,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 197.772   1.313  46.214
+    ## 192.495   1.104  44.974
 
 A plot of the approximate log-likelihoods at each iteration is shown below along with the final estimates.
 
@@ -329,7 +327,7 @@ A plot of the approximate log-likelihoods at each iteration is shown below along
 tail(res$logLik, 1L) # final log-likelihood approximation
 ```
 
-    ## [1] -2004
+    ## [1] -1993
 
 ``` r
 par(mar = c(5, 4, 1, 1))
@@ -400,12 +398,12 @@ local({
 ```
 
     ## Unit: milliseconds
-    ##  expr     min      lq    mean  median      uq     max neval
-    ##   100   26.46   26.47   26.65   26.47   26.75   27.02     3
-    ##   200   48.32   48.57   53.33   48.82   55.84   62.85     3
-    ##   400  133.55  136.27  137.60  139.00  139.62  140.24     3
-    ##   800  370.77  375.85  389.61  380.93  399.03  417.14     3
-    ##  1600 1240.82 1283.76 1317.30 1326.71 1355.54 1384.38     3
+    ##  expr     min      lq    mean median      uq     max neval
+    ##   100   23.25   23.93   24.64   24.6   25.33   26.06     3
+    ##   200   45.82   49.66   50.94   53.5   53.50   53.51     3
+    ##   400  125.52  130.66  133.70  135.8  137.78  139.77     3
+    ##   800  349.20  349.81  363.49  350.4  370.64  390.86     3
+    ##  1600 1205.15 1230.85 1241.84 1256.6 1260.19 1263.82     3
 
 A solution is to use the dual k-d tree method I cover later. The computational complexity is ![\\mathcal{O}(N \\log N)](https://chart.googleapis.com/chart?cht=tx&chl=%5Cmathcal%7BO%7D%28N%20%5Clog%20N%29 "\mathcal{O}(N \log N)") for this method which is somewhat indicated by the run times shown below.
 
@@ -441,12 +439,12 @@ local({
 
     ## Unit: milliseconds
     ##   expr      min       lq     mean   median       uq      max neval
-    ##    100    36.01    36.41    37.11    36.82    37.66    38.50     3
-    ##    200    68.12    70.65    74.38    73.17    77.52    81.86     3
-    ##    400   139.96   140.17   144.89   140.37   147.35   154.33     3
-    ##    800   255.56   271.34   286.27   287.12   301.62   316.13     3
-    ##   1600   522.70   531.49   539.54   540.28   547.96   555.65     3
-    ##  51200 10374.17 10680.59 10797.32 10987.01 11008.90 11030.78     3
+    ##    100    45.68    48.95    51.74    52.23    54.77    57.31     3
+    ##    200    74.40    83.80    90.84    93.19    99.07   104.94     3
+    ##    400   141.73   163.66   172.02   185.59   187.17   188.74     3
+    ##    800   296.68   307.13   335.76   317.59   355.30   393.02     3
+    ##   1600   520.27   545.40   592.49   570.54   628.60   686.67     3
+    ##  51200 10724.67 11579.53 15167.51 12434.38 17388.93 22343.48     3
 
 The `aprx_eps` controls the size of the error. To be precise about what this value does then we need to some notation for the complete likelihood (the likelihood where we observe ![\\vec\\beta\_1,\\dots,\\vec\\beta\_T](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_1%2C%5Cdots%2C%5Cvec%5Cbeta_T "\vec\beta_1,\dots,\vec\beta_T")s). This is
 
@@ -487,7 +485,7 @@ ll_compare <- local({
   })
   
   list(ll_no_approx = ll_no_approx, ll_approx = ll_approx)
-}) 
+})
 ```
 
 ``` r
@@ -517,13 +515,13 @@ with(ll_compare, t.test(ll_no_approx, ll_approx))
     ##  Welch Two Sample t-test
     ## 
     ## data:  ll_no_approx and ll_approx
-    ## t = -6, df = 2000, p-value = 0.000000002
+    ## t = -16, df = 2000, p-value <2e-16
     ## alternative hypothesis: true difference in means is not equal to 0
     ## 95 percent confidence interval:
-    ##  -0.2547 -0.1299
+    ##  -0.2130 -0.1669
     ## sample estimates:
     ## mean of x mean of y 
-    ##     -2008     -2008
+    ##     -1996     -1996
 
 The fact that there may only be a small difference if any is nice because now we can get a much better approximation (in terms of variance) quickly of e.g., the log-likelihood as shown below.
 
@@ -546,26 +544,26 @@ ll_approx <- sapply(1:10, function(seed){
 sd(ll_approx)
 ```
 
-    ## [1] 0.1955
+    ## [1] 0.06162
 
 ``` r
 print(mean(ll_approx), digits = 6)
 ```
 
-    ## [1] -2008.06
+    ## [1] -1996.2
 
 ``` r
 # compare sd with 
 sd(ll_compare$ll_no_approx)
 ```
 
-    ## [1] 0.7112
+    ## [1] 0.263
 
 ``` r
 print(mean(ll_compare$ll_no_approx), digits = 6)
 ```
 
-    ## [1] -2008.18
+    ## [1] -1996.36
 
 Fast Sum-Kernel Approximation
 -----------------------------
@@ -651,11 +649,11 @@ microbenchmark::microbenchmark(
 ```
 
     ## Unit: milliseconds
-    ##         expr     min      lq    mean  median      uq     max neval
-    ##  dual tree 1  104.67  106.54  127.08  115.22  121.15  205.86    10
-    ##  dual tree 4   39.99   40.94   45.51   43.46   52.61   53.79    10
-    ##      naive 1 3324.86 3408.96 3777.23 3472.46 3785.17 5996.33    10
-    ##      naive 4  994.16 1134.45 1268.40 1168.06 1322.70 2080.62    10
+    ##         expr     min      lq    mean  median     uq     max neval
+    ##  dual tree 1  103.62  106.35  140.80  142.36  161.4  186.82    10
+    ##  dual tree 4   39.97   47.39   49.22   49.97   51.7   56.59    10
+    ##      naive 1 3283.88 3332.44 3404.52 3386.53 3456.2 3630.40    10
+    ##      naive 4  989.67 1122.20 1154.89 1162.54 1203.3 1268.68    10
 
 ``` r
 # The functions return the un-normalized log weights. We first compare
@@ -736,20 +734,20 @@ meds
 ```
 
     ##          method
-    ## N         Dual-tree     Naive Dual-tree 1
-    ##   384      0.001317  0.001071    0.003454
-    ##   768      0.002412  0.002982    0.006449
-    ##   1536     0.004489  0.009315    0.011437
-    ##   3072     0.008899  0.036396    0.022211
-    ##   6144     0.018389  0.148294    0.046091
-    ##   12288    0.036700  0.597335    0.091370
-    ##   24576    0.063388  2.549931    0.169758
-    ##   49152    0.115751 10.655087    0.317457
-    ##   98304    0.260871        NA          NA
-    ##   196608   0.509908        NA          NA
-    ##   393216   0.962727        NA          NA
-    ##   786432   1.832220        NA          NA
-    ##   1572864  3.952357        NA          NA
+    ## N         Dual-tree      Naive Dual-tree 1
+    ##   384      0.001241  0.0006801    0.003306
+    ##   768      0.002533  0.0025428    0.006470
+    ##   1536     0.004632  0.0093771    0.011718
+    ##   3072     0.008612  0.0363086    0.022666
+    ##   6144     0.018607  0.1494697    0.047038
+    ##   12288    0.040362  0.6344209    0.095948
+    ##   24576    0.060813  2.4823985    0.163575
+    ##   49152    0.111986 10.5678125    0.316236
+    ##   98304    0.220700         NA          NA
+    ##   196608   0.492129         NA          NA
+    ##   393216   0.941446         NA          NA
+    ##   786432   1.825037         NA          NA
+    ##   1572864  3.958826         NA          NA
 
 ``` r
 par(mar = c(5, 4, 1, 1))

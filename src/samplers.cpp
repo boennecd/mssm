@@ -119,7 +119,7 @@ class mode_aprx_sampler final : public sampler {
 
       auto out = mode_approximation(
       { &obs_dist, &dist_state }, start, prob.ctrl.nu, prob.ctrl.covar_fac,
-      prob.ctrl.ftol_rel);
+         prob.ctrl.ftol_rel);
 
       if(out.any_errors)
         throw std::runtime_error("'mode_approximation' failed");

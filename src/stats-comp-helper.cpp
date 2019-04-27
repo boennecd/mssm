@@ -139,6 +139,7 @@ void stats_comp_helper::set_ll_n_stat_
   /* flip sign of weights. Assumes that they are the log density of the
    * proposal distribution */
   new_cloud.ws *= -1;
+  add_back<arma::vec> ad(new_cloud.ws);
   new_cloud.stats.zeros();
 
   if(old_cloud)
@@ -213,9 +214,6 @@ void stats_comp_helper_no_aprx::set_ll_state_state
   thread_pool &pool = ctrl.get_pool();
 
   {
-    /* copy old log weights. We need to add this later */
-    add_back<arma::vec> ad(new_cloud.ws);
-
     {
       const arma::uword n_particles = new_cloud.N_particles();
       auto loop_figs = get_inc_n_block(n_particles, pool);
@@ -254,9 +252,6 @@ void stats_comp_helper_aprx_KD::set_ll_state_state
    const trans_obj &trans_func)
   const
 {
-  /* copy old log weights. We need to add this later */
-  add_back<arma::vec> ad(new_cloud.ws);
-
   {
     const bool any_work = util.any_work;
 
