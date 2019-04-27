@@ -201,7 +201,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   0.760   0.009   0.195
+    ##   0.770   0.012   0.189
 
 ``` r
 # returns the log-likelihood approximation
@@ -286,7 +286,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   0.704   0.000   0.174
+    ##   0.738   0.007   0.185
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -312,22 +312,35 @@ ll_func <- mssm(
   random = ~ Z, ti = time_idx, control = mssm_control(
     n_threads = 5L, N_part = 200L, what = "gradient"))
 
-# use stochastic gradient descent
+# use stochastic gradient descent with averaging
+set.seed(25164416)
 system.time( 
   res <- sgd(
     ll_func, F. = diag(.5, 2), Q = diag(2, 2), cfix = coef(glm_fit)))
 ```
 
     ##    user  system elapsed 
-    ## 192.495   1.104  44.974
+    ## 281.031   1.754  65.412
+
+``` r
+# use Adam algorithm instead
+set.seed(25164416)
+system.time( 
+  resa <- adam(
+    ll_func, F. = diag(.5, 2), Q = diag(2, 2), cfix = coef(glm_fit), 
+    lr = .1))
+```
+
+    ##    user  system elapsed 
+    ## 218.353   1.378  50.943
 
 A plot of the approximate log-likelihoods at each iteration is shown below along with the final estimates.
 
 ``` r
-tail(res$logLik, 1L) # final log-likelihood approximation
+print(tail(res$logLik), digits = 6) # final log-likelihood approximations
 ```
 
-    ## [1] -1993
+    ## [1] -1992.76 -1993.14 -1993.80 -1992.49 -1992.98 -1993.23
 
 ``` r
 par(mar = c(5, 4, 1, 1))
@@ -348,22 +361,104 @@ res$F.
 ```
 
     ##          [,1]    [,2]
-    ## [1,]  0.40283 0.06492
-    ## [2,] -0.05569 0.83593
+    ## [1,]  0.40177 0.06925
+    ## [2,] -0.03244 0.84056
 
 ``` r
 res$Q
 ```
 
     ##         [,1]    [,2]
-    ## [1,] 0.29828 0.05731
-    ## [2,] 0.05731 0.31031
+    ## [1,] 0.28786 0.04047
+    ## [2,] 0.04047 0.28487
 
 ``` r
 res$cfix
 ```
 
-    ## [1] -1.0480  0.2145  0.5192 -1.0929
+    ## [1] -1.0327  0.2162  0.5189 -1.0915
+
+``` r
+# compare with output from Adam algorithm
+print(tail(resa$logLik), digits = 6) # final log-likelihood approximations
+```
+
+    ## [1] -1992.92 -1993.29 -1993.91 -1992.69 -1993.12 -1993.39
+
+``` r
+plot(resa$logLik       , type = "l")
+```
+
+![](./README-fig/show_use_sgd-3.png)
+
+``` r
+resa$F. 
+```
+
+    ##          [,1]    [,2]
+    ## [1,]  0.40441 0.05782
+    ## [2,] -0.03278 0.84634
+
+``` r
+resa$Q
+```
+
+    ##         [,1]    [,2]
+    ## [1,] 0.26860 0.02653
+    ## [2,] 0.02653 0.27205
+
+``` r
+resa$cfix
+```
+
+    ## [1] -0.9950  0.2250  0.5200 -0.9948
+
+We may want to use more particles. To do, we use the approximation described in the next section.
+
+``` r
+ll_func <- mssm(
+  fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
+  random = ~ Z, ti = time_idx, control = mssm_control(
+    n_threads = 5L, N_part = 1000L, what = "gradient",
+    which_ll_cp = "KD", aprx_eps = .1))
+
+set.seed(25164416)
+system.time( 
+  res_final <- adam(
+    ll_func, F. = diag(.5, 2), Q = diag(2, 2), cfix = coef(glm_fit), 
+    lr = .1))
+```
+
+    ##    user  system elapsed 
+    ## 186.008   6.794  53.720
+
+``` r
+plot(res_final$logLik, type = "l")
+```
+
+![](./README-fig/show_cont_est-1.png)
+
+``` r
+res_final$F. 
+```
+
+    ##          [,1]   [,2]
+    ## [1,]  0.38661 0.0634
+    ## [2,] -0.01873 0.8419
+
+``` r
+res_final$Q
+```
+
+    ##         [,1]    [,2]
+    ## [1,] 0.28796 0.04112
+    ## [2,] 0.04112 0.29030
+
+``` r
+res_final$cfix
+```
+
+    ## [1] -1.0300  0.2149  0.5165 -1.1823
 
 ### Faster Approximation
 
@@ -428,7 +523,7 @@ local({
   f_400   <- func(  400)
   f_800   <- func(  800)
   f_1600  <- func( 1600)
-  f_51200 <- func(51200)
+  f_51200 <- func(51200) # <-- much larger
   
   # benchmark. Should grow ~ N log N
   microbenchmark::microbenchmark(
@@ -439,12 +534,12 @@ local({
 
     ## Unit: milliseconds
     ##   expr      min       lq     mean   median       uq      max neval
-    ##    100    45.68    48.95    51.74    52.23    54.77    57.31     3
-    ##    200    74.40    83.80    90.84    93.19    99.07   104.94     3
-    ##    400   141.73   163.66   172.02   185.59   187.17   188.74     3
-    ##    800   296.68   307.13   335.76   317.59   355.30   393.02     3
-    ##   1600   520.27   545.40   592.49   570.54   628.60   686.67     3
-    ##  51200 10724.67 11579.53 15167.51 12434.38 17388.93 22343.48     3
+    ##    100    37.41    39.70    43.58    41.99    46.67    51.36     3
+    ##    200    73.60    74.64    82.48    75.68    86.93    98.18     3
+    ##    400   138.17   144.93   147.81   151.69   152.63   153.58     3
+    ##    800   292.68   306.76   317.74   320.83   330.27   339.71     3
+    ##   1600   533.31   556.48   583.89   579.65   609.17   638.70     3
+    ##  51200 11378.63 11473.86 11737.51 11569.09 11916.96 12264.82     3
 
 The `aprx_eps` controls the size of the error. To be precise about what this value does then we need to some notation for the complete likelihood (the likelihood where we observe ![\\vec\\beta\_1,\\dots,\\vec\\beta\_T](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_1%2C%5Cdots%2C%5Cvec%5Cbeta_T "\vec\beta_1,\dots,\vec\beta_T")s). This is
 
@@ -829,7 +924,7 @@ sgd <- function(
   for(i in 1:n_it + 1L){
     # get gradient. First, run the particle filter
     filter_out <- object$pf_filter(
-      cfix = cfix, disp = numeric(), F. = F., Q = Q)
+      cfix = cfix, disp = numeric(), F. = F., Q = Q, seed = NULL)
     lls[i - 1L] <- c(logLik(filter_out))
     
     # then get the gradient associated with each particle and the log 
@@ -877,6 +972,135 @@ sgd <- function(
   } 
   
   list(estimates = ests, logLik = lls, F. = F., Q = Q, cfix = cfix)
+}
+
+# Stochastic gradient descent for mssm object using the Adam algorithm. The  
+# function assumes that the state vector is stationary.
+# 
+# Args:
+#   object: an object of class mssmFunc. 
+#   n_it: number of iterations. 
+#   mp: decay rate for first moment.
+#   vp: decay rate for secod moment.
+#   lr: learning rate.
+#   cfix: starting values for fixed coefficients. 
+#   F.: starting value for transition matrix in conditional distribution of the 
+#       current state given the previous state.
+#   Q: starting value for covariance matrix in conditional distribution of the 
+#      current state given the previous. 
+#   verbose: TRUE if output should be printed during estmation. 
+# 
+# Returns:
+#   List with estimates and the log-likelihood approximation at each iteration. 
+adam <- function(
+  object, n_it = 150L, mp = .9, vp = .999, lr = .01, cfix, F., Q, 
+  verbose = FALSE)
+{
+  # make checks
+  stopifnot(
+    inherits(object, "mssmFunc"), object$control$what == "gradient", n_it > 0L,
+    lr > 0., mp > 0, mp < 1, vp > 0, vp < 1)
+  n_fix <- nrow(object$X)
+  n_rng <- nrow(object$Z)
+
+  # objects for estimates at each iteration and log-likelihood approximations
+  ests <- matrix(
+    NA_real_, n_it + 1L, n_fix + n_rng * n_rng + n_rng * (n_rng  + 1L) / 2L)
+  ests[1L, ] <- c(cfix, F., Q[lower.tri(Q, diag = TRUE)])
+  lls <- rep(NA_real_, n_it)
+
+  # indices of the different components
+  idx_fix <- 1:n_fix
+  idx_F   <- 1:(n_rng * n_rng) + n_fix
+  idx_Q   <- 1:(n_rng * (n_rng  + 1L) / 2L) + n_fix + n_rng * n_rng
+
+  # we only want the lower part of `Q` so we make the following map for the
+  # gradient
+  library(matrixcalc) # TODO: get rid of this
+  gr_map <- matrix(
+    0., nrow = ncol(ests), ncol = length(cfix) + length(F.) + length(Q))
+  gr_map[idx_fix, idx_fix] <- diag(length(idx_fix))
+  gr_map[idx_F  , idx_F] <- diag(length(idx_F))
+  dup_mat <- duplication.matrix(ncol(Q))
+  gr_map[idx_Q  , -c(idx_fix, idx_F)] <- t(dup_mat)
+
+  # function to set the parameters
+  set_parems <- function(i){
+    cfix <<-             ests[i, idx_fix]
+    F.[] <<-             ests[i, idx_F  ]
+    Q[]  <<- dup_mat %*% ests[i, idx_Q  ]
+
+  }
+
+  # run gradient decent
+  max_half <- 25L
+  m <- NULL
+  v <- NULL
+  failed <- FALSE
+  for(i in 1:n_it + 1L){
+    # get gradient. First, run the particle filter
+    filter_out <- object$pf_filter(
+      cfix = cfix, disp = numeric(), F. = F., Q = Q, seed = NULL)
+    lls[i - 1L] <- c(logLik(filter_out))
+
+    # then get the gradient associated with each particle and the log
+    # normalized weight of the particles
+    grads <- tail(filter_out$pf_output, 1L)[[1L]]$stats
+    ws    <- tail(filter_out$pf_output, 1L)[[1L]]$ws_normalized
+
+    # compute the gradient and take a small step
+    grad <- colSums(t(grads) * drop(exp(ws)))
+
+    m <- if(is.null(m)) (1 - mp) * grad   else mp * m + (1 - mp) * grad
+    v <- if(is.null(v)) (1 - vp) * grad^2 else vp * v + (1 - vp) * grad^2
+    mh <- m / (1 - mp^(i - 1))
+    vh <- v / (1 - vp^(i - 1))
+    de <- mh / sqrt(vh + 1e-8)
+
+    lr_i <- lr
+    k <- 0L
+    while(k < max_half){
+      ests[i, ] <- ests[i - 1L, ] + lr_i * gr_map %*% de
+      set_parems(i)
+
+      # check that Q is positive definite and the system is stationary
+      c1 <- all(abs(eigen(F.)$values) < 1)
+      c2 <- all(eigen(Q)$values > 0)
+      if(c1 && c2)
+        break
+
+      # decrease learning rate
+      lr_i <- lr_i * .5
+      k <- k + 1L
+    }
+
+    # check if we failed to find a value within our constraints
+    if(k == max_half){
+      warning("failed to find solution within constraints")
+      failed <- TRUE
+      break
+    }
+
+    # print information if requested
+    if(verbose){
+      cat(sprintf(
+        "\nIt %5d: log-likelihood (current, max) %12.2f, %12.2f\n",
+        i - 1L, logLik(filter_out), max(lls, na.rm = TRUE)),
+        rep("-", 66), "\n", sep = "")
+      cat("cfix\n")
+      print(cfix)
+      cat("F\n")
+      print(F.)
+      cat("Q\n")
+      print(Q)
+      cat(sprintf("Gradient norm: %10.4f\n", norm(t(grad))))
+      print(get_ess(filter_out))
+
+    }
+  }
+
+  list(estimates = ests, logLik = lls, F. = F., Q = Q, cfix = cfix,
+       failed = failed)
 }
 ```
 

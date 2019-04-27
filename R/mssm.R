@@ -101,7 +101,8 @@ mssm <- function(
     if(missing(mu0))
       mu0 <- numeric(nrow(Q0))
 
-    set.seed(seed) # TODO: check that results are reproducible
+    if(!is.null(seed))
+      set.seed(seed) # TODO: check that results are reproducible
     out <- pf_filter(
       Y = y, cfix = cfix, ws = weights, offsets = offsets, disp = disp, X = X,
       Z = Z,
@@ -140,7 +141,8 @@ mssm <- function(
 #' the zero vector.
 #' @param trace integer controlling whether information should be printed
 #' during particle filtering. Zero yields no information.
-#' @param seed integer to pass to \code{\link{set.seed}}.
+#' @param seed integer to pass to \code{\link{set.seed}}. The seed is not set
+#' if the argument is \code{NULL}.
 #'
 #' @return
 #' An object of class \code{mssm} with the following elements
@@ -223,7 +225,7 @@ mssm_control <- function(
   Z   <- T. / (1 - tcrossprod(las))
   out <- tcrossprod(U %*% Z, U)
   if(is.complex(out)){
-    if(all(abs(Im(out)) < .Machine$double.eps^(3/4)))
+    if(all(abs(Im(out)) < .Machine$double.eps^(1/2)))
       return(Re(out))
 
     stop("Q_0 has imaginary part")
