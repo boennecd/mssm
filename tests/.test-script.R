@@ -188,7 +188,7 @@ res$F.
 res$Q
 plot(res$logLik)
 plot(tail(res$logLik, 100))
-matplot(res$estimates)
+matplot(res$estimates, col = 1:10)
 abline(h = c(cfix, F., Q), lty = 2, col = 1:10)
 
 o <- ll_func$pf_filter(

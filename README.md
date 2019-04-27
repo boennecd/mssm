@@ -40,7 +40,7 @@ We simulate data as follows.
 ``` r
 # simulate path of state variables 
 set.seed(78727269)
-n_periods <- 110L
+n_periods <- 312L
 (F. <- matrix(c(.5, .1, 0, .8), 2L))
 ```
 
@@ -99,27 +99,29 @@ dat <- do.call(rbind, dat)
 nrow(dat)
 ```
 
-    ## [1] 2267
+    ## [1] 6242
 
 ``` r
 head(dat)
 ```
 
-    ##    y       X1      X2       Z id time_idx
-    ## 7  0 -0.09531 -0.4899  0.2972  1        7
-    ## 15 0  0.97242 -0.4899 -0.3414  1       15
-    ## 16 1 -0.77700 -0.4899  0.6973  1       16
-    ## 20 1  0.24525 -0.4899 -0.3047  1       20
-    ## 22 0 -0.20661 -0.4899  0.9579  1       22
-    ## 25 0  0.90989 -0.4899  0.4456  1       25
+    ##    y      X1     X2       Z id time_idx
+    ## 2  0  0.5685 0.9272  0.9845  1        2
+    ## 3  0 -0.2260 0.9272  0.1585  1        3
+    ## 4  1 -0.7234 0.9272  0.4847  1        4
+    ## 5  1 -0.3010 0.9272 -0.6352  1        5
+    ## 8  2 -0.4437 0.9272  0.8311  1        8
+    ## 13 1  0.2834 0.9272  0.7135  1       13
 
 ``` r
 table(dat$y)
 ```
 
     ## 
-    ##    0    1    2    3    4    5    6    7    8    9   11   15   18 
-    ## 1465  519  163   72   20   12    4    4    4    1    1    1    1
+    ##    0    1    2    3    4    5    6    7    8    9   10   11   12   13   14 
+    ## 3881 1479  486  180   83   54   32    8    7    6    6    2    3    3    2 
+    ##   15   16   17   20   21   24   26   28 
+    ##    2    1    1    2    1    1    1    1
 
 ``` r
 # quick smooth of number of events vs. time
@@ -143,7 +145,7 @@ with(dat, {
 
 ![](./README-fig/simulate-3.png)![](./README-fig/simulate-4.png)
 
-In the above, we simulate 110 (`n_periods`) with 100 (`n_obs`) individuals. Each individual has a fixed covaraite, `X2`, and two time-varying covariates, `X1` and `Z`. One of the time-varying covariates, `Z`, has a random slope. Further, the intercept is also random.
+In the above, we simulate 312 (`n_periods`) with 100 (`n_obs`) individuals. Each individual has a fixed covaraite, `X2`, and two time-varying covariates, `X1` and `Z`. One of the time-varying covariates, `Z`, has a random slope. Further, the intercept is also random.
 
 ### Log-Likelihood Approximations
 
@@ -160,22 +162,22 @@ summary(glm_fit)
     ## 
     ## Deviance Residuals: 
     ##    Min      1Q  Median      3Q     Max  
-    ## -2.285  -0.962  -0.670   0.379   6.226  
+    ## -2.266  -1.088  -0.767   0.395  10.913  
     ## 
     ## Coefficients:
-    ##             Estimate Std. Error z value   Pr(>|z|)    
-    ## (Intercept)  -0.7345     0.0333  -22.07    < 2e-16 ***
-    ## X1            0.2501     0.0487    5.14 0.00000028 ***
-    ## X2            0.5395     0.0499   10.81    < 2e-16 ***
-    ## Z            -1.1091     0.0530  -20.92    < 2e-16 ***
+    ##             Estimate Std. Error z value Pr(>|z|)    
+    ## (Intercept)  -0.5558     0.0180  -30.82  < 2e-16 ***
+    ## X1            0.2024     0.0265    7.62  2.4e-14 ***
+    ## X2            0.5160     0.0275   18.78  < 2e-16 ***
+    ## Z            -0.9122     0.0286  -31.90  < 2e-16 ***
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
     ## (Dispersion parameter for poisson family taken to be 1)
     ## 
-    ##     Null deviance: 3358.1  on 2266  degrees of freedom
-    ## Residual deviance: 2731.7  on 2263  degrees of freedom
-    ## AIC: 4589
+    ##     Null deviance: 10989.1  on 6241  degrees of freedom
+    ## Residual deviance:  9427.1  on 6238  degrees of freedom
+    ## AIC: 14977
     ## 
     ## Number of Fisher Scoring iterations: 6
 
@@ -183,7 +185,7 @@ summary(glm_fit)
 logLik(glm_fit)
 ```
 
-    ## 'log Lik.' -2291 (df=4)
+    ## 'log Lik.' -7485 (df=4)
 
 Next, we make a log-likelihood approximation with the implemented particle at the true parameters with the `mssm` function.
 
@@ -201,27 +203,16 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   0.770   0.012   0.189
+    ##   2.075   0.031   0.538
 
 ``` r
 # returns the log-likelihood approximation
 logLik(mssm_obj)
 ```
 
-    ## 'log Lik.' -1997 (df=NA)
+    ## 'log Lik.' -5865 (df=NA)
 
-As expected, we get a much higher log-likelihood. We can e.g., compare this to a model where we use splines instead for each of the two random effects.
-
-``` r
-# compare with GLM with spline
-library(splines)
-logLik(glm(y ~ X1 + X2 + Z * ns(time_idx, df = 20, intercept = TRUE)- 1, 
-           poisson(), dat))
-```
-
-    ## 'log Lik.' -2007 (df=42)
-
-We can plot the predicted values of state variables from the filter distribution.
+We get a much larger log-likelihood as expected. We can plot the predicted values of state variables from the filter distribution.
 
 ``` r
 # plot estiamtes 
@@ -256,10 +247,10 @@ We can get the effective sample size at each point in time with the `get_ess` fu
 ```
 
     ## Effective sample sizes
-    ##   Mean      460.5
-    ##   sd         13.0
-    ##   Min       404.4
-    ##   Max       478.5
+    ##   Mean      458.4
+    ##   sd         22.1
+    ##   Min       325.7
+    ##   Max       484.8
 
 ``` r
 plot(ess)
@@ -286,7 +277,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   0.738   0.007   0.185
+    ##   1.930   0.016   0.472
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -299,7 +290,7 @@ mssm_glm <- ll_func$pf_filter(
 logLik(mssm_glm)
 ```
 
-    ## 'log Lik.' -2291 (df=NA)
+    ## 'log Lik.' -7485 (df=NA)
 
 ### Parameter Estimation
 
@@ -307,7 +298,7 @@ We will need to estimate the parameters for real applications. We could do this 
 
 ``` r
 # setup mssmFunc object to use
-ll_func <- mssm(
+ll_func <- mssm(  
   fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
   random = ~ Z, ti = time_idx, control = mssm_control(
     n_threads = 5L, N_part = 200L, what = "gradient"))
@@ -316,11 +307,12 @@ ll_func <- mssm(
 set.seed(25164416)
 system.time( 
   res <- sgd(
-    ll_func, F. = diag(.5, 2), Q = diag(2, 2), cfix = coef(glm_fit)))
+    ll_func, F. = diag(.5, 2), Q = diag(1, 2), cfix = coef(glm_fit), 
+    lrs = .001 * (1:150L)^(-1/2)))
 ```
 
     ##    user  system elapsed 
-    ## 281.031   1.754  65.412
+    ##  591.48    3.57  137.69
 
 ``` r
 # use Adam algorithm instead
@@ -332,7 +324,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 218.353   1.378  50.943
+    ## 596.182   3.748 138.864
 
 A plot of the approximate log-likelihoods at each iteration is shown below along with the final estimates.
 
@@ -340,7 +332,7 @@ A plot of the approximate log-likelihoods at each iteration is shown below along
 print(tail(res$logLik), digits = 6) # final log-likelihood approximations
 ```
 
-    ## [1] -1992.76 -1993.14 -1993.80 -1992.49 -1992.98 -1993.23
+    ## [1] -5863.35 -5862.56 -5862.44 -5862.15 -5862.63 -5861.82
 
 ``` r
 par(mar = c(5, 4, 1, 1))
@@ -360,30 +352,30 @@ plot(tail(res$logLik, 100L), type = "l") # only the final iterations
 res$F. 
 ```
 
-    ##          [,1]    [,2]
-    ## [1,]  0.40177 0.06925
-    ## [2,] -0.03244 0.84056
+    ##          [,1]      [,2]
+    ## [1,]  0.49526 -0.006995
+    ## [2,] -0.01311  0.784075
 
 ``` r
 res$Q
 ```
 
-    ##         [,1]    [,2]
-    ## [1,] 0.28786 0.04047
-    ## [2,] 0.04047 0.28487
+    ##        [,1]   [,2]
+    ## [1,] 0.3131 0.1474
+    ## [2,] 0.1474 0.5575
 
 ``` r
 res$cfix
 ```
 
-    ## [1] -1.0327  0.2162  0.5189 -1.0915
+    ## [1] -0.9840  0.2137  0.5243 -0.8962
 
 ``` r
 # compare with output from Adam algorithm
 print(tail(resa$logLik), digits = 6) # final log-likelihood approximations
 ```
 
-    ## [1] -1992.92 -1993.29 -1993.91 -1992.69 -1993.12 -1993.39
+    ## [1] -5863.71 -5862.37 -5862.28 -5862.05 -5862.78 -5861.87
 
 ``` r
 plot(resa$logLik       , type = "l")
@@ -395,23 +387,23 @@ plot(resa$logLik       , type = "l")
 resa$F. 
 ```
 
-    ##          [,1]    [,2]
-    ## [1,]  0.40441 0.05782
-    ## [2,] -0.03278 0.84634
+    ##           [,1]      [,2]
+    ## [1,]  0.502378 -0.007559
+    ## [2,] -0.002962  0.793154
 
 ``` r
 resa$Q
 ```
 
-    ##         [,1]    [,2]
-    ## [1,] 0.26860 0.02653
-    ## [2,] 0.02653 0.27205
+    ##        [,1]   [,2]
+    ## [1,] 0.3112 0.1309
+    ## [2,] 0.1309 0.5059
 
 ``` r
 resa$cfix
 ```
 
-    ## [1] -0.9950  0.2250  0.5200 -0.9948
+    ## [1] -0.9763  0.2107  0.5201 -1.0409
 
 We may want to use more particles. To do, we use the approximation described in the next section.
 
@@ -430,7 +422,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 186.008   6.794  53.720
+    ##  587.28   21.08  168.85
 
 ``` r
 plot(res_final$logLik, type = "l")
@@ -442,23 +434,23 @@ plot(res_final$logLik, type = "l")
 res_final$F. 
 ```
 
-    ##          [,1]   [,2]
-    ## [1,]  0.38661 0.0634
-    ## [2,] -0.01873 0.8419
+    ##           [,1]      [,2]
+    ## [1,]  0.494535 0.0009388
+    ## [2,] -0.002816 0.8016908
 
 ``` r
 res_final$Q
 ```
 
-    ##         [,1]    [,2]
-    ## [1,] 0.28796 0.04112
-    ## [2,] 0.04112 0.29030
+    ##        [,1]   [,2]
+    ## [1,] 0.3070 0.1228
+    ## [2,] 0.1228 0.5106
 
 ``` r
 res_final$cfix
 ```
 
-    ## [1] -1.0300  0.2149  0.5165 -1.1823
+    ## [1] -0.9665  0.2163  0.5268 -0.8382
 
 ### Faster Approximation
 
@@ -493,12 +485,12 @@ local({
 ```
 
     ## Unit: milliseconds
-    ##  expr     min      lq    mean median      uq     max neval
-    ##   100   23.25   23.93   24.64   24.6   25.33   26.06     3
-    ##   200   45.82   49.66   50.94   53.5   53.50   53.51     3
-    ##   400  125.52  130.66  133.70  135.8  137.78  139.77     3
-    ##   800  349.20  349.81  363.49  350.4  370.64  390.86     3
-    ##  1600 1205.15 1230.85 1241.84 1256.6 1260.19 1263.82     3
+    ##  expr     min      lq   mean  median      uq     max neval
+    ##   100   68.72   68.78   71.6   68.83   73.04   77.24     3
+    ##   200  130.82  134.37  148.4  137.91  157.22  176.52     3
+    ##   400  356.58  362.60  376.8  368.61  386.92  405.23     3
+    ##   800 1061.01 1080.01 1134.3 1099.02 1170.97 1242.91     3
+    ##  1600 3421.78 3555.55 3679.4 3689.31 3808.19 3927.07     3
 
 A solution is to use the dual k-d tree method I cover later. The computational complexity is ![\\mathcal{O}(N \\log N)](https://chart.googleapis.com/chart?cht=tx&chl=%5Cmathcal%7BO%7D%28N%20%5Clog%20N%29 "\mathcal{O}(N \log N)") for this method which is somewhat indicated by the run times shown below.
 
@@ -533,13 +525,13 @@ local({
 ```
 
     ## Unit: milliseconds
-    ##   expr      min       lq     mean   median       uq      max neval
-    ##    100    37.41    39.70    43.58    41.99    46.67    51.36     3
-    ##    200    73.60    74.64    82.48    75.68    86.93    98.18     3
-    ##    400   138.17   144.93   147.81   151.69   152.63   153.58     3
-    ##    800   292.68   306.76   317.74   320.83   330.27   339.71     3
-    ##   1600   533.31   556.48   583.89   579.65   609.17   638.70     3
-    ##  51200 11378.63 11473.86 11737.51 11569.09 11916.96 12264.82     3
+    ##   expr     min      lq    mean  median      uq     max neval
+    ##    100   107.3   109.3   119.3   111.3   125.2   139.2     3
+    ##    200   203.7   222.2   233.0   240.8   247.6   254.5     3
+    ##    400   507.5   514.1   522.7   520.7   530.3   540.0     3
+    ##    800   807.7   856.2   887.7   904.8   927.7   950.5     3
+    ##   1600  1624.0  1725.9  1767.2  1827.9  1838.7  1849.6     3
+    ##  51200 33082.0 33141.5 33582.2 33201.0 33832.3 34463.5     3
 
 The `aprx_eps` controls the size of the error. To be precise about what this value does then we need to some notation for the complete likelihood (the likelihood where we observe ![\\vec\\beta\_1,\\dots,\\vec\\beta\_T](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_1%2C%5Cdots%2C%5Cvec%5Cbeta_T "\vec\beta_1,\dots,\vec\beta_T")s). This is
 
@@ -555,7 +547,7 @@ where ![g\_t](https://chart.googleapis.com/chart?cht=tx&chl=g_t "g_t") is condit
 ll_compare <- local({
   N_use <- 500L 
   # we alter the seed in each run. First, the exact method
-  ll_no_approx <- sapply(1:1000, function(seed){
+  ll_no_approx <- sapply(1:200, function(seed){
     ll_func <- mssm(
       fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
       random = ~ Z, ti = time_idx, control = mssm_control(
@@ -567,7 +559,7 @@ ll_compare <- local({
   })
   
   # then the approximation
-  ll_approx <- sapply(1:1000, function(seed){
+  ll_approx <- sapply(1:200, function(seed){
     ll_func <- mssm(
       fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
       random = ~ Z, ti = time_idx, control = mssm_control(
@@ -610,13 +602,13 @@ with(ll_compare, t.test(ll_no_approx, ll_approx))
     ##  Welch Two Sample t-test
     ## 
     ## data:  ll_no_approx and ll_approx
-    ## t = -16, df = 2000, p-value <2e-16
+    ## t = -8.9, df = 400, p-value <2e-16
     ## alternative hypothesis: true difference in means is not equal to 0
     ## 95 percent confidence interval:
-    ##  -0.2130 -0.1669
+    ##  -0.5457 -0.3479
     ## sample estimates:
     ## mean of x mean of y 
-    ##     -1996     -1996
+    ##     -5864     -5864
 
 The fact that there may only be a small difference if any is nice because now we can get a much better approximation (in terms of variance) quickly of e.g., the log-likelihood as shown below.
 
@@ -639,26 +631,26 @@ ll_approx <- sapply(1:10, function(seed){
 sd(ll_approx)
 ```
 
-    ## [1] 0.06162
+    ## [1] 0.1091
 
 ``` r
 print(mean(ll_approx), digits = 6)
 ```
 
-    ## [1] -1996.2
+    ## [1] -5863.97
 
 ``` r
 # compare sd with 
 sd(ll_compare$ll_no_approx)
 ```
 
-    ## [1] 0.263
+    ## [1] 0.5033
 
 ``` r
 print(mean(ll_compare$ll_no_approx), digits = 6)
 ```
 
-    ## [1] -1996.36
+    ## [1] -5864.42
 
 Fast Sum-Kernel Approximation
 -----------------------------
@@ -744,11 +736,11 @@ microbenchmark::microbenchmark(
 ```
 
     ## Unit: milliseconds
-    ##         expr     min      lq    mean  median     uq     max neval
-    ##  dual tree 1  103.62  106.35  140.80  142.36  161.4  186.82    10
-    ##  dual tree 4   39.97   47.39   49.22   49.97   51.7   56.59    10
-    ##      naive 1 3283.88 3332.44 3404.52 3386.53 3456.2 3630.40    10
-    ##      naive 4  989.67 1122.20 1154.89 1162.54 1203.3 1268.68    10
+    ##         expr     min      lq    mean  median      uq      max neval
+    ##  dual tree 1  110.52  113.33  163.92  117.99  134.84   521.65    10
+    ##  dual tree 4   43.08   44.03   48.97   49.15   55.14    55.38    10
+    ##      naive 1 3372.50 3498.81 4528.22 3572.72 3653.23 10660.27    10
+    ##      naive 4  961.06 1003.81 1113.54 1078.65 1189.08  1468.22    10
 
 ``` r
 # The functions return the un-normalized log weights. We first compare
@@ -830,19 +822,19 @@ meds
 
     ##          method
     ## N         Dual-tree      Naive Dual-tree 1
-    ##   384      0.001241  0.0006801    0.003306
-    ##   768      0.002533  0.0025428    0.006470
-    ##   1536     0.004632  0.0093771    0.011718
-    ##   3072     0.008612  0.0363086    0.022666
-    ##   6144     0.018607  0.1494697    0.047038
-    ##   12288    0.040362  0.6344209    0.095948
-    ##   24576    0.060813  2.4823985    0.163575
-    ##   49152    0.111986 10.5678125    0.316236
-    ##   98304    0.220700         NA          NA
-    ##   196608   0.492129         NA          NA
-    ##   393216   0.941446         NA          NA
-    ##   786432   1.825037         NA          NA
-    ##   1572864  3.958826         NA          NA
+    ##   384      0.001236  0.0006869    0.003280
+    ##   768      0.002773  0.0025440    0.006613
+    ##   1536     0.004702  0.0095343    0.011566
+    ##   3072     0.008966  0.0381090    0.024164
+    ##   6144     0.019351  0.1584682    0.048722
+    ##   12288    0.037234  0.6538928    0.093984
+    ##   24576    0.062391  2.6628192    0.168456
+    ##   49152    0.117129 11.3286853    0.324276
+    ##   98304    0.223057         NA          NA
+    ##   196608   0.471701         NA          NA
+    ##   393216   0.968937         NA          NA
+    ##   786432   1.867226         NA          NA
+    ##   1572864  4.281616         NA          NA
 
 ``` r
 par(mar = c(5, 4, 1, 1))
@@ -967,6 +959,8 @@ sgd <- function(
       print(F.)
       cat("Q\n")
       print(Q)
+      cat(sprintf("Gradient norm: %10.4f\n", norm(t(grad))))
+      print(get_ess(filter_out))
       
     }
   } 

@@ -1,36 +1,43 @@
 context("Test versus old results for 'mssm' methods")
 
-test_that("get the same with 'poisson_log'", {
+get_test_expr <- function(data, label, family, disp = numeric()){
+  substitute({
   ctrl <- mssm_control(N_part = 100L, n_threads = 2L, seed = 26545947)
 
   func <- mssm(
-    fixed = y ~ x + Z, random = ~ Z, family = poisson(),
-    data = poisson_log$data, ti = time_idx, control = ctrl)
+    fixed = y ~ x + Z, random = ~ Z, family = family,
+    data = dat$data, ti = time_idx, control = ctrl)
 
-  expect_known_value(func[mssmFunc_ele_to_check], "mssmFunc-poisson-log.RDS")
+  expect_known_value(
+    func[mssmFunc_ele_to_check], paste0("mssmFunc-", label, ".RDS"),
+    label = label)
 
   func_out <- func$pf_filter(
-    cfix = poisson_log$cfix, F. = poisson_log$F., Q = poisson_log$Q,
-    disp = numeric())
+    cfix = dat$cfix, F. = dat$F., Q = dat$Q,
+    disp = disp)
 
-  expect_known_value(func_out[mssm_ele_to_check], "mssm-poisson-log.RDS")
+  expect_known_value(
+    func_out[mssm_ele_to_check], paste0("mssm-", label, ".RDS"),
+    label = label)
 
   ctrl$what <- "gradient"
   func <- mssm(
-    fixed = y ~ x + Z, random = ~ Z, family = poisson(),
-    data = poisson_log$data, ti = time_idx, control = ctrl)
+    fixed = y ~ x + Z, random = ~ Z, family = family,
+    data = dat$data, ti = time_idx, control = ctrl)
 
   func_out_grad <- func$pf_filter(
-    cfix = poisson_log$cfix, F. = poisson_log$F., Q = poisson_log$Q,
-    disp = numeric())
+    cfix = dat$cfix, F. = dat$F., Q = dat$Q,
+    disp = disp)
 
   expect_equal(
     lapply(func_out_grad$pf_output, "[", "ws"),
-    lapply(func_out     $pf_output, "[", "ws"))
+    lapply(func_out     $pf_output, "[", "ws"),
+    label = label)
 
   expect_known_value(
     lapply(func_out_grad$pf_output, "[[", "stats"),
-    "mssm-gradient-poisson-log.RDS")
+    paste0("mssm-gradient-", label, ".RDS"),
+    label = label)
 
   #####
   # w/ k-d tree method
@@ -38,22 +45,36 @@ test_that("get the same with 'poisson_log'", {
                        what = "gradient", which_ll_cp = "KD")
 
   func <- mssm(
-    fixed = y ~ x + Z, random = ~ Z, family = poisson(),
-    data = poisson_log$data, ti = time_idx, control = ctrl)
+    fixed = y ~ x + Z, random = ~ Z, family = family,
+    data = dat$data, ti = time_idx, control = ctrl)
   func_out <- func$pf_filter(
-    cfix = poisson_log$cfix, F. = poisson_log$F., Q = poisson_log$Q,
-    disp = numeric())
-  expect_known_value(func_out[mssm_ele_to_check], "mssm-poisson-log-kd.RDS")
+    cfix = dat$cfix, F. = dat$F., Q = dat$Q,
+    disp = disp)
+  expect_known_value(
+    func_out[mssm_ele_to_check], label = label,
+    paste0("mssm-", label, "-kd.RDS"))
 
   #####
   # w/ larger epsilon
   ctrl$aprx_eps <- .1
 
   func <- mssm(
-    fixed = y ~ x + Z, random = ~ Z, family = poisson(),
-    data = poisson_log$data, ti = time_idx, control = ctrl)
+    fixed = y ~ x + Z, random = ~ Z, family = family,
+    data = dat$data, ti = time_idx, control = ctrl)
   func_out <- func$pf_filter(
-    cfix = poisson_log$cfix, F. = poisson_log$F., Q = poisson_log$Q,
-    disp = numeric())
-  expect_known_value(func_out[mssm_ele_to_check], "mssm-poisson-log-kd-large-eps.RDS")
-})
+    cfix = dat$cfix, F. = dat$F., Q = dat$Q,
+    disp = disp)
+  expect_known_value(
+    func_out[mssm_ele_to_check], label = label,
+    paste0("mssm-", label, "-kd-large-eps.RDS"))
+  }, list(dat = substitute(data), label = label, family = substitute(family),
+          disp = substitute(disp)))
+}
+
+test_that(
+  "get the same with 'poisson_log'",
+  eval(get_test_expr(poisson_log, "poisson-log", poisson())))
+
+test_that(
+  "get the same with 'binomial_logit'",
+  eval(get_test_expr(binomial_logit, "binomial-logit", binomial())))

@@ -43,7 +43,7 @@ mssm_ele_to_check <- c(
   dat <- do.call(rbind, dat)
 }
 
-# # Poisson data w/ log link
+# # Poisson w/ log link
 # n_periods <- 20L
 # F. <- matrix(c(.5, .1, 0, .8), 2L)
 # Q <- matrix(c(.5^2, .1, .1, .7^2), 2L)
@@ -58,3 +58,21 @@ mssm_ele_to_check <- c(
 # poisson_log <- list(data = dat, betas = betas, cfix = cfix, Q = Q, F. = F.)
 # saveRDS(poisson_log, "poisson_log.RDS")
 poisson_log <- readRDS("poisson_log.RDS")
+
+# # # Binomial w/ logit
+# n_periods <- 20L
+# F. <- matrix(c(.5, .1, 0, .8), 2L)
+# Q <-  matrix(c(.5^2, -.5^2, -.5^2, .7^2), 2L)
+# Q0 <- mssm:::.get_Q0(Q, F.)
+# cfix <- c(-1, .2, .5)
+# n_obs <- 20L
+#
+# set.seed(78727269)
+# betas <- .get_beta(Q, Q0, F., n_periods)
+# dat <- .get_dat(cfix, betas,
+#                 sample_func = function(n, mu) mu > runif(n),
+#                 trans_func = function(x) 1 / (1 + exp(-x)))
+#
+# binomial_logit <- list(data = dat, betas = betas, cfix = cfix, Q = Q, F. = F.)
+# saveRDS(binomial_logit, "binomial_logit.RDS")
+binomial_logit <- readRDS("binomial_logit.RDS")
