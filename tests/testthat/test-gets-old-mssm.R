@@ -16,6 +16,17 @@ get_test_expr <- function(data, label, family, disp = numeric()){
     cfix = dat$cfix, F. = dat$F., Q = dat$Q,
     disp = disp)
 
+  prep_for_test <- function(obj){
+    obj$pf_output <- lapply(func_out$pf_output, function(x)
+      lapply(x, function(z){
+        if(NROW(z) < NCOL(z))
+          z <- t(z)
+        rbind(head(z, 2L), tail(z, 2L))
+      }))
+    obj
+  }
+  func_out_org <- func_out
+  func_out <- prep_for_test(func_out)
   expect_known_value(
     func_out[mssm_ele_to_check], paste0("mssm-", label, ".RDS"),
     label = label)
@@ -31,7 +42,7 @@ get_test_expr <- function(data, label, family, disp = numeric()){
 
   expect_equal(
     lapply(func_out_grad$pf_output, "[", "ws"),
-    lapply(func_out     $pf_output, "[", "ws"),
+    lapply(func_out_org $pf_output, "[", "ws"),
     label = label)
 
   expect_known_value(
@@ -50,6 +61,7 @@ get_test_expr <- function(data, label, family, disp = numeric()){
   func_out <- func$pf_filter(
     cfix = dat$cfix, F. = dat$F., Q = dat$Q,
     disp = disp)
+  func_out <- prep_for_test(func_out)
   expect_known_value(
     func_out[mssm_ele_to_check], label = label,
     paste0("mssm-", label, "-kd.RDS"))
@@ -64,6 +76,7 @@ get_test_expr <- function(data, label, family, disp = numeric()){
   func_out <- func$pf_filter(
     cfix = dat$cfix, F. = dat$F., Q = dat$Q,
     disp = disp)
+  func_out <- prep_for_test(func_out)
   expect_known_value(
     func_out[mssm_ele_to_check], label = label,
     paste0("mssm-", label, "-kd-large-eps.RDS"))

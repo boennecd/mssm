@@ -5,11 +5,11 @@ formals(expect_known_output)$update <- FALSE
 
 # vector of elements that we want to test on mssmFunc object
 mssmFunc_ele_to_check <- c(
-  "terms_fixed", "terms_random", "control", "family")
+  "control", "family")
 
 # vector of elements that we want to test on mssm object
 mssm_ele_to_check <- c(
-  "pf_output", "terms_fixed", "terms_random", "control", "family")
+  "pf_output", "control", "family")
 
 #####
 # simulate or load data sets to use
