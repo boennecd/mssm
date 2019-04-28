@@ -118,6 +118,68 @@ std::array<double, 3> binomial_logit::log_density_state_inner
   return out;
 }
 
+std::array<double, 3> binomial_cloglog::log_density_state_inner
+  (const double y, const double eta, const comp_out what) const
+{
+  gaurd_new_comp_out(what);
+
+  std::array<double, 3> out;
+  static constexpr double
+    /* log(-log1p(-.Machine$double.eps)) ~ log(.Machine$double.eps)  */
+    eta_lower =
+      log(std::numeric_limits<double>::epsilon()),
+    /* log(-log  (.Machine$double.eps)) */
+    eta_upper =
+      log(-log  (std::numeric_limits<double>::epsilon()));
+  const double eta_use = MAX(MIN(eta, eta_upper), eta_lower);
+  const double eta_exp = exp(eta_use);
+  const double mu = -std::expm1(-eta_exp);
+
+  out[0L] = y * log(mu) + (1. - y) * log1p(-mu);
+  if(what == gradient or what == Hessian){
+    /* TODO: maybe issues with cancellation */
+    out[1L] = (y - mu) / mu * eta_exp;
+    if(what == Hessian){
+      const double mumu   = mu * mu;
+      /* TODO: maybe issues with cancellation */
+      out[2L] = eta_exp / mumu * (y * (eta_exp * (mu - 1) + mu) - mumu);
+    }
+  }
+
+  return out;
+}
+
+std::array<double, 3> binomial_probit::log_density_state_inner
+  (const double y, const double eta, const comp_out what) const
+{
+  gaurd_new_comp_out(what);
+
+  std::array<double, 3> out;
+  static constexpr double
+    /* qnorm(.Machine$double.eps). TODO: may yield issues on machines with
+     * differnt epsilon */
+    eta_lower = -8.12589066470191,
+    eta_upper = -eta_lower;
+  const double eta_use = MAX(MIN(eta, eta_upper), eta_lower);
+  const double mu = R::pnorm5(eta_use, 0, 1, 1, 0);
+
+  out[0L] = y * log(mu) + (1. - y) * log1p(-mu);
+  if(what == gradient or what == Hessian){
+    static constexpr double norm_const = 1. / sqrt(2. * M_PI);
+    const double
+      dmu_deta = norm_const * exp(-eta_use * eta_use / 2.),
+      denom = mu * (1 - mu),
+      dy_dmu = (y - mu) / denom;
+    out[1L] = dy_dmu * dmu_deta;
+    if(what == Hessian)
+      out[2L] =
+        (2 * y * mu - mu * mu - y) / (denom * denom) * dmu_deta * dmu_deta -
+        out[1L] * eta_use;
+  }
+
+  return out;
+}
+
 std::array<double, 3> poisson_log::log_density_state_inner
   (const double y, const double eta, const comp_out what) const
 {
@@ -142,12 +204,34 @@ std::array<double, 3> poisson_log::log_density_state_inner
   return out;
 }
 
+std::array<double, 3> poisson_sqrt::log_density_state_inner
+  (const double y, const double eta, const comp_out what) const
+{
+  gaurd_new_comp_out(what);
+
+  const double lambda = eta * eta, y2 = 2. * y;
+  std::array<double, 3> out;
+  out[0] = ([&]{
+    if(y <= lambda * std::numeric_limits<double>::min())
+      return -lambda;
+
+    /* TODO: maybe look at aproximation used in r-source/src/nmath/dpois.c */
+    return y * log(lambda) - lambda - std::lgamma(y + 1.);
+  })();
+
+  if(what == gradient or what == Hessian)
+    out[1] = y2 / eta - 2. * eta;
+
+  if(what == Hessian)
+    out[2] = - y2 / lambda  - 2.;
+
+  return out;
+}
+
 inline arma::vec* scalar_pos_dist(const arma::vec &in_vec)
 {
-#ifdef MSSM_DEBUG
   if(in_vec.n_elem != 1L or in_vec(0) <= 0.)
     throw std::invalid_argument("Invalid dispersion parameter");
-#endif
   /* we store the log dispersion parameter as the second element */
   arma::vec *out = new arma::vec(2L);
   out->operator()(0L) =          in_vec(0L);
@@ -220,7 +304,10 @@ std::unique_ptr<exp_family> get_family
    const arma::vec &cfix, const arma::mat &Z, const arma::vec *ws,
    const arma::vec &di, const arma::vec &offset) {
   EXP_CLASS_PTR(binomial_logit);
+  EXP_CLASS_PTR(binomial_cloglog);
+  EXP_CLASS_PTR(binomial_probit);
   EXP_CLASS_PTR(poisson_log);
+  EXP_CLASS_PTR(poisson_sqrt);
   EXP_CLASS_PTR(Gamma_log);
   EXP_CLASS_PTR(gaussian_identity);
 

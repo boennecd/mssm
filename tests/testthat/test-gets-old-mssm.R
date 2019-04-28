@@ -1,8 +1,9 @@
 context("Test versus old results for 'mssm' methods")
 
-get_test_expr <- function(data, label, family, disp = numeric()){
+get_test_expr <- function(data, label, family){
   substitute({
   ctrl <- mssm_control(N_part = 100L, n_threads = 2L, seed = 26545947)
+  disp <- if(is.null(dat$disp)) numeric() else dat$disp
 
   func <- mssm(
     fixed = y ~ x + Z, random = ~ Z, family = family,
@@ -89,5 +90,21 @@ test_that(
   eval(get_test_expr(poisson_log, "poisson-log", poisson())))
 
 test_that(
+  "get the same with 'poisson_sqrt'",
+  eval(get_test_expr(poisson_sqrt, "poisson-sqrt", poisson("sqrt"))))
+
+test_that(
   "get the same with 'binomial_logit'",
   eval(get_test_expr(binomial_logit, "binomial-logit", binomial())))
+
+test_that(
+  "get the same with 'binomial_cloglog'",
+  eval(get_test_expr(binomial_cloglog, "binomial-cloglog", binomial("cloglog"))))
+
+test_that(
+  "get the same with 'binomial_probit'",
+  eval(get_test_expr(binomial_probit, "binomial-probit", binomial("probit"))))
+
+test_that(
+  "get the same with 'Gamma_log'",
+  eval(get_test_expr(Gamma_log, "Gamma-log", Gamma("log"))))

@@ -184,6 +184,64 @@ context("Test mode_approximation") {
     );
   }
 
+  test_that("Test mode_approximation with binomial_cloglog") {
+    /*  R code
+    y <- c(1, 1, 1, 0, 0)
+    X <- matrix(c(0.51, 0.49, 0.38, 0.45, 0.078, 0.61, 0.14, 0.34, 0.56, 0.072), ncol = 2L, byrow = TRUE)
+    cfix <- c(.5, -.3)
+    Z <- matrix(c(0.19, 0.032, 0.96, 0.87, 0.65, 0.89, 0.12, 0.96, 0.51, 0.91), ncol = 2L, byrow = TRUE)
+    w <- c(1, 1, 2, 1, 3)
+    Q <- matrix(c(4, 2, 2, 6), 2L)
+    offs <- c(0.6, 0.92, 0.9, 0.32, 0.11)
+    mu <- c(-1, 1)
+    func(y = y, X = X, cfix = cfix, Z = Z, w = w, Q = Q, mu = mu, family = binomial("cloglog"), offs = offs)
+    */
+    test_func<binomial_cloglog>(
+      create_vec<5L>({1, 1, 1, 0, 0}),
+      create_mat<2L, 5L>({0.51, 0.49, 0.38, 0.45, 0.078, 0.61, 0.14, 0.34, 0.56, 0.072}),
+      create_vec<2L>({.5, -.3}),
+      create_mat<2L, 5L>({0.19, 0.032, 0.96, 0.87, 0.65, 0.89, 0.12, 0.96, 0.51, 0.91}),
+      create_vec<5L>({1, 1, 2, 1, 3}),
+      create_vec<0L>({ }),
+      create_mat<2L, 2L>({4, 2, 2, 6}),
+      create_vec<5L>({ 0.6, 0.92, 0.9, 0.32, 0.11 }),
+      create_vec<2L>({-1, 1}),
+      create_vec<2L>({-0.0963723669234773, -0.945471747557031}),
+      create_mat<2L, 2L>({1.51739165055043, -0.747584786238312, -0.747584786238312, 0.713986160683541}),
+      create_vec<2L>({ -3.74564360775489, -0.991734308708669 }),
+      create_mat<2L, 2L>({ -2.25709474934536, -0.612503573039887, -0.612503573039887, -0.842339622167918 })
+    );
+  }
+
+  test_that("Test mode_approximation with binomial_probit") {
+    /*  R code
+     y <- c(1, 1, 1, 0, 0)
+     X <- matrix(c(0.51, 0.49, 0.38, 0.45, 0.078, 0.61, 0.14, 0.34, 0.56, 0.072), ncol = 2L, byrow = TRUE)
+     cfix <- c(.5, -.3)
+     Z <- matrix(c(0.19, 0.032, 0.96, 0.87, 0.65, 0.89, 0.12, 0.96, 0.51, 0.91), ncol = 2L, byrow = TRUE)
+     w <- c(1, 1, 2, 1, 3)
+     Q <- matrix(c(4, 2, 2, 6), 2L)
+     offs <- c(0.6, 0.92, 0.9, 0.32, 0.11)
+     mu <- c(-1, 1)
+     func(y = y, X = X, cfix = cfix, Z = Z, w = w, Q = Q, mu = mu, family = binomial("probit"), offs = offs)
+     */
+    test_func<binomial_probit>(
+      create_vec<5L>({1, 1, 1, 0, 0}),
+      create_mat<2L, 5L>({0.51, 0.49, 0.38, 0.45, 0.078, 0.61, 0.14, 0.34, 0.56, 0.072}),
+      create_vec<2L>({.5, -.3}),
+      create_mat<2L, 5L>({0.19, 0.032, 0.96, 0.87, 0.65, 0.89, 0.12, 0.96, 0.51, 0.91}),
+      create_vec<5L>({1, 1, 2, 1, 3}),
+      create_vec<0L>({ }),
+      create_mat<2L, 2L>({4, 2, 2, 6}),
+      create_vec<5L>({ 0.6, 0.92, 0.9, 0.32, 0.11 }),
+      create_vec<2L>({-1, 1}),
+      create_vec<2L>({0.114731813326727, -0.77743827278269}),
+      create_mat<2L, 2L>({1.37326636929922, -0.754747097306099, -0.754747097306099, 0.702786380258149}),
+      create_vec<2L>({ -2.06610787478159, -0.104583761594978 }),
+      create_mat<2L, 2L>({ -0.934885230067643, -0.361609507885171, -0.361609507885171, -0.584661997326541 })
+    );
+  }
+
   test_that("Test mode_approximation with poisson_log") {
     /*  R code
      y <- c(0, 0, 0, 2, 2)
@@ -210,6 +268,35 @@ context("Test mode_approximation") {
       create_mat<2L, 2L>({0.966379231940908, -0.437398143418101, -0.437398143418101, 0.344832867881286}),
       create_vec<2L>({ -2.64218474211349, -5.64688602543408 }),
       create_mat<2L, 2L>({ -2.92285534644817, -1.51299584380444, -1.51299584380444, -3.31235598336682 })
+    );
+  }
+
+  test_that("Test mode_approximation with poisson_sqrt") {
+    /*  R code
+     y <- c(0, 0, 0, 2, 2)
+     X <- matrix(c(0.51, 0.49, 0.38, 0.45, 0.078, 0.61, 0.14, 0.34, 0.56, 0.072), ncol = 2L, byrow = TRUE)
+     cfix <- c(.5, -.3)
+     Z <- matrix(c(0.19, 0.032, 0.96, 0.87, 0.65, 0.89, 0.12, 0.96, 0.51, 0.91), ncol = 2L, byrow = TRUE)
+     w <- c(1, 1, 2, 1, 3)
+     Q <- matrix(c(4, 2, 2, 6), 2L)
+     offs <- c(0.6, 0.92, 0.9, 0.32, 0.11)
+     mu <- c(-1, 1)
+     func(y = y, X = X, cfix = cfix, Z = Z, w = w, Q = Q, mu = mu, family = poisson("sqrt"), offs = offs)
+     */
+    test_func<poisson_sqrt>(
+      create_vec<5L>({0, 0, 0, 2, 2}),
+      create_mat<2L, 5L>({0.51, 0.49, 0.38, 0.45, 0.078, 0.61, 0.14, 0.34, 0.56, 0.072}),
+      create_vec<2L>({.5, -.3}),
+      create_mat<2L, 5L>({0.19, 0.032, 0.96, 0.87, 0.65, 0.89, 0.12, 0.96, 0.51, 0.91}),
+      create_vec<5L>({1, 1, 2, 1, 3}),
+      create_vec<0L>({ }),
+      create_mat<2L, 2L>({4, 2, 2, 6}),
+      create_vec<5L>({ 0.6, 0.92, 0.9, 0.32, 0.11 }),
+      create_vec<2L>({-1, 1}),
+      create_vec<2L>({ -2.17992378042166, 1.87000894550256 }),
+      create_mat<2L, 2L>({ 0.612979755959768, -0.34024026490344, -0.34024026490344, 0.231178493264105 }),
+      create_vec<2L>({ 4.79988298131378, -2.5346406737559 }),
+      create_mat<2L, 2L>({ -9.1893200905747, -2.33833903505377, -2.33833903505377, -3.10467527565322 })
     );
   }
 

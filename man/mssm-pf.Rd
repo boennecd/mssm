@@ -22,7 +22,8 @@ the zero vector.}
 \item{trace}{integer controlling whether information should be printed
 during particle filtering. Zero yields no information.}
 
-\item{seed}{integer to pass to \code{\link{set.seed}}.}
+\item{seed}{integer to pass to \code{\link{set.seed}}. The seed is not set
+if the argument is \code{NULL}.}
 }
 \value{
 An object of class \code{mssm} with the following elements

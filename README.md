@@ -28,6 +28,7 @@ Table of Contents
         -   [Log-Likelihood Approximations](#log-likelihood-approximations)
         -   [Parameter Estimation](#parameter-estimation)
         -   [Faster Approximation](#faster-approximation)
+    -   [Supported Families](#supported-families)
     -   [Fast Sum-Kernel Approximation](#fast-sum-kernel-approximation)
     -   [Function Definitions](#function-definitions)
 -   [References](#references)
@@ -77,7 +78,7 @@ matplot(betas, lty = 1, type = "l")
 ![](./README-fig/simulate-1.png)
 
 ``` r
-# sumulate observations
+# simulate observations
 cfix <- c(-1, .2, .5, -1) # gamma
 n_obs <- 100L
 dat <- lapply(1:n_obs, function(id){
@@ -145,7 +146,7 @@ with(dat, {
 
 ![](./README-fig/simulate-3.png)![](./README-fig/simulate-4.png)
 
-In the above, we simulate 312 (`n_periods`) with 100 (`n_obs`) individuals. Each individual has a fixed covaraite, `X2`, and two time-varying covariates, `X1` and `Z`. One of the time-varying covariates, `Z`, has a random slope. Further, the intercept is also random.
+In the above, we simulate 312 (`n_periods`) with 100 (`n_obs`) individuals. Each individual has a fixed covariate, `X2`, and two time-varying covariates, `X1` and `Z`. One of the time-varying covariates, `Z`, has a random slope. Further, the intercept is also random.
 
 ### Log-Likelihood Approximations
 
@@ -203,7 +204,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   2.075   0.031   0.538
+    ##   2.056   0.020   0.524
 
 ``` r
 # returns the log-likelihood approximation
@@ -215,13 +216,9 @@ logLik(mssm_obj)
 We get a much larger log-likelihood as expected. We can plot the predicted values of state variables from the filter distribution.
 
 ``` r
-# plot estiamtes 
-filter_means <- plot(mssm_obj)
-```
+# get predicted mean and prediction interval 
+filter_means <- plot(mssm_obj, do_plot = FALSE)
 
-![](./README-fig/plot_filter-1.png)![](./README-fig/plot_filter-2.png)
-
-``` r
 # plot with which also contains the true paths
 for(i in 1:ncol(betas)){
   be <- betas[, i]
@@ -238,7 +235,7 @@ for(i in 1:ncol(betas)){
 }
 ```
 
-![](./README-fig/plot_filter-3.png)![](./README-fig/plot_filter-4.png)
+![](./README-fig/plot_filter-1.png)![](./README-fig/plot_filter-2.png)
 
 We can get the effective sample size at each point in time with the `get_ess` function.
 
@@ -277,7 +274,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   1.930   0.016   0.472
+    ##   1.782   0.012   0.446
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -458,7 +455,8 @@ One drawback with the particle filter we use is that it has ![\\mathcal{O}(N^2)]
 
 ``` r
 local({
-  # assign function that returns a function that use given number of particles
+  # assign function that returns a function that uses a given number of 
+  # particles
   func <- function(N){
     ll_func <- mssm(
       fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
@@ -471,13 +469,13 @@ local({
       
   }
   
-  f_100  <- func( 100)
-  f_200  <- func( 200)
-  f_400  <- func( 400)
-  f_800  <- func( 800)
-  f_1600 <- func(1600)
+  f_100  <- func( 100L)
+  f_200  <- func( 200L)
+  f_400  <- func( 400L)
+  f_800  <- func( 800L)
+  f_1600 <- func(1600L)
   
-  # benchmark. Should grow ~ N^2
+  # benchmark. Should ĩncrease at ~ N^2 rate
   microbenchmark::microbenchmark(
     `100` = f_100(), `200` = f_200(), `400` = f_400(), `800` = f_800(),
     `1600` = f_1600(), times = 3L)
@@ -485,18 +483,19 @@ local({
 ```
 
     ## Unit: milliseconds
-    ##  expr     min      lq   mean  median      uq     max neval
-    ##   100   68.72   68.78   71.6   68.83   73.04   77.24     3
-    ##   200  130.82  134.37  148.4  137.91  157.22  176.52     3
-    ##   400  356.58  362.60  376.8  368.61  386.92  405.23     3
-    ##   800 1061.01 1080.01 1134.3 1099.02 1170.97 1242.91     3
-    ##  1600 3421.78 3555.55 3679.4 3689.31 3808.19 3927.07     3
+    ##  expr     min      lq    mean  median      uq     max neval
+    ##   100   60.36   62.36   63.43   64.36   64.97   65.58     3
+    ##   200  122.26  127.19  131.91  132.12  136.73  141.35     3
+    ##   400  335.14  340.10  347.56  345.06  353.77  362.48     3
+    ##   800  972.61  990.84 1014.37 1009.08 1035.25 1061.42     3
+    ##  1600 3211.90 3214.23 3254.42 3216.57 3275.68 3334.78     3
 
 A solution is to use the dual k-d tree method I cover later. The computational complexity is ![\\mathcal{O}(N \\log N)](https://chart.googleapis.com/chart?cht=tx&chl=%5Cmathcal%7BO%7D%28N%20%5Clog%20N%29 "\mathcal{O}(N \log N)") for this method which is somewhat indicated by the run times shown below.
 
 ``` r
 local({
-  # assign function that returns a function that use given number of particles
+  # assign function that returns a function that uses a given number of 
+  # particles
   func <- function(N){
     ll_func <- mssm(
       fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
@@ -510,28 +509,28 @@ local({
       
   }
   
-  f_100   <- func(  100)
-  f_200   <- func(  200)
-  f_400   <- func(  400)
-  f_800   <- func(  800)
-  f_1600  <- func( 1600)
-  f_51200 <- func(51200) # <-- much larger
+  f_100   <- func(  100L)
+  f_200   <- func(  200L)
+  f_400   <- func(  400L)
+  f_800   <- func(  800L)
+  f_1600  <- func( 1600L)
+  f_12800 <- func(12800L) # <-- much larger
   
-  # benchmark. Should grow ~ N log N
+  # benchmark. Should increase at ~ N log N rate
   microbenchmark::microbenchmark(
     `100` = f_100(), `200` = f_200(), `400` = f_400(), `800` = f_800(), 
-    `1600` = f_1600(), `51200` = f_51200(), times = 3L)
+    `1600` = f_1600(), `12800` = f_12800(), times = 3L)
 })
 ```
 
     ## Unit: milliseconds
-    ##   expr     min      lq    mean  median      uq     max neval
-    ##    100   107.3   109.3   119.3   111.3   125.2   139.2     3
-    ##    200   203.7   222.2   233.0   240.8   247.6   254.5     3
-    ##    400   507.5   514.1   522.7   520.7   530.3   540.0     3
-    ##    800   807.7   856.2   887.7   904.8   927.7   950.5     3
-    ##   1600  1624.0  1725.9  1767.2  1827.9  1838.7  1849.6     3
-    ##  51200 33082.0 33141.5 33582.2 33201.0 33832.3 34463.5     3
+    ##   expr    min     lq   mean median     uq    max neval
+    ##    100  102.0  103.9  107.4  105.7  110.1  114.5     3
+    ##    200  195.3  196.7  197.8  198.0  199.0  200.0     3
+    ##    400  387.5  394.6  397.4  401.8  402.3  402.9     3
+    ##    800  782.2  789.4  802.7  796.6  812.9  829.3     3
+    ##   1600 1473.2 1489.5 1514.7 1505.8 1535.5 1565.3     3
+    ##  12800 8096.4 8133.4 8169.6 8170.4 8206.2 8241.9     3
 
 The `aprx_eps` controls the size of the error. To be precise about what this value does then we need to some notation for the complete likelihood (the likelihood where we observe ![\\vec\\beta\_1,\\dots,\\vec\\beta\_T](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_1%2C%5Cdots%2C%5Cvec%5Cbeta_T "\vec\beta_1,\dots,\vec\beta_T")s). This is
 
@@ -651,6 +650,15 @@ print(mean(ll_compare$ll_no_approx), digits = 6)
 ```
 
     ## [1] -5864.42
+
+Supported Families
+------------------
+
+The following families are supported:
+
+-   The binomial distribution is supported with logit, probit, and cloglog link.
+-   The Poisson distribution is supported with square root and log link.
+-   The gamma distribution is supported with log link.
 
 Fast Sum-Kernel Approximation
 -----------------------------
@@ -799,14 +807,14 @@ run_times <- lapply(Ns, function(N){
     times = 5L)
 }) 
 
-Ns_xtra <- 2^(15:19)
+Ns_xtra <- 2^(15:19) 
 run_times_xtra <- lapply(Ns_xtra, function(N){
   invisible(list2env(get_sims(N), environment()))
   microbenchmark::microbenchmark(
     `dual-tree` = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
                                n_threads = 4L),
     times = 5L)
-})
+}) 
 ```
 
 ``` r
@@ -821,20 +829,20 @@ meds
 ```
 
     ##          method
-    ## N         Dual-tree      Naive Dual-tree 1
-    ##   384      0.001236  0.0006869    0.003280
-    ##   768      0.002773  0.0025440    0.006613
-    ##   1536     0.004702  0.0095343    0.011566
-    ##   3072     0.008966  0.0381090    0.024164
-    ##   6144     0.019351  0.1584682    0.048722
-    ##   12288    0.037234  0.6538928    0.093984
-    ##   24576    0.062391  2.6628192    0.168456
-    ##   49152    0.117129 11.3286853    0.324276
-    ##   98304    0.223057         NA          NA
-    ##   196608   0.471701         NA          NA
-    ##   393216   0.968937         NA          NA
-    ##   786432   1.867226         NA          NA
-    ##   1572864  4.281616         NA          NA
+    ## N         Dual-tree     Naive Dual-tree 1
+    ##   384      0.001274  0.001055    0.003382
+    ##   768      0.002606  0.002479    0.006263
+    ##   1536     0.004439  0.009691    0.011442
+    ##   3072     0.010069  0.037756    0.024626
+    ##   6144     0.018591  0.144852    0.046698
+    ##   12288    0.036910  0.597269    0.103663
+    ##   24576    0.065379  2.490314    0.165373
+    ##   49152    0.113865 11.358416    0.313790
+    ##   98304    0.220877        NA          NA
+    ##   196608   0.486669        NA          NA
+    ##   393216   1.069044        NA          NA
+    ##   786432   1.993602        NA          NA
+    ##   1572864  4.027646        NA          NA
 
 ``` r
 par(mar = c(5, 4, 1, 1))
@@ -911,7 +919,7 @@ sgd <- function(
     
   }
     
-  # run gradient decent 
+  # run algorithm
   max_half <- 25L
   for(i in 1:n_it + 1L){
     # get gradient. First, run the particle filter
@@ -1026,7 +1034,7 @@ adam <- function(
 
   }
 
-  # run gradient decent
+  # run algorithm
   max_half <- 25L
   m <- NULL
   v <- NULL

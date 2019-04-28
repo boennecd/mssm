@@ -716,7 +716,10 @@ public:                                                               \
 }
 
 EXP_CLASS(binomial_logit);
+EXP_CLASS(binomial_cloglog);
+EXP_CLASS(binomial_probit);
 EXP_CLASS(poisson_log);
+EXP_CLASS(poisson_sqrt);
 EXP_CLASS_W_DISP(Gamma_log);
 EXP_CLASS_W_DISP(gaussian_identity);
 

@@ -4,7 +4,7 @@
 \alias{plot.mssm}
 \title{Plot Predicted State Variables for mssm Object.}
 \usage{
-\method{plot}{mssm}(x, y, qs = c(0.05, 0.95), ...)
+\method{plot}{mssm}(x, y, qs = c(0.05, 0.95), do_plot = TRUE, ...)
 }
 \arguments{
 \item{x}{an object of class \code{mssm}.}
@@ -14,7 +14,12 @@
 \item{qs}{two-dimensional numeric vector with bounds of the prediction
 interval.}
 
+\item{do_plot}{\code{TRUE} to create a plot with the mean and quantiles.}
+
 \item{...}{un-used.}
+}
+\value{
+List with means and quantiles.
 }
 \description{
 Plots the predicted mean and pointwise prediction interval of the state

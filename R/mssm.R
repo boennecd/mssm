@@ -59,18 +59,26 @@ mssm <- function(
   stopifnot(length(y) == N)
   X <- t(model.matrix(terms(mf_X), mf_X))
   Z <- t(model.matrix(terms(mf_Z), mf_Z))
+  stopifnot(ncol(X) == ncol(Z))
 
   # get weights, offsets, and time indices
   weights <- if(missing(weights))
-    rep(1., N) else
-      # TODO: test
-      eval(substitute(weights), data)
+    rep(1., N)
+  else
+    # TODO: test
+    eval(substitute(weights), data)
+
   offsets <- if(missing(offsets))
     rep(0, N) else
       # TODO: test
       eval(substitute(offsets), data)
-
   ti <- eval(substitute(ti), data)
+
+  stopifnot(
+    is.numeric(weights), length(weights) == ncol(X),
+    is.numeric(offsets), length(offsets) == ncol(X),
+    is.integer(ti),      length(ti)      == ncol(X))
+
   # TODO: maybe do this in a smart way
   time_indices <- range(ti)
   time_indices = lapply(
@@ -95,14 +103,26 @@ mssm <- function(
 
   # assign function to compute the requested objects
   out_func <- function(cfix, disp, F., Q, Q0, mu0, trace = 0L, seed){
-    # TODO: check args
+    p <- nrow(Z)
+    stopifnot(
+      is.numeric(cfix), length(cfix) == nrow(X),
+      is.numeric(disp),
+      is.numeric(F.), is.matrix(F.), nrow(F.) == p, ncol(F.) == p,
+      is.numeric(Q ), is.matrix(Q ), nrow(Q ) == p, ncol(Q ) == p,
+      is.integer(trace),
+      is.null(seed) || is.numeric(seed))
+
     if(missing(Q0))
       Q0 <- .get_Q0(Q, F.)
     if(missing(mu0))
       mu0 <- numeric(nrow(Q0))
 
+    stopifnot(
+      is.numeric(Q0 ), is.matrix(Q0), nrow(Q0) == p, ncol(Q0) == p,
+      is.numeric(mu0), length(mu0) == p)
+
     if(!is.null(seed))
-      set.seed(seed) # TODO: check that results are reproducible
+      set.seed(seed)
     out <- pf_filter(
       Y = y, cfix = cfix, ws = weights, offsets = offsets, disp = disp, X = X,
       Z = Z,
@@ -114,12 +134,10 @@ mssm <- function(
       which_sampler = control$which_sampler, which_ll_cp = control$which_ll_cp,
       trace, KD_N_max = control$KD_N_max, aprx_eps = control$aprx_eps)
 
-    # TODO: test output
     structure(c(list(pf_output = out), output_list), class = "mssm")
   }
   formals(out_func)$seed <- control$seed
 
-  # TODO: test output
   structure(
     c(list(pf_filter = out_func), output_list), class = "mssmFunc")
 }
@@ -206,8 +224,26 @@ mssm_control <- function(
   N_part = 1000L, n_threads = 1L, covar_fac = 1.2, ftol_rel = 1e-6, nu = 8.,
   what = "log_density", which_sampler = "mode_aprx", which_ll_cp = "no_aprx",
   seed = 1L, KD_N_max = 10L, aprx_eps = 1e-3){
-  # TODO: check input arguments
-  # TODO: test output
+  stopifnot(
+    is.integer(N_part), length(N_part) == 1L, N_part > 0L,
+    is.integer(n_threads), length(n_threads) == 1L, n_threads > 0L,
+    is.numeric(covar_fac), length(covar_fac) == 1L, covar_fac > 0.,
+    is.numeric(ftol_rel), length(ftol_rel) == 1L, ftol_rel > 0.,
+    is.numeric(nu), length(nu) == 1L, nu > 2. || nu == -1.,
+
+    is.character(what), length(what) == 1L,
+    what %in% c("log_density", "gradient"),
+
+    is.character(which_sampler), length(which_sampler) == 1L,
+    which_sampler %in% c("mode_aprx", "bootstrap"),
+
+    is.character(which_ll_cp), length(which_ll_cp) == 1L,
+    which_ll_cp %in% c("no_aprx", "KD"),
+
+    is.numeric(seed),
+    is.integer(KD_N_max), length(KD_N_max) == 1L, KD_N_max > 1L,
+    is.numeric(aprx_eps), length(aprx_eps) == 1L, aprx_eps > 0.)
+
   list(
     N_part = N_part, n_threads = n_threads, covar_fac = covar_fac,
     ftol_rel = ftol_rel, what = what, which_sampler = which_sampler,
@@ -216,6 +252,10 @@ mssm_control <- function(
 }
 
 .get_Q0 <- function(Qmat, Fmat){
+  stopifnot(is.matrix(Qmat), is.numeric(Qmat),
+            is.matrix(Fmat), is.numeric(Fmat),
+            all(dim(Qmat) == dim(Fmat)))
+
   eg  <- eigen(Fmat)
   las <- eg$values
   if(any(abs(las) >= 1))
@@ -270,13 +310,18 @@ logLik.mssm <- function(object, ...){
 #' @param y un-used.
 #' @param qs two-dimensional numeric vector with bounds of the prediction
 #' interval.
+#' @param do_plot \code{TRUE} to create a plot with the mean and quantiles.
 #' @param ... un-used.
+#'
+#' @return
+#' List with means and quantiles.
 #'
 #' @importFrom graphics plot lines par
 #' @method plot mssm
 #' @export
-plot.mssm <- function(x, y, qs = c(.05, .95), ...){
-  stopifnot(inherits(x, "mssm"), qs[2] > qs[1], all(qs > 0, qs < 1))
+plot.mssm <- function(x, y, qs = c(.05, .95), do_plot = TRUE, ...){
+  stopifnot(inherits(x, "mssm"), qs[2] > qs[1], all(qs > 0, qs < 1),
+            is.logical(do_plot))
 
   particles <- lapply(x$pf_output, "[[", "particles")
   ws <- lapply(x$pf_output, "[[", "ws_normalized")
@@ -306,15 +351,17 @@ plot.mssm <- function(x, y, qs = c(.05, .95), ...){
   idx_time <- .get_time_index(x)
   colnames(lbs)<- colnames(ubs) <- colnames(filter_ests) <- idx_time
   rownames(lbs)<- rownames(ubs) <- rownames(filter_ests) <- rownames(x$Z)
-  par_old <- par(no.readonly = TRUE)
-  on.exit(par(par_old))
-  par(mar = c(5, 4, 1, 1))
-  for(i in 1:nrow(filter_ests)){
-    plot(idx_time, filter_ests[i, ], ylab = rownames(filter_ests)[i],
-         xlab = "time", type = "l", ylim = range(lbs[i, ], ubs[i, ],
-                                                 filter_ests[i, ]))
-    lines(idx_time, lbs[i, ], lty = 2)
-    lines(idx_time, ubs[i, ], lty = 2)
+  if(do_plot){
+    par_old <- par(no.readonly = TRUE)
+    on.exit(par(par_old))
+    par(mar = c(5, 4, 1, 1))
+    for(i in 1:nrow(filter_ests)){
+      plot(idx_time, filter_ests[i, ], ylab = rownames(filter_ests)[i],
+           xlab = "time", type = "l", ylim = range(lbs[i, ], ubs[i, ],
+                                                   filter_ests[i, ]))
+      lines(idx_time, lbs[i, ], lty = 2)
+      lines(idx_time, ubs[i, ], lty = 2)
+    }
   }
 
   # TODO: test output

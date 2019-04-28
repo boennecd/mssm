@@ -71,7 +71,7 @@ for(i in 2:nrow(betas))
 par(mar = c(5, 4, 1, 1))
 matplot(betas, lty = 1, type = "l")
 
-# sumulate observations
+# simulate observations
 cfix <- c(-1, .2, .5, -1) # gamma
 n_obs <- 100L
 dat <- lapply(1:n_obs, function(id){
@@ -110,7 +110,7 @@ with(dat, {
 ```
 
 In the above, we simulate `r n_periods` (`n_periods`) with `r n_obs` (`n_obs`)
-individuals. Each individual has a fixed covaraite, `X2`, and two time-varying
+individuals. Each individual has a fixed covariate, `X2`, and two time-varying
 covariates, `X1` and `Z`. One of the time-varying covariates, `Z`, has a 
 random slope. Further, the intercept is also random. 
 
@@ -147,8 +147,8 @@ We get a much larger log-likelihood as expected. We can plot the predicted
 values of state variables from the filter distribution.
 
 ```{r plot_filter, fig.height = .fig_height_small, fig.width = 12L}
-# plot estiamtes 
-filter_means <- plot(mssm_obj)
+# get predicted mean and prediction interval 
+filter_means <- plot(mssm_obj, do_plot = FALSE)
 
 # plot with which also contains the true paths
 for(i in 1:ncol(betas)){
@@ -282,7 +282,7 @@ sgd <- function(
     
   }
     
-  # run gradient decent 
+  # run algorithm
   max_half <- 25L
   for(i in 1:n_it + 1L){
     # get gradient. First, run the particle filter
@@ -397,7 +397,7 @@ adam <- function(
 
   }
 
-  # run gradient decent
+  # run algorithm
   max_half <- 25L
   m <- NULL
   v <- NULL
@@ -544,7 +544,8 @@ this by changing the number of particles.
 
 ```{r comp_w_n_part, cache = 1}
 local({
-  # assign function that returns a function that use given number of particles
+  # assign function that returns a function that uses a given number of 
+  # particles
   func <- function(N){
     ll_func <- mssm(
       fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
@@ -557,13 +558,13 @@ local({
       
   }
   
-  f_100  <- func( 100)
-  f_200  <- func( 200)
-  f_400  <- func( 400)
-  f_800  <- func( 800)
-  f_1600 <- func(1600)
+  f_100  <- func( 100L)
+  f_200  <- func( 200L)
+  f_400  <- func( 400L)
+  f_800  <- func( 800L)
+  f_1600 <- func(1600L)
   
-  # benchmark. Should grow ~ N^2
+  # benchmark. Should ĩncrease at ~ N^2 rate
   microbenchmark::microbenchmark(
     `100` = f_100(), `200` = f_200(), `400` = f_400(), `800` = f_800(),
     `1600` = f_1600(), times = 3L)
@@ -576,7 +577,8 @@ indicated by the run times shown below.
 
 ```{r KD_comp_w_n_part, cache = 1}
 local({
-  # assign function that returns a function that use given number of particles
+  # assign function that returns a function that uses a given number of 
+  # particles
   func <- function(N){
     ll_func <- mssm(
       fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
@@ -590,17 +592,17 @@ local({
       
   }
   
-  f_100   <- func(  100)
-  f_200   <- func(  200)
-  f_400   <- func(  400)
-  f_800   <- func(  800)
-  f_1600  <- func( 1600)
-  f_51200 <- func(51200) # <-- much larger
+  f_100   <- func(  100L)
+  f_200   <- func(  200L)
+  f_400   <- func(  400L)
+  f_800   <- func(  800L)
+  f_1600  <- func( 1600L)
+  f_12800 <- func(12800L) # <-- much larger
   
-  # benchmark. Should grow ~ N log N
+  # benchmark. Should increase at ~ N log N rate
   microbenchmark::microbenchmark(
     `100` = f_100(), `200` = f_200(), `400` = f_400(), `800` = f_800(), 
-    `1600` = f_1600(), `51200` = f_51200(), times = 3L)
+    `1600` = f_1600(), `12800` = f_12800(), times = 3L)
 })
 ```
 
@@ -702,6 +704,13 @@ print(mean(ll_approx), digits = 6)
 sd(ll_compare$ll_no_approx)
 print(mean(ll_compare$ll_no_approx), digits = 6)
 ```
+
+## Supported Families
+The following families are supported:
+
+ - The binomial distribution is supported with logit, probit, and cloglog link. 
+ - The Poisson distribution is supported with square root and log link. 
+ - The gamma distribution is supported with log link.
 
 ## Fast Sum-Kernel Approximation
 
@@ -846,14 +855,14 @@ run_times <- lapply(Ns, function(N){
     times = 5L)
 }) 
 
-Ns_xtra <- 2^(15:19)
+Ns_xtra <- 2^(15:19) 
 run_times_xtra <- lapply(Ns_xtra, function(N){
   invisible(list2env(get_sims(N), environment()))
   microbenchmark::microbenchmark(
     `dual-tree` = mssm:::FSKA (X = X, ws = ws, Y = X, N_min = 10L, eps = 5e-3, 
                                n_threads = 4L),
     times = 5L)
-})
+}) 
 ```
  
 ```{r plot_run_times_N}
