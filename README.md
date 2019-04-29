@@ -204,7 +204,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   2.056   0.020   0.524
+    ##   2.016   0.012   0.517
 
 ``` r
 # returns the log-likelihood approximation
@@ -274,7 +274,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   1.782   0.012   0.446
+    ##   2.374   0.035   0.605
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -309,7 +309,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##  591.48    3.57  137.69
+    ##  680.47    3.94  157.53
 
 ``` r
 # use Adam algorithm instead
@@ -321,7 +321,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 596.182   3.748 138.864
+    ## 690.220   3.853 159.587
 
 A plot of the approximate log-likelihoods at each iteration is shown below along with the final estimates.
 
@@ -372,7 +372,7 @@ res$cfix
 print(tail(resa$logLik), digits = 6) # final log-likelihood approximations
 ```
 
-    ## [1] -5863.71 -5862.37 -5862.28 -5862.05 -5862.78 -5861.87
+    ## [1] -5863.45 -5862.35 -5862.27 -5861.88 -5862.50 -5861.70
 
 ``` r
 plot(resa$logLik       , type = "l")
@@ -384,23 +384,23 @@ plot(resa$logLik       , type = "l")
 resa$F. 
 ```
 
-    ##           [,1]      [,2]
-    ## [1,]  0.502378 -0.007559
-    ## [2,] -0.002962  0.793154
+    ##          [,1]     [,2]
+    ## [1,] 0.499976 -0.00433
+    ## [2,] 0.004879  0.79736
 
 ``` r
 resa$Q
 ```
 
-    ##        [,1]   [,2]
-    ## [1,] 0.3112 0.1309
-    ## [2,] 0.1309 0.5059
+    ##       [,1]   [,2]
+    ## [1,] 0.306 0.1350
+    ## [2,] 0.135 0.5029
 
 ``` r
 resa$cfix
 ```
 
-    ## [1] -0.9763  0.2107  0.5201 -1.0409
+    ## [1] -0.9837  0.2110  0.5205 -1.0333
 
 We may want to use more particles. To do, we use the approximation described in the next section.
 
@@ -419,7 +419,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##  587.28   21.08  168.85
+    ##  568.70   18.53  162.98
 
 ``` r
 plot(res_final$logLik, type = "l")
@@ -432,22 +432,22 @@ res_final$F.
 ```
 
     ##           [,1]      [,2]
-    ## [1,]  0.494535 0.0009388
-    ## [2,] -0.002816 0.8016908
+    ## [1,]  0.494433 -0.001041
+    ## [2,] -0.002337  0.800930
 
 ``` r
 res_final$Q
 ```
 
     ##        [,1]   [,2]
-    ## [1,] 0.3070 0.1228
-    ## [2,] 0.1228 0.5106
+    ## [1,] 0.3068 0.1262
+    ## [2,] 0.1262 0.5108
 
 ``` r
 res_final$cfix
 ```
 
-    ## [1] -0.9665  0.2163  0.5268 -0.8382
+    ## [1] -0.9549  0.2151  0.5254 -0.8463
 
 ### Faster Approximation
 
@@ -897,17 +897,10 @@ sgd <- function(
   idx_F   <- 1:(n_rng * n_rng) + n_fix
   idx_Q   <- 1:(n_rng * (n_rng  + 1L) / 2L) + n_fix + n_rng * n_rng
   
-  # we only want the lower part of `Q` so we make the following map for the 
-  # gradient
-  library(matrixcalc) # TODO: get rid of this
-  gr_map <- matrix(
-    0., nrow = ncol(ests), ncol = length(cfix) + length(F.) + length(Q))
-  gr_map[idx_fix, idx_fix] <- diag(length(idx_fix))
-  gr_map[idx_F  , idx_F] <- diag(length(idx_F))
-  dup_mat <- duplication.matrix(ncol(Q))
-  gr_map[idx_Q  , -c(idx_fix, idx_F)] <- t(dup_mat)
   
   # function to set the parameters
+  library(matrixcalc) # TODO: get rid of this
+  dup_mat <- duplication.matrix(ncol(Q))
   set_parems <- function(i){
     # select whether or not to average
     idx <- if(i > avg_start) avg_start:i else i
@@ -937,7 +930,7 @@ sgd <- function(
     lr_i <- lrs[i - 1L]
     k <- 0L
     while(k < max_half){
-      ests[i, ] <- ests[i - 1L, ] + lr_i * gr_map %*% grad 
+      ests[i, ] <- ests[i - 1L, ] + lr_i * grad 
       set_parems(i)
       
       # check that Q is positive definite and the system is stationary
@@ -1016,17 +1009,9 @@ adam <- function(
   idx_F   <- 1:(n_rng * n_rng) + n_fix
   idx_Q   <- 1:(n_rng * (n_rng  + 1L) / 2L) + n_fix + n_rng * n_rng
 
-  # we only want the lower part of `Q` so we make the following map for the
-  # gradient
-  library(matrixcalc) # TODO: get rid of this
-  gr_map <- matrix(
-    0., nrow = ncol(ests), ncol = length(cfix) + length(F.) + length(Q))
-  gr_map[idx_fix, idx_fix] <- diag(length(idx_fix))
-  gr_map[idx_F  , idx_F] <- diag(length(idx_F))
-  dup_mat <- duplication.matrix(ncol(Q))
-  gr_map[idx_Q  , -c(idx_fix, idx_F)] <- t(dup_mat)
-
   # function to set the parameters
+  library(matrixcalc) # TODO: get rid of this
+  dup_mat <- duplication.matrix(ncol(Q))
   set_parems <- function(i){
     cfix <<-             ests[i, idx_fix]
     F.[] <<-             ests[i, idx_F  ]
@@ -1062,7 +1047,7 @@ adam <- function(
     lr_i <- lr
     k <- 0L
     while(k < max_half){
-      ests[i, ] <- ests[i - 1L, ] + lr_i * gr_map %*% de
+      ests[i, ] <- ests[i - 1L, ] + lr_i * de
       set_parems(i)
 
       # check that Q is positive definite and the system is stationary

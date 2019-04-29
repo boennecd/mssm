@@ -19,6 +19,44 @@ inline void gaurd_new_comp_out(const comp_out what){
 #endif
 }
 
+inline arma::uword get_grad_dim(const arma::uword stat_dim, const comp_out what)
+{
+  gaurd_new_comp_out(what);
+
+  if(what == gradient)
+    return stat_dim;
+  else if(what == Hessian){
+    /* positive solution to d(d + 1) = k */
+    double x = .5 * (std::sqrt((double)stat_dim * 4. + 1.) - 1.);
+#ifdef MSSM_DEBUG
+    if(x - round(x) >= std::numeric_limits<double>::epsilon())
+      throw std::runtime_error("invalid dimension in 'get_grad_dim'");
+#endif
+    return std::round(x);
+  }
+
+  return 0L;
+}
+
+inline arma::uword get_hess_dim(const arma::uword stat_dim, const comp_out what)
+{
+  gaurd_new_comp_out(what);
+
+  if(what == gradient)
+    return 0L;
+  else if(what == Hessian){
+    /* positive solution to d(d + 1) = k */
+    double x = .5 * (std::sqrt((double)stat_dim * 4. + 1.) - 1.);
+#ifdef MSSM_DEBUG
+    if(std::abs(x - round(x)) >= std::numeric_limits<double>::epsilon())
+      throw std::runtime_error("invalid dimension in 'get_grad_dim'");
+#endif
+    return std::lround(x * x);
+  }
+
+  return 0L;
+}
+
 /* class to compute conditional densities */
 class cdist {
 public:
@@ -28,8 +66,28 @@ public:
   virtual arma::uword state_dim() const = 0;
   /* gets statistics dimension for state statistics */
   virtual arma::uword state_stat_dim(const comp_out) const = 0;
+  /* yields the gradient dimension w.r.t. terms involving the old and new
+   * state */
+  arma::uword state_stat_dim_grad(const comp_out what) const {
+    return get_grad_dim(state_stat_dim(what), what);
+  }
+  /* yields the Hessian dimension w.r.t. terms involving the old and new
+   * state */
+  arma::uword state_stat_dim_hess(const comp_out what) const {
+    return get_hess_dim(state_stat_dim(what), what);
+  }
+
   /* gets statistics dimension for observation statistics */
   virtual arma::uword obs_stat_dim(const comp_out) const = 0;
+  /* yields the gradient dimension w.r.t. terms involving the new state only */
+  arma::uword obs_stat_dim_grad(const comp_out what) const {
+    return get_grad_dim(obs_stat_dim(what), what);
+  }
+  /* yields the Hessian dimension w.r.t. terms involving the new state only */
+  arma::uword obs_stat_dim_hess(const comp_out what) const {
+    return get_hess_dim(obs_stat_dim(what), what);
+  }
+
   /* gets dimension of statistics */
   arma::uword stat_dim(const comp_out what) const {
     return state_stat_dim(what) + obs_stat_dim(what);
@@ -383,7 +441,11 @@ public:
     if(what == log_densty)
       return 0L;
     if(what == gradient)
-      return 2L * dim * dim;
+      return dim * dim + (dim * (dim + 1L)) / 2L;
+    else if(what == Hessian){
+      const arma::uword gdim = dim * dim + (dim * (dim + 1L)) / 2L;
+      return gdim * (gdim + 1L);
+    }
     else
       throw std::logic_error("not implemented");
   }

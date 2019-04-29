@@ -112,37 +112,38 @@ context("Test state distribution") {
 
   test_that("Test mv_norm_reg::comp_stats_state_state gives correct results in 3D"){
     /* R code
-       x <- c(-3, 2, 1)
-       y <- c(-1, 0, 2)
-       F. <- matrix(c(.8, .2, .3, .1, .6, .2, .1, .1, .5), 3L)
-       Q <- matrix(c(3, 1, 1, 1, 2, 3, 1, 3, 5), 3L)
-       library(mvtnorm)
-       library(numDeriv)
+# 3D example
+    x <- c(-3, 2, 1)
+    y <- c(-1, 0, 2)
+    F. <- matrix(c(.8, .2, .3, .1, .6, .2, .1, .1, .5), 3L)
+    Q <- matrix(c(3, 1, 1, 1, 2, 3, 1, 3, 7), 3L)
+    library(mvtnorm)
+    library(numDeriv)
 
-      dput(c(jacobian(function(f.){
-      F.[] <- f.
-      dmvnorm(y, F. %*% x, Q, log = TRUE)
-      }, c(F.))))
+# log-likelihood (which will not fail even if Q is not symmetric -- slightly
+# odd)
+    func <- function(fq){
+    F.[] <- fq[1:9]
+    Q[] <- fq[-(1:9)]
+    rss <- y - F. %*% x
+    rss <- crossprod(rss, solve(Q, rss))
+    c(-log(2 * pi) * 3 / 2 - determinant(Q)$modulus / 2 - drop(rss) / 2)
+    }
+    n <- 3L
+    nn <- n * n
+    K <- matrix(0., n * n + n * (n + 1L) / 2L, 2L * n * n)
+    K[  1:nn,    1:nn] <- diag(nn)
+    library(matrixcalc)
+    K[-(1:nn), -(1:nn)] <- t(duplication.matrix(n))
 
-      cp_lower <- function(x){
-      x[upper.tri(x)] <- t(x)[upper.tri(x)]
-      x
-      }
-      o1 <- c(jacobian(function(q.){
-      Q[lower.tri(Q, diag = TRUE)] <- q.
-      Q <- cp_lower(Q)
-      dmvnorm(y, F. %*% x, Q, log = TRUE)
-      }, Q[lower.tri(Q, diag = TRUE)]))
-      o2 <- Q
-      o2[lower.tri(o2, diag = TRUE)] <- o1
-      o2[lower.tri(o2)] <- o2[lower.tri(o2)] * .5
-      dput(c(cp_lower(o2)))
-     */
+    dput(K %*% drop(jacobian(func, c(F., Q))))
+    dput(tcrossprod(K %*% hessian(func, c(F., Q)), K))
+    */
 
     auto x = create_vec<3L>({ -3, 2, 1 });
     auto y = create_vec<3L>({ -1, 0, 2});
     auto F = create_mat<3L, 3L>({ .8, .2, .3, .1, .6, .2, .1, .1, .5 });
-    auto Q = create_mat<3L, 3L>({ 3, 1, 1, 1, 2, 3, 1, 3, 5 });
+    auto Q = create_mat<3L, 3L>({ 3, 1, 1, 1, 2, 3, 1, 3, 7 });
 
     mv_norm_reg di(F, Q);
     di.trans_X(x);
@@ -150,33 +151,52 @@ context("Test state distribution") {
 
     {
       std::array<double, 0L> stat;
-      expect_true(di.obs_stat_dim(log_densty)   == 0L);
-      expect_true(di.obs_stat_dim(gradient)     == 0L);
-      expect_true(di.obs_stat_dim(Hessian)      == 0L);
-      expect_true(di.state_stat_dim(log_densty) == 0L);
+      expect_true(di.obs_stat_dim     (log_densty)   == 0L);
+      expect_true(di.obs_stat_dim_grad(log_densty)   == 0L);
+      expect_true(di.obs_stat_dim_hess(log_densty)   == 0L);
+
+      expect_true(di.obs_stat_dim     (gradient)   == 0L);
+      expect_true(di.obs_stat_dim_grad(gradient)   == 0L);
+      expect_true(di.obs_stat_dim_hess(gradient)   == 0L);
+
+      expect_true(di.obs_stat_dim     (Hessian)   == 0L);
+      expect_true(di.obs_stat_dim_grad(Hessian)   == 0L);
+      expect_true(di.obs_stat_dim_hess(Hessian)   == 0L);
+
+      expect_true(di.state_stat_dim     (log_densty) == 0L);
+      expect_true(di.state_stat_dim_grad(log_densty) == 0L);
+      expect_true(di.state_stat_dim_hess(log_densty) == 0L);
       /* run to check it does not throw or access memory that it should not */
       di.comp_stats_state_state(
         x.memptr(), y.memptr(), 1, stat.data(), log_densty);
     }
     {
-      expect_true(di.state_stat_dim(gradient)   == 18L);
+      constexpr unsigned int
+        dim = 3L,
+          dimdim = dim * dim, dimlower = (dim * (dim + 1L)) / 2L,
+          gdim = dimdim  + dimlower;
+      expect_true(di.state_stat_dim     (gradient)   == gdim);
+      expect_true(di.state_stat_dim_grad(gradient)   == gdim);
+      expect_true(di.state_stat_dim_hess(gradient)   == 0L);
+      expect_true(di.state_stat_dim     (Hessian)    == gdim * (gdim + 1L));
+      expect_true(di.state_stat_dim_grad(Hessian)    == gdim );
+      expect_true(di.state_stat_dim_hess(Hessian)    == gdim * gdim);
 
       std::array<double, 18L> stat;
-      arma::mat d_F(stat.data(), 3L, 3L, false);
+      arma::mat d_F(stat.data(), dim, dim, false);
       d_F.zeros();
-      arma::mat d_Q(stat.data() + 9L, 3L, 3L, false);
+      arma::vec d_Q(stat.data() + dimdim, dimlower, false);
       d_Q.zeros();
       di.comp_stats_state_state(
         x.memptr(), y.memptr(), 1, stat.data(), gradient);
 
       auto d_F_expect = create_mat<3L, 3L>({
-        -6.74999999979376, 41.9999999988044, -25.0500000003388, 4.5000000023869,
-        -27.9999999998909, 16.6999999985687, 2.25000000409953, -13.9999999981379,
-        8.34999999954181 });
-      auto d_Q_expect = create_mat<3L, 3L>({
-        2.28125000103852, -15.2499999991022, 9.14374999806836, -15.2499999991022,
-        94.5000000004886, -56.4499999999718, 9.14374999806836, -56.4499999999718,
-        33.6112500002287 });
+        -2.57499999997225, 8.60000000021791, -4.17499999999886, 1.71666666608245,
+        -5.73333333327812, 2.78333333319569, 0.858333333297878, -2.86666666645546,
+        1.39166666672156 });
+      auto d_Q_expect = create_vec<6L>({
+        0.160034722201642, -2.12722222221256,
+        1.1111805555525, 3.27555555551822, -3.32277777776056, 0.760034722214741 });
 
       expect_true(is_all_aprx_equal(d_F, d_F_expect, 1e-4));
       expect_true(is_all_aprx_equal(d_Q, d_Q_expect, 1e-4));
@@ -188,7 +208,7 @@ context("Test state distribution") {
         x.memptr(), y.memptr(), .5, stat.data(), gradient);
 
       arma::mat ep_F_half = d_F_expect * .5;
-      arma::mat ep_Q_half = d_Q_expect * .5;
+      arma::vec ep_Q_half = d_Q_expect * .5;
 
       expect_true(is_all_aprx_equal(d_F, ep_F_half, 1e-4));
       expect_true(is_all_aprx_equal(d_Q, ep_Q_half, 1e-4));
@@ -204,6 +224,79 @@ context("Test state distribution") {
 
       expect_true(is_all_aprx_equal(d_F, ep_F_p1, 1e-4));
       expect_true(is_all_aprx_equal(d_Q, ep_Q_p1, 1e-4));
+
+      /* check Hessian */
+      auto dd_FQ_expect = create_mat<15L, 15L>({
+        -3.75000000001299, 3.00000000003825, -0.749999999984016,
+        2.50000000000753, -1.99999999999334, 0.500000000022459, 1.2500000000573,
+        -0.999999999899219, 0.250000000022528, 1.07291666666149, -4.44166666665276,
+        1.95416666666104, 2.86666654737098, -2.10833333187424, 0.34791666178881,
+        3.00000000003825, -15.0000000004804, 6.00000000007797, -1.99999999990926,
+        10.0000000000661, -3.99999999979404, -0.999999999449363, 5.0000000006222,
+        -1.99999999993395, -0.858333333298505, 7.15833333343639, -3.10833333326402,
+        -14.3333326781599, 12.6916666589777, -2.78333329134723, -0.749999999984016,
+        6.00000000007797, -3.75000000000606, 0.499999999947989, -4.00000000000808,
+        2.50000000004598, 0.250000000179224, -2.000000000098, 1.24999999998746,
+        0.214583333336156, -2.4333333333167, 1.42083333334348, 5.7333330921276,
+        -6.3666666622253, 1.73958330948347, 2.50000000000753, -1.99999999990926,
+        0.499999999947989, -1.66666666699791, 1.33333333325643, -0.33333333378846,
+        -0.833333333254639, 0.666666666654591, -0.166666666706317, -0.715277777775954,
+        2.96111111121732, -1.30277777782467, -1.91111102779903, 1.40555555464681,
+        -0.231944441102175, -1.99999999999334, 10.0000000000661, -4.00000000000808,
+        1.33333333325643, -6.66666666668792, 2.66666666668927, 0.666666666762419,
+        -3.33333333329152, 1.33333333334402, 0.572222222219239, -4.77222222220703,
+        2.07222222221937, 9.55555518394817, -8.46111110465039, 1.85555553151206,
+        0.500000000022459, -3.99999999979404, 2.50000000004598, -0.33333333378846,
+        2.66666666668927, -1.66666666673728, -0.166666666466358, 1.33333333335919,
+        -0.833333333329364, -0.143055555551966, 1.62222222226664, -0.947222222229056,
+        -3.82222205388102, 4.24444444172141, -1.15972220520612, 1.2500000000573,
+        -0.999999999449363, 0.250000000179224, -0.833333333254639, 0.666666666762419,
+        -0.166666666466358, -0.416666668394122, 0.333333334131987, -0.0833333331035143,
+        -0.35763888883512, 1.48055555565202, -0.65138888870871, -0.955555513928015,
+        0.702777777367556, -0.115972220541768, -0.999999999899219, 5.0000000006222,
+        -2.000000000098, 0.666666666654591, -3.33333333329152, 1.33333333335919,
+        0.333333334131987, -1.66666666788549, 0.6666666666947, 0.286111111125734,
+        -2.38611111099389, 1.03611111117898, 4.77777757210076, -4.23055555272995,
+        0.927777764561319, 0.250000000022528, -1.99999999993395, 1.24999999998746,
+        -0.166666666706317, 1.33333333334402, -0.833333333329364, -0.0833333331035143,
+        0.6666666666947, -0.416666666660727, -0.0715277777777637, 0.811111111108802,
+        -0.473611111106567, -1.91111102665252, 2.12222222086895, -0.579861102562081,
+        1.07291666666149, -0.858333333298505, 0.214583333336156, -0.715277777775954,
+        0.572222222219239, -0.143055555551966, -0.35763888883512, 0.286111111125734,
+        -0.0715277777777637, -0.220167824073935, 1.13192129629208, -0.524386574036955,
+        -0.764629352456024, 0.575439814142386, -0.0960705956328093, -4.44166666665276,
+        7.15833333343639, -2.4333333333167, 2.96111111121732, -4.77222222220703,
+        1.62222222226664, 1.48055555565202, -2.38611111099389, 0.811111111108802,
+        1.13192129629208, -5.48678240737529, 2.45108796298785, 6.28462883549372,
+        -5.28474533856578, 1.07324070656778, 1.95416666666104, -3.10833333326402,
+        1.42083333334348, -1.30277777782467, 2.07222222221937, -0.947222222229056,
+        -0.65138888870871, 1.03611111117898, -0.473611111106567, -0.524386574036955,
+        2.45108796298785, -1.13247685187938, -2.74796234044746, 2.6051620314261,
+        -0.624386541187941, 2.86666654737098, -14.3333326781599, 5.7333330921276,
+        -1.91111102779903, 9.55555518394817, -3.82222205388102, -0.955555513928015,
+        4.77777757210076, -1.91111102665252, -0.764629352456024, 6.28462883549372,
+        -2.74796234044746, -12.3074068242617, 11.0164810901563, -2.43738377934538,
+        -2.10833333187424, 12.6916666589777, -6.3666666622253, 1.40555555464681,
+        -8.46111110465039, 4.24444444172141, 0.702777777367556, -4.23055555272995,
+        2.12222222086895, 0.575439814142386, -5.28474533856578, 2.6051620314261,
+        11.0164810901563, -10.832331485813, 2.6756481209151, 0.34791666178881,
+        -2.78333329134723, 1.73958330948347, -0.231944441102175, 1.85555553151206,
+        -1.15972220520612, -0.115972220541768, 0.927777764561319, -0.579861102562081,
+        -0.0960705956328093, 1.07324070656778, -0.624386541187941, -2.43738377934538,
+        2.6756481209151, -0.720167812719562 });
+
+      std::array<double, gdim * (gdim + 1L)> stat_w_Hes;
+      std::fill(stat_w_Hes.data(), stat_w_Hes.end(), 0.);
+      d_F = arma::mat(stat_w_Hes.data()       , 3L  , 3L  , false);
+      d_Q = arma::vec(stat_w_Hes.data() + 9L  , 6L        , false);
+      arma::mat dd_FQ(stat_w_Hes.data() + gdim, gdim, gdim, false);
+
+      di.comp_stats_state_state(
+        x.memptr(), y.memptr(), 1, stat_w_Hes.data(), Hessian);
+
+      expect_true(is_all_aprx_equal(d_F  , d_F_expect  , 1e-4));
+      expect_true(is_all_aprx_equal(d_Q  , d_Q_expect  , 1e-4));
+      expect_true(is_all_aprx_equal(dd_FQ, dd_FQ_expect, 1e-4));
     }
   }
 

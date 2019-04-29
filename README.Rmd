@@ -260,17 +260,10 @@ sgd <- function(
   idx_F   <- 1:(n_rng * n_rng) + n_fix
   idx_Q   <- 1:(n_rng * (n_rng  + 1L) / 2L) + n_fix + n_rng * n_rng
   
-  # we only want the lower part of `Q` so we make the following map for the 
-  # gradient
-  library(matrixcalc) # TODO: get rid of this
-  gr_map <- matrix(
-    0., nrow = ncol(ests), ncol = length(cfix) + length(F.) + length(Q))
-  gr_map[idx_fix, idx_fix] <- diag(length(idx_fix))
-  gr_map[idx_F  , idx_F] <- diag(length(idx_F))
-  dup_mat <- duplication.matrix(ncol(Q))
-  gr_map[idx_Q  , -c(idx_fix, idx_F)] <- t(dup_mat)
   
   # function to set the parameters
+  library(matrixcalc) # TODO: get rid of this
+  dup_mat <- duplication.matrix(ncol(Q))
   set_parems <- function(i){
     # select whether or not to average
     idx <- if(i > avg_start) avg_start:i else i
@@ -300,7 +293,7 @@ sgd <- function(
     lr_i <- lrs[i - 1L]
     k <- 0L
     while(k < max_half){
-      ests[i, ] <- ests[i - 1L, ] + lr_i * gr_map %*% grad 
+      ests[i, ] <- ests[i - 1L, ] + lr_i * grad 
       set_parems(i)
       
       # check that Q is positive definite and the system is stationary
@@ -379,17 +372,9 @@ adam <- function(
   idx_F   <- 1:(n_rng * n_rng) + n_fix
   idx_Q   <- 1:(n_rng * (n_rng  + 1L) / 2L) + n_fix + n_rng * n_rng
 
-  # we only want the lower part of `Q` so we make the following map for the
-  # gradient
-  library(matrixcalc) # TODO: get rid of this
-  gr_map <- matrix(
-    0., nrow = ncol(ests), ncol = length(cfix) + length(F.) + length(Q))
-  gr_map[idx_fix, idx_fix] <- diag(length(idx_fix))
-  gr_map[idx_F  , idx_F] <- diag(length(idx_F))
-  dup_mat <- duplication.matrix(ncol(Q))
-  gr_map[idx_Q  , -c(idx_fix, idx_F)] <- t(dup_mat)
-
   # function to set the parameters
+  library(matrixcalc) # TODO: get rid of this
+  dup_mat <- duplication.matrix(ncol(Q))
   set_parems <- function(i){
     cfix <<-             ests[i, idx_fix]
     F.[] <<-             ests[i, idx_F  ]
@@ -425,7 +410,7 @@ adam <- function(
     lr_i <- lr
     k <- 0L
     while(k < max_half){
-      ests[i, ] <- ests[i - 1L, ] + lr_i * gr_map %*% de
+      ests[i, ] <- ests[i - 1L, ] + lr_i * de
       set_parems(i)
 
       # check that Q is positive definite and the system is stationary

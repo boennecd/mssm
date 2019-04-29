@@ -47,7 +47,8 @@ context("Test hyper_rectangle") {
     auto X1 = create_mat<2L, 3L>({ 0, 0, .5, 0, 1, 1});
     /* [2, 5] x [2, 4] */
     auto X2 = create_mat<2L, 3L>({ 3,  3, 5,  4, 2,  2});
-    auto idx = create_vec<3L, arma::uvec::fixed>({ 0L, 1L, 2L });
+    auto idx = create_vec<3L, arma::uvec::fixed>({
+      (unsigned int)0, (unsigned int)1, (unsigned int)2 });
 
     hyper_rectangle r1(X1, idx), r2(X2, idx);
 

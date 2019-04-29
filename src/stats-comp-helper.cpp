@@ -3,10 +3,77 @@
 #include "thread_pool.h"
 #include "fast-kernel-approx.h"
 
+static constexpr double D_ONE = 1., D_M_ONE = -1.;
 static constexpr int I_ONE = 1L;
+static constexpr char C_U = 'U';
 using std::ref;
 using std::cref;
 using namespace std::placeholders;
+
+/* Class to help with computation. The most complicated part is the Hessian
+ * approximation. Here we do the following
+
+  Following ``Poyiadjis, G., Doucet, A., \& Singh, S. S. (2011). Particle approximations of the score and observed information matrix in state space models with application to parameter estimation. Biometrika, 98(1), 65-80''
+  we need to evaluate
+
+  \begin{align*}
+  \tilde W_{ij} &= W_j f(X_t^{(i)} \mid X_{t -1}^{(j)}) \    \
+  \tilde W_i &= \sum_j W_j f(X_t^{(i)} \mid X_{t -1}^{(j)}) \\
+  \alpha_t^{(i)} &=
+  \frac{\sum_j \tilde W_{ij}}{\sum_k \tilde W_{ik}}
+  [\nabla g_t(X_t^{(i)}) + \nabla f(X_t^{(i)} \mid X_{t -1}^{(j)})
+  + \alpha_{t-1}^{(j)}] \\
+  &= \nabla g_t(X_t^{(i)}) +
+  \underbrace{\tilde W_i^{-1}
+  \sum_j \tilde W_{ij}\underbrace{
+  [\nabla f(X_t^{(i)} \mid X_{t -1}^{(j)}) + \alpha_{t-1}^{(j)}]}_{
+  \nabla f_{ij}}}_{
+  \nabla wf_i} \\
+  \beta_t^{(i)} &=
+  \frac{\sum_j \tilde W_{ij}}{\sum_k \tilde W_{ik}}[
+  (\nabla g_t(X_t^{(i)}) + \nabla f_{ij})
+  (\nabla g_t(X_t^{(i)}) + \nabla f_{ij})^\top +
+  \nabla^2 g_t(X_t^{(i)}) + \\
+  &\hspace{40pt}\underbrace{
+  \nabla^2 f(X_t^{(i)} \mid X_{t -1}^{(j)}) + \beta_{t-1}^{(j)}}_{
+  \nabla^2f_{ij}}]
+  - \alpha_t^{(i)}\alpha_t^{(i)\top} \\
+  &= \nabla g_t(X_t^{(i)})\nabla wf_i^\top +
+  \nabla wf_i\nabla g_t(X_t^{(i)})^\top + \                         \
+  &\hspace{40pt} \nabla g_t(X_t^{(i)})\nabla g_t(X_t^{(i)})^\top + \\
+  &\hspace{40pt} \underbrace{\tilde W_i^{-1} \sum_j \tilde W_{ij} (\nabla f_{ij}\nabla f_{ij}^\top
+  + \nabla^2 f_{ij})}_{\nabla^2 wf_i} \\
+  &\hspace{40pt} \nabla^2 g_t(X_t^{(i)})
+  - \alpha_t^{(i)}\alpha_t^{(i)\top}
+  \end{align*}%
+  %
+  First we set%
+  %
+  \begin{align*}
+  a_t^{(i)} &= \sum_j \tilde W_{ij} \nabla f_{ij} \\
+  b_t^{(i)} &= \sum_j \tilde W_{ij}(\nabla^2 f_{ij} + \nabla f_{ij}\nabla f_{ij}^\top)
+  \end{align*}%
+  %
+  Then we normalize both of them %
+  %
+  \begin{align*}
+  a_t^{(i)} = \nabla wf_i &\leftarrow \tilde W_i^{-1} a_t^{(i)}  \\
+  b_t^{(i)} = \nabla^2 wf_i &\leftarrow \tilde W_i^{-1} b_t^{(i)}
+  \end{align*}%
+  Then we compute %
+  %
+  \begin{align*}
+  b_t^{(i)} &\leftarrow b_t^{(i)} +
+  \nabla g_t(X_t^{(i)})a_t^{(i)\top} + a_t^{(i)} g_t(X_t^{(i)})^\top   \    \
+  &\hspace{40pt} + \nabla g_t(X_t^{(i)})\nabla g_t(X_t^{(i)})^\top \        \
+  &\hspace{40pt} + \nabla^2 g_t(X_t^{(i)}) \                                \
+  a_t^{(i)} = \alpha_t^{(i)} &\leftarrow a_t^{(i)} + \nabla g_t(X_t^{(i)}) \\
+  b_t^{(i)} = \beta_t^{(i)} &\leftarrow b_t^{(i)}  - a_t^{(i)}a_t^{(i)\top}
+  \end{align*}
+ */
+
+/* object to store temporary terms in computation */
+thread_local static arma::vec stat_tmp_terms;
 
 class comp_stat_util {
   const comp_out what;
@@ -15,16 +82,159 @@ class comp_stat_util {
     const cdist     &di;
     const trans_obj *trans_dist;
     const arma::uword state_stat_dim, obs_stat_dim;
+    const int
+      state_stat_dim_grad, state_stat_dim_hess,
+      obs_stat_dim_grad, obs_stat_dim_hess;
 
     dist() = delete;
     dist(const cdist &di, const comp_out what):
       di(di),
       trans_dist(dynamic_cast<const trans_obj*>(&di)),
       state_stat_dim(di.state_stat_dim(what)),
-      obs_stat_dim(di.obs_stat_dim(what)) { }
+      obs_stat_dim(di.obs_stat_dim(what)),
+
+      state_stat_dim_grad(di.state_stat_dim_grad(what)),
+      state_stat_dim_hess(di.state_stat_dim_hess(what)),
+
+      obs_stat_dim_grad(di.obs_stat_dim_grad(what)),
+      obs_stat_dim_hess(di.obs_stat_dim_hess(what))
+
+      { }
   };
   const std::array<dist, 2L> dists;
   const int stat_dim;
+
+  void state_only_gradient(const arma::vec &state, double *stats) const
+  {
+    double *stat_i = stats;
+    for(auto &d : dists){
+      d.di.comp_stats_state_only(state, stat_i, what);
+      stat_i += d.state_stat_dim;
+      stat_i += d.obs_stat_dim;
+    }
+  }
+
+  void state_only_Hessian(const arma::vec &state, double *stats) const
+  {
+    if((int)stat_tmp_terms.size() < stat_dim)
+      stat_tmp_terms.set_size(stat_dim);
+
+    /* we only update the upper part of the Hessian. We copy it to the
+     * lower part at the end */
+    double *tmp_i = stat_tmp_terms.memptr(), *stats_i = stats;
+    for(auto &d : dists){
+      if(d.obs_stat_dim > 0L){
+        std::fill(tmp_i, tmp_i + d.obs_stat_dim, 0.);
+
+        /* compute gradient and Hessian terms */
+        d.di.comp_stats_state_only(state, tmp_i, what);
+
+        const int grad_dim = d.obs_stat_dim, hess_dim = d.obs_stat_dim_hess;
+        const double *d_g = tmp_i, *dd_g = tmp_i + grad_dim;
+        double *d_out = stats_i, *dd_out = stats_i + grad_dim;
+
+        /* first make additions to Hessian */
+        /* \nabla g \nabla g^\top */
+        F77_CALL(dsyr)(
+            &C_U, &grad_dim, &D_ONE, d_g, &I_ONE,
+            dd_out, &grad_dim);
+        /* \nabla^2 g */
+        F77_CALL(daxpy)(
+          &hess_dim, &D_ONE, dd_g, &I_ONE, dd_out, &I_ONE);
+        /* cross product terms */
+        F77_CALL(dsyr2)(
+          &C_U, &grad_dim, &D_ONE, d_g, &I_ONE, d_out, &I_ONE,
+          dd_out, &grad_dim);
+
+        /* add terms to gradient */
+        F77_CALL(daxpy)(
+            &grad_dim, &D_ONE, d_g, &I_ONE, d_out, &I_ONE);
+      }
+
+      /* subtract outer product of gradient from Hessian. Assumes that the
+       * distribution only has either terms that involve the old and new state
+       * or only the new state */
+      const int gr_dim = d.obs_stat_dim_grad + d.state_stat_dim;
+      const double *d_out  = stats_i;
+            double *dd_out = stats_i + gr_dim;
+      F77_CALL(dsyr)(
+          &C_U, &gr_dim, &D_M_ONE, d_out, &I_ONE,
+          dd_out, &gr_dim);
+
+      /* copy upper half to lower half. TODO: do this in a smarter way*/
+      {
+        arma::mat tmp(dd_out, gr_dim, gr_dim, false);
+        tmp = arma::symmatu(tmp);
+      }
+
+      tmp_i   += d.state_stat_dim;
+      stats_i += d.state_stat_dim;
+      tmp_i   += d.obs_stat_dim;
+      stats_i += d.obs_stat_dim;
+    }
+  }
+
+  void state_state_gradient
+    (const double *state_old, const double *state_new,
+     const double *stats_old, double *stats_new, const double log_weight) const
+  {
+    /* first add old stat */
+    const double weight = std::exp(log_weight);
+    F77_CALL(daxpy)(
+        &stat_dim, &weight, stats_old, &I_ONE, stats_new, &I_ONE);
+
+    /* then compute the terms that is a function of the pair */
+    double *stat_i = stats_new;
+    for(auto &d : dists){
+      if(d.trans_dist)
+        d.trans_dist->comp_stats_state_state(
+            state_old, state_new, weight, stat_i, what);
+
+      stat_i += d.state_stat_dim;
+      stat_i += d.obs_stat_dim;
+    }
+  }
+
+  void state_state_Hessian
+    (const double *state_old, const double *state_new,
+     const double *stats_old, double *stats_new, const double log_weight) const
+  {
+    if((int)stat_tmp_terms.size() < stat_dim)
+      stat_tmp_terms.set_size(stat_dim);
+    stat_tmp_terms.zeros();
+
+    /* first add old stat */
+    F77_CALL(daxpy)(
+        &stat_dim, &D_ONE, stats_old, &I_ONE, stat_tmp_terms.memptr(),
+        &I_ONE);
+
+    /* then compute the terms that is a function of the pair */
+    double *stat_i = stat_tmp_terms.memptr();
+    for(auto &d : dists){
+      if(d.trans_dist){
+        d.trans_dist->comp_stats_state_state(
+            state_old, state_new, D_ONE, stat_i, what);
+
+        /* make rank-one update. TODO: maybe use dsyr */
+        const int grad_dim = d.state_stat_dim_grad;
+        const double *d_f  = stat_i;
+              double *dd_f = stat_i + grad_dim;
+        F77_CALL(dger)(
+          &grad_dim, &grad_dim,
+          &D_ONE, d_f, &I_ONE, d_f, &I_ONE,
+          dd_f, &grad_dim);
+      }
+
+      stat_i += d.state_stat_dim;
+      stat_i += d.obs_stat_dim;
+    }
+
+    /* add terms */
+    const double weight = std::exp(log_weight);
+    F77_CALL(daxpy)(
+        &stat_dim, &weight, stat_tmp_terms.memptr(), &I_ONE, stats_new,
+        &I_ONE);
+  }
 
 public:
   const bool any_work = stat_dim > 0L;
@@ -35,18 +245,14 @@ public:
   void state_only(const arma::vec &state, double *stats) const
   {
     gaurd_new_comp_out(what);
-    if(what == Hessian)
-      throw std::invalid_argument("'Hessian' not implemeneted with 'comp_stat_util'");
 
     if(!any_work)
       return;
 
-    double *stat_i = stats;
-    for(auto &d : dists){
-      d.di.comp_stats_state_only(state, stat_i, what);
-      stat_i += d.state_stat_dim;
-      stat_i += d.obs_stat_dim;
-    }
+    if(what == gradient)
+      state_only_gradient(state, stats);
+    else if(what == Hessian)
+      state_only_Hessian (state, stats);
   }
 
   void state_state
@@ -60,21 +266,12 @@ public:
     if(!any_work)
       return;
 
-    /* first add old stat */
-    const double weight = std::exp(log_weight);
-    F77_CALL(daxpy)(
-        &stat_dim, &weight, stats_old, &I_ONE, stats_new, &I_ONE);
-
-    /* then compute the terms that is a function of the pair */
-    double *stat_i = stats_new;
-    for(auto &d : dists){
-      if(d.trans_dist)
-        d.trans_dist->comp_stats_state_state(
-          state_old, state_new, weight, stat_i, what);
-
-      stat_i += d.state_stat_dim;
-      stat_i += d.obs_stat_dim;
-    }
+    if(what == gradient)
+      state_state_gradient(state_old, state_new, stats_old, stats_new,
+                           log_weight);
+    else if (what == Hessian)
+      state_state_Hessian(state_old, state_new, stats_old, stats_new,
+                          log_weight);
   }
 };
 

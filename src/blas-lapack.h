@@ -37,6 +37,16 @@ extern "C" {
       const char *diag, const int *m, const int *n,
       const double *alpha, const double *a, const int *lda,
       double *b, const int *ldb);
+  void F77_NAME(dger)(
+        const int *m, const int *n, const double *alpha,
+        const double *x, const int *incx,
+        const double *y, const int *incy,
+        double *a, const int *lda);
+  void F77_NAME(dsyr2)(
+      const char *uplo, const int *n, const double *alpha,
+      const double *x, const int *incx,
+      const double *y, const int *incy,
+      double *a, const int *lda);
 }
 
 /* avoid warnings due to different definitions of function */

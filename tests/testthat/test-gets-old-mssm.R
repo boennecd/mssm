@@ -18,12 +18,23 @@ get_test_expr <- function(data, label, family){
     disp = disp)
 
   prep_for_test <- function(obj){
-    obj$pf_output <- lapply(func_out$pf_output, function(x)
-      lapply(x, function(z){
+    N <- length(obj$pf_output)
+    ta <- obj$pf_output[[N]]
+    if(length(ta$stats) > 0L){
+      # add gradient and set stats to NA
+      gr <- colSums(t(ta$stats) * drop(exp(ta$ws_normalized)))
+      obj$pf_output[[N]]$stats <- ta$stats[0L, ]
+
+    } else
+      gr <- NULL
+
+    obj$pf_output <- lapply(obj$pf_output, function(x)
+      lapply(x[names(x) != "gr"], function(z){
         if(NROW(z) < NCOL(z))
           z <- t(z)
         rbind(head(z, 2L), tail(z, 2L))
       }))
+    obj$pf_output[[N]]$gr <- gr
     obj
   }
   func_out_org <- func_out
@@ -54,7 +65,7 @@ get_test_expr <- function(data, label, family){
   #####
   # w/ k-d tree method
   ctrl <- mssm_control(N_part = 100L, n_threads = 2L, seed = 26545947,
-                       what = "gradient", which_ll_cp = "KD")
+                       what = "log_density", which_ll_cp = "KD")
 
   func <- mssm(
     fixed = y ~ x + Z, random = ~ Z, family = family,
@@ -70,6 +81,7 @@ get_test_expr <- function(data, label, family){
   #####
   # w/ larger epsilon
   ctrl$aprx_eps <- .1
+  ctrl$what <- "gradient"
 
   func <- mssm(
     fixed = y ~ x + Z, random = ~ Z, family = family,

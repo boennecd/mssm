@@ -2,11 +2,15 @@
 #include <R_ext/Random.h>
 #include <cmath>
 #include "blas-lapack.h"
+#include "dup-mult.h"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
-static int I_ONE = 1L;
+static constexpr int I_ONE = 1L;
+static constexpr double D_M_ONE = -1.;
+
+thread_local static std::vector<double> work_mem;
 
 void mv_norm::sample(arma::mat &out) const {
 #ifdef MSSM_DEBUG
@@ -56,45 +60,160 @@ void mv_norm_reg::comp_stats_state_state
   gaurd_new_comp_out(what);
   if(what == log_densty)
     return;
-  else if(what == Hessian)
-    throw logic_error("not implemented");
+
+  /* allocate the memory we need */
+  const int nm = dim, nm_sq = nm * nm, nm_lw = (nm * (nm + 1L)) / 2L;
+  if(what == Hessian){
+    /* We need memory for
+         an intermediary    [state dim]   x [state dim]   matrix
+         an intermediary    [state dim]^2 x [state dim]^2 matrix
+         same as above but only the lower triangular part * [state dim]^2
+     */
+    const unsigned int needed_dim = nm_sq * (1L + nm_sq + nm_lw);
+    if(work_mem.size() < needed_dim)
+      work_mem.resize(needed_dim);
+
+  } else {
+    /* We need memory for
+         an intermediary [state dim] x [state dim] matrix */
+    const unsigned int needed_dim = nm_sq;
+    if(work_mem.size() < needed_dim)
+      work_mem.resize(needed_dim);
+
+  }
 
   /* Need to compute
    \begin{aligned}
-    Q^{-1}(y - Fx)x^\top
-       &= R^{-1}(\tilde y - \tilde x)(F^{-1}R^\top \tilde x)^\top \\
-    \frac 12 Q^{-1}((y-Fx)(y-Fx)^\top Q^{-1} - I)
-       &= \frac 12 R^{-1}(\tilde y-\tilde x)(\tilde y-\tilde x)^\top R^{-\top} - \frac 12 Q^{-1} \\
-    Q&=R^\top R \\
-    Q^{-1}&= R^{-1}R^{-\top} \\
-    \tilde x &= R^{-\top}Fx \\
-    \tilde y &= R^{-\top}y
+   \,Q^{-1}(y - Fx)x^\top
+   &= R^{-1}(\tilde y - \tilde x)(F^{-1}R^\top \tilde x)^\top \\
+   D^\top\text{vec}\,\frac 12 Q^{-1}((y-Fx)(y-Fx)^\top Q^{-1} - I)
+   &= D^\top\text{vec}\,(\frac 12 R^{-1}(\tilde y-\tilde x)(\tilde y-\tilde x)^\top R^{-\top} - \frac 12 Q^{-1}) \\
+   Q&=R^\top R \\
+   Q^{-1}&= R^{-1}R^{-\top} \\
+   \tilde x &= R^{-\top}Fx \\
+   \tilde y &= R^{-\top}y
    \end{aligned}
+
+   where D is the duplication matrix
    */
 
   /* start with Q */
-  arma::vec xv(x, dim), yv(y, dim);
+  arma::vec xv(x, dim), yv(y, dim); /* TODO: maybe make thread_local */
   double w_half = w * .5, w_half_neg = -w_half;
   yv -= xv;                    /* R^{-\top}(y - Fx) */
   chol_.solve_half(yv, true);  /* R^{-1}R^{-\top}(y - Fx) */
 
-  double *d_Q_begin = stat + dim * dim;
-  const int nm = dim, nm_sq = nm * nm;
-  F77_CALL(dger)(
-      &nm, &nm, &w_half, yv.memptr(), &I_ONE, yv.memptr(), &I_ONE,
-      d_Q_begin, &nm);
-  F77_CALL(daxpy)(
-      &nm_sq, &w_half_neg, chol_.get_inv().memptr(), &I_ONE, d_Q_begin,
-      &I_ONE);
+  {
+    /* compute result */
+    arma::mat tmpmat(work_mem.data(), nm_sq, 1L, false);
+    tmpmat.zeros();
+    F77_CALL(dger)(
+        &nm, &nm, &w_half, yv.memptr(), &I_ONE, yv.memptr(), &I_ONE,
+        tmpmat.memptr(), &nm);
+    F77_CALL(daxpy)(
+        &nm_sq, &w_half_neg, chol_.get_inv().memptr(), &I_ONE, tmpmat.memptr(),
+        &I_ONE);
+
+    /* add result */
+    arma::mat d_Q(stat + nm_sq, nm_lw, 1L, false);
+    D_mult(d_Q, tmpmat, true, dim);
+
+  }
 
   /* then F */
   chol_.mult_half(xv);
   F.solve(xv);         /* get original x */
-  double *D_f_begin = stat;
+  double * const D_f_begin = stat;
 
   F77_CALL(dger)(
       &nm, &nm, &w, yv.memptr(), &I_ONE, xv.memptr(), &I_ONE,
       D_f_begin, &nm);
+
+  if(what != Hessian)
+    return;
+
+  /* Need to compute.
+   \begin{pmatrix}
+   -\vec x_i \vec x_i^\top \otimes Q^{-1} & \cdot \\
+   -D^\top ((Q^{-1}(\vec y_i - F^\top \vec x_i)\vec x_i^\top)\otimes Q^{-1}) &
+   -D^\top (Q^{-1} \otimes \left(Q^{-1}(Z - \frac 12 Q\right)Q^{-1}))D
+   \end{pmatrix}
+
+   where D is the duplication matrix. We first compute the lower triangular and
+   then we copy the output to the upper triangular. We define a few intermediary
+   matrices
+   */
+
+  const int gdim = nm_sq + nm_lw;
+  arma::mat kron_arg(work_mem.data()        , nm   , nm   , false),
+            kron_res(work_mem.data() + nm_sq, nm_sq, nm_sq, false);
+  double * const hess_ptr = stat + gdim,
+    /* pointer to extra memory */
+    *xtra_mem = work_mem.data() + nm_sq * (nm_sq + 1L);
+
+  /* lambda to add result */
+  auto add_res = [&](const unsigned int inc, const arma::mat &X,
+                     const bool is_upper, const bool is_left){
+    double *res = hess_ptr + inc;
+    const unsigned int inc_col = is_upper ? nm_lw : nm_sq,
+                     n_row_ele = is_upper ? nm_sq : nm_lw,
+                        n_cols = is_left  ? nm_sq : nm_lw;
+    const double * new_term = X.memptr();
+    for(unsigned int i = 0L; i < n_cols; ++i, res += inc_col)
+      for(unsigned int j = 0L; j < n_row_ele; ++j, ++res, ++new_term)
+        *res += w * *new_term;
+  };
+
+  /* compute upper left block */
+  {
+    kron_arg.zeros();
+    F77_CALL(dger)(
+      &nm, &nm, &D_M_ONE, xv.memptr(), &I_ONE, xv.memptr(), &I_ONE,
+      kron_arg.memptr(), &nm);
+    kron_res = arma::kron(kron_arg, chol_.get_inv());
+
+    add_res(0L, kron_res, true, true);
+  }
+
+  /* compute lower left block */
+  {
+    kron_arg.zeros();
+    F77_CALL(dger)(
+        &nm, &nm, &D_M_ONE, yv.memptr(), &I_ONE, xv.memptr(), &I_ONE,
+        kron_arg.memptr(), &nm);
+    kron_res = arma::kron(kron_arg, chol_.get_inv());
+
+    arma::mat res(xtra_mem, nm_lw, nm_sq, false);
+    res.zeros();
+    D_mult(res, kron_res, true, nm);
+
+    add_res(nm_sq, res, false, true);
+  }
+
+  /* compute lower right block */
+  {
+    kron_arg.zeros();
+    F77_CALL(dger)(
+        &nm, &nm, &D_M_ONE, yv.memptr(), &I_ONE, yv.memptr(), &I_ONE,
+        kron_arg.memptr(), &nm);
+    kron_arg += .5 * chol_.get_inv();
+    kron_res = arma::kron(chol_.get_inv(), kron_arg);
+
+    arma::mat res(xtra_mem, nm_lw, nm_sq, false);
+    res.zeros();
+    D_mult(res, kron_res, true, nm);
+
+    /* re-use memory from 'kron_res' to compute final result */
+    arma::mat fres(kron_res.memptr(), nm_lw, nm_lw, false);
+    fres.zeros();
+    D_mult(fres, res, false, nm);
+
+    add_res((gdim + 1L) * nm_sq, fres, false, false);
+  }
+
+  /* copy lower to upper part. TODO: do this in a smart way */
+  arma::mat tmp(hess_ptr, gdim, gdim, false);
+  tmp = arma::symmatl(tmp);
 }
 
 std::array<double, 3> binomial_logit::log_density_state_inner

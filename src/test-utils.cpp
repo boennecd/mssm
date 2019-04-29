@@ -166,14 +166,12 @@ context("Test utils functions") {
       lu.solve(Xc);
       std::array<double, 6> expect = { 6.6, -2.5, -1.537, 0.629, -0.97, 0.24 };
 
-      Rcpp::Rcout << Xc;
       expect_true(is_all_aprx_equal(Xc, expect));
     }
 
     {
       arma::vec xc = x;
       lu.solve(xc);
-      Rcpp::Rcout << xc;
       std::array<double, 2> expect = { -1.537, 0.629 };
       expect_true(is_all_aprx_equal(xc, expect));
     }

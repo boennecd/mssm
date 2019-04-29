@@ -113,10 +113,26 @@ void test_func
   expect_true(family.state_stat_dim(gradient)   == 0L);
   expect_true(family.state_stat_dim(Hessian)    == 0L);
 
+  expect_true(family.state_stat_dim_grad(log_densty) == 0L);
+  expect_true(family.state_stat_dim_grad(gradient)   == 0L);
+  expect_true(family.state_stat_dim_grad(Hessian)    == 0L);
+
+  expect_true(family.state_stat_dim_hess(log_densty) == 0L);
+  expect_true(family.state_stat_dim_hess(gradient)   == 0L);
+  expect_true(family.state_stat_dim_hess(Hessian)    == 0L);
+
   const arma::uword dim = cfix.n_elem;
   expect_true(family.obs_stat_dim(log_densty) == 0L);
   expect_true(family.obs_stat_dim(gradient)   == dim);
   expect_true(family.obs_stat_dim(Hessian)    == dim * (1L + dim));
+
+  expect_true(family.obs_stat_dim_grad(log_densty) == 0L);
+  expect_true(family.obs_stat_dim_grad(gradient)   == dim);
+  expect_true(family.obs_stat_dim_grad(Hessian)    == dim);
+
+  expect_true(family.obs_stat_dim_hess(log_densty) == 0L);
+  expect_true(family.obs_stat_dim_hess(gradient)   == 0L);
+  expect_true(family.obs_stat_dim_hess(Hessian)    == dim * dim);
   {
     /* gradient only */
     arma::vec gr(dim, arma::fill::zeros);
@@ -173,7 +189,7 @@ context("Test mode_approximation") {
       create_vec<2L>({.5, -.3}),
       create_mat<2L, 5L>({0.19, 0.032, 0.96, 0.87, 0.65, 0.89, 0.12, 0.96, 0.51, 0.91}),
       create_vec<5L>({1, 1, 2, 1, 3}),
-      create_vec<0L>({ }),
+      arma::vec(),
       create_mat<2L, 2L>({4, 2, 2, 6}),
       create_vec<5L>({ 0.6, 0.92, 0.9, 0.32, 0.11 }),
       create_vec<2L>({-1, 1}),
@@ -202,7 +218,7 @@ context("Test mode_approximation") {
       create_vec<2L>({.5, -.3}),
       create_mat<2L, 5L>({0.19, 0.032, 0.96, 0.87, 0.65, 0.89, 0.12, 0.96, 0.51, 0.91}),
       create_vec<5L>({1, 1, 2, 1, 3}),
-      create_vec<0L>({ }),
+      arma::vec(),
       create_mat<2L, 2L>({4, 2, 2, 6}),
       create_vec<5L>({ 0.6, 0.92, 0.9, 0.32, 0.11 }),
       create_vec<2L>({-1, 1}),
@@ -231,7 +247,7 @@ context("Test mode_approximation") {
       create_vec<2L>({.5, -.3}),
       create_mat<2L, 5L>({0.19, 0.032, 0.96, 0.87, 0.65, 0.89, 0.12, 0.96, 0.51, 0.91}),
       create_vec<5L>({1, 1, 2, 1, 3}),
-      create_vec<0L>({ }),
+      arma::vec(),
       create_mat<2L, 2L>({4, 2, 2, 6}),
       create_vec<5L>({ 0.6, 0.92, 0.9, 0.32, 0.11 }),
       create_vec<2L>({-1, 1}),
@@ -260,7 +276,7 @@ context("Test mode_approximation") {
       create_vec<2L>({.5, -.3}),
       create_mat<2L, 5L>({0.19, 0.032, 0.96, 0.87, 0.65, 0.89, 0.12, 0.96, 0.51, 0.91}),
       create_vec<5L>({1, 1, 2, 1, 3}),
-      create_vec<0L>({ }),
+      arma::vec(),
       create_mat<2L, 2L>({4, 2, 2, 6}),
       create_vec<5L>({ 0.6, 0.92, 0.9, 0.32, 0.11 }),
       create_vec<2L>({-1, 1}),
@@ -289,7 +305,7 @@ context("Test mode_approximation") {
       create_vec<2L>({.5, -.3}),
       create_mat<2L, 5L>({0.19, 0.032, 0.96, 0.87, 0.65, 0.89, 0.12, 0.96, 0.51, 0.91}),
       create_vec<5L>({1, 1, 2, 1, 3}),
-      create_vec<0L>({ }),
+      arma::vec(),
       create_mat<2L, 2L>({4, 2, 2, 6}),
       create_vec<5L>({ 0.6, 0.92, 0.9, 0.32, 0.11 }),
       create_vec<2L>({-1, 1}),

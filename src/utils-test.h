@@ -5,24 +5,23 @@
 
 template
   <arma::uword n_elem,
-   template <arma::uword> class arma_T = arma::vec::fixed>
-arma_T<n_elem> create_vec
-  (std::initializer_list<typename arma_T<n_elem>::value_type> data)
+   template <arma::uword> class arma_T = arma::vec::fixed, std::size_t N>
+  constexpr arma_T<n_elem> create_vec
+  (const typename arma_T<n_elem>::value_type(&data)[N])
 {
-  if(data.size() != n_elem)
-    throw std::invalid_argument("invalid 'data'");
-  return arma_T<n_elem>(data.begin());
+  static_assert(N == n_elem, "invalid 'data'");
+  return arma_T<n_elem>(data);
 }
 
 template
   <arma::uword n_rows, arma::uword n_cols,
-   template <arma::uword, arma::uword> class arma_T = arma::mat::fixed>
-arma_T<n_rows, n_cols> create_mat
-  (std::initializer_list<typename arma_T<n_rows, n_cols>::value_type> data)
+   template <arma::uword, arma::uword> class arma_T = arma::mat::fixed,
+   std::size_t N>
+  constexpr arma_T<n_rows, n_cols> create_mat
+    (const typename arma_T<n_rows, n_cols>::value_type(&data)[N])
 {
-  if(data.size() != n_rows * n_cols)
-    throw std::invalid_argument("invalid 'data'");
-  return arma_T<n_rows, n_cols>(data.begin());
+  static_assert(N == n_rows * n_cols, "invalid 'data'");
+  return arma_T<n_rows, n_cols>(data);
 }
 
 template<class T1, class T2>
