@@ -10,8 +10,6 @@
 static constexpr int I_ONE = 1L;
 static constexpr double D_M_ONE = -1.;
 
-thread_local static std::vector<double> work_mem;
-
 void mv_norm::sample(arma::mat &out) const {
 #ifdef MSSM_DEBUG
   if(out.n_rows != dim)
@@ -63,6 +61,7 @@ void mv_norm_reg::comp_stats_state_state
 
   /* allocate the memory we need */
   const int nm = dim, nm_sq = nm * nm, nm_lw = (nm * (nm + 1L)) / 2L;
+  thread_local static std::vector<double> work_mem;
   if(what == Hessian){
     /* We need memory for
          an intermediary    [state dim]   x [state dim]   matrix
@@ -81,6 +80,7 @@ void mv_norm_reg::comp_stats_state_state
       work_mem.resize(needed_dim);
 
   }
+  double * const pwork_mem = work_mem.data();
 
   /* Need to compute
    \begin{aligned}
@@ -105,18 +105,14 @@ void mv_norm_reg::comp_stats_state_state
 
   {
     /* compute result */
-    arma::mat tmpmat(work_mem.data(), nm_sq, 1L, false);
-    tmpmat.zeros();
+    std::fill(pwork_mem, pwork_mem + nm_sq, 0.);
     F77_CALL(dger)(
         &nm, &nm, &w_half, yv.memptr(), &I_ONE, yv.memptr(), &I_ONE,
-        tmpmat.memptr(), &nm);
+        pwork_mem, &nm);
     F77_CALL(daxpy)(
-        &nm_sq, &w_half_neg, chol_.get_inv().memptr(), &I_ONE, tmpmat.memptr(),
+        &nm_sq, &w_half_neg, chol_.get_inv().memptr(), &I_ONE, pwork_mem,
         &I_ONE);
-
-    /* add result */
-    arma::mat d_Q(stat + nm_sq, nm_lw, 1L, false);
-    D_mult(d_Q, tmpmat, true, dim);
+    D_mult_left(dim, 1L, 1., stat + nm_sq, nm_lw, pwork_mem);
 
   }
 
@@ -145,11 +141,11 @@ void mv_norm_reg::comp_stats_state_state
    */
 
   const int gdim = nm_sq + nm_lw;
-  arma::mat kron_arg(work_mem.data()        , nm   , nm   , false),
-            kron_res(work_mem.data() + nm_sq, nm_sq, nm_sq, false);
+  arma::mat kron_arg(pwork_mem        , nm   , nm   , false),
+            kron_res(pwork_mem + nm_sq, nm_sq, nm_sq, false);
   double * const hess_ptr = stat + gdim,
     /* pointer to extra memory */
-    *xtra_mem = work_mem.data() + nm_sq * (nm_sq + 1L);
+    *xtra_mem = pwork_mem + nm_sq * (nm_sq + 1L);
 
   /* lambda to add result */
   auto add_res = [&](const unsigned int inc, const arma::mat &X,
@@ -183,11 +179,10 @@ void mv_norm_reg::comp_stats_state_state
         kron_arg.memptr(), &nm);
     kron_res = arma::kron(kron_arg, chol_.get_inv());
 
-    arma::mat res(xtra_mem, nm_lw, nm_sq, false);
-    res.zeros();
-    D_mult(res, kron_res, true, nm);
+    /* add result */
+    D_mult_left(
+      nm, kron_res.n_cols, w, hess_ptr + nm_sq, gdim, kron_res.memptr());
 
-    add_res(nm_sq, res, false, true);
   }
 
   /* compute lower right block */
@@ -199,16 +194,12 @@ void mv_norm_reg::comp_stats_state_state
     kron_arg += .5 * chol_.get_inv();
     kron_res = arma::kron(chol_.get_inv(), kron_arg);
 
-    arma::mat res(xtra_mem, nm_lw, nm_sq, false);
-    res.zeros();
-    D_mult(res, kron_res, true, nm);
+    std::fill(xtra_mem, xtra_mem + nm_lw * nm_sq, 0.);
+    D_mult_left(nm, kron_res.n_cols, 1., xtra_mem, nm_lw, kron_res.memptr());
 
-    /* re-use memory from 'kron_res' to compute final result */
-    arma::mat fres(kron_res.memptr(), nm_lw, nm_lw, false);
-    fres.zeros();
-    D_mult(fres, res, false, nm);
-
-    add_res((gdim + 1L) * nm_sq, fres, false, false);
+    /* add result */
+    D_mult_right(nm, nm_lw, w, hess_ptr + (gdim + 1L) * nm_sq,
+                 gdim, xtra_mem);
   }
 
   /* copy lower to upper part. TODO: do this in a smart way */

@@ -3,14 +3,14 @@
 
 inline void print_before_sampling(const proposal_dist *dist){
   arma::vec mean;
-  arma::mat scale;
+  arma::mat vcov;
   bool has_found = false;
   {
     const mv_norm *ptr = dynamic_cast<const mv_norm*>(dist);
     has_found = ptr;
     if(has_found){
       mean = ptr->mean();
-      scale = ptr->vCov();
+      vcov = ptr->vCov();
     }
   }
   if(!has_found){
@@ -18,13 +18,13 @@ inline void print_before_sampling(const proposal_dist *dist){
     has_found = ptr;
     if(has_found){
       mean = ptr->mean();
-      scale = ptr->vCov();
+      vcov = ptr->vCov();
     }
   }
 
   if(has_found){
     Rcpp::Rcout << "Sampling with mean: " << mean.t()
-                << "and scale matrix:\n" << scale;
+                << "and covariance matrix:\n" << vcov;
 
   }
 }

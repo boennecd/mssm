@@ -204,7 +204,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   2.016   0.012   0.517
+    ##   1.909   0.032   0.483
 
 ``` r
 # returns the log-likelihood approximation
@@ -274,7 +274,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   2.374   0.035   0.605
+    ##   1.905   0.006   0.487
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -309,7 +309,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##  680.47    3.94  157.53
+    ## 706.312   4.405 163.170
 
 ``` r
 # use Adam algorithm instead
@@ -321,7 +321,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 690.220   3.853 159.587
+    ## 633.397   3.644 146.327
 
 A plot of the approximate log-likelihoods at each iteration is shown below along with the final estimates.
 
@@ -419,7 +419,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##  568.70   18.53  162.98
+    ##  533.39   16.65  153.03
 
 ``` r
 plot(res_final$logLik, type = "l")
