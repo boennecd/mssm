@@ -28,6 +28,7 @@ Table of Contents
         -   [Log-Likelihood Approximations](#log-likelihood-approximations)
         -   [Parameter Estimation](#parameter-estimation)
         -   [Faster Approximation](#faster-approximation)
+        -   [Approximate Observed Information Matrix](#approximate-observed-information-matrix)
     -   [Supported Families](#supported-families)
     -   [Fast Sum-Kernel Approximation](#fast-sum-kernel-approximation)
     -   [Function Definitions](#function-definitions)
@@ -204,7 +205,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   1.905   0.027   0.487
+    ##   1.810   0.026   0.466
 
 ``` r
 # returns the log-likelihood approximation
@@ -274,7 +275,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   2.024   0.014   0.501
+    ##   2.001   0.014   0.489
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -402,24 +403,24 @@ resa$cfix
 
     ## [1] -0.9837  0.2110  0.5205 -1.0333
 
-We may want to use more particles. To do, we use the approximation described in the next section.
+We may want to use more particles towards the end when we estimate the parameters. To do, we use the approximation described in the next section at the final estimates that we arrived at before.
 
 ``` r
 ll_func <- mssm(
   fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
   random = ~ Z, ti = time_idx, control = mssm_control(
-    n_threads = 5L, N_part = 1000L, what = "gradient",
-    which_ll_cp = "KD", aprx_eps = .1))
+    n_threads = 5L, N_part = 10000L, what = "gradient",
+    which_ll_cp = "KD", aprx_eps = .01))
 
 set.seed(25164416)
 system.time( 
-  res_final <- adam(
-    ll_func, F. = diag(.5, 2), Q = diag(2, 2), cfix = coef(glm_fit), 
-    lr = .1))
+  res_final <- sgd(
+    ll_func, F. = resa$F., Q = resa$Q, cfix = resa$cfix, 
+    lrs = rep(.0001, 25L), n_it = 25L))
 ```
 
     ##    user  system elapsed 
-    ##  547.24   15.56  158.73
+    ## 3049.97   27.44  676.39
 
 ``` r
 plot(res_final$logLik, type = "l")
@@ -431,23 +432,28 @@ plot(res_final$logLik, type = "l")
 res_final$F. 
 ```
 
-    ##           [,1]      [,2]
-    ## [1,]  0.494433 -0.001041
-    ## [2,] -0.002337  0.800930
+    ##          [,1]      [,2]
+    ## [1,] 0.500744 -0.002725
+    ## [2,] 0.003564  0.799376
 
 ``` r
 res_final$Q
 ```
 
     ##        [,1]   [,2]
-    ## [1,] 0.3068 0.1262
-    ## [2,] 0.1262 0.5108
+    ## [1,] 0.3064 0.1282
+    ## [2,] 0.1282 0.5030
 
 ``` r
 res_final$cfix
 ```
 
-    ## [1] -0.9549  0.2151  0.5254 -0.8463
+    ## [1] -0.9864  0.2135  0.5241 -1.0262
+
+``` r
+# do this to not use them later by an error
+rm(res, resa)
+```
 
 ### Faster Approximation
 
@@ -650,6 +656,185 @@ print(mean(ll_compare$ll_no_approx), digits = 6)
 ```
 
     ## [1] -5864.42
+
+### Approximate Observed Information Matrix
+
+Next, we look at approximating the observed information matrix with the method suggested by Poyiadjis, Doucet, and Singh (2011).
+
+``` r
+ll_func <- mssm(
+  fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
+  random = ~ Z, ti = time_idx, control = mssm_control(
+    n_threads = 5L, N_part = 10000L, what = "Hessian",
+    which_ll_cp = "KD", aprx_eps = .01))
+
+set.seed(46658529)
+system.time(
+  mssm_obs_info <- ll_func$pf_filter(
+    cfix = res_final$cfix, disp = numeric(), F. = res_final$F., 
+    Q = res_final$Q))
+```
+
+    ##    user  system elapsed 
+    ## 286.072   1.332  61.472
+
+We define a function below to get the gradient and approximate the observed information matrix from the returned output. Then we compare the output to the GLM we estimated and to the true parameters.
+
+``` r
+# Function to subtract the gradient elements and diagonal block diagonal  
+# matrices of the approximate observed information matrix. 
+# 
+# Args:
+#   object: an object of class mssm.
+#
+# Returns:
+#   approximate gradient elements and block diagonal matrices of the 
+#   approximate observed information matrix. 
+get_grad_n_obs_info <- function(object){
+  stopifnot(inherits(object, "mssm"))
+
+  # get dimension of the different components
+  n_fix <- nrow(object$X)
+  n_rng <- nrow(object$Z)
+  dim_fix <- n_fix
+  dim_F   <- n_rng * n_rng
+  dim_Q   <- (n_rng * (n_rng  + 1L)) / 2L
+
+
+  # get quantities for each particle
+  quants <- tail(object$pf_output, 1L)[[1L]]$stats
+  ws     <- tail(object$pf_output, 1L)[[1L]]$ws_normalized
+
+  # get mean estimates
+  meas <- colSums(t(quants) * drop(exp(ws)))
+
+  # separate out the different components. Start with parameters for
+  # the conditional density of the outcome given the state vector
+  idx <- 1:n_fix
+  dg  <- meas[idx]
+  idx <- max(idx) + 1:(n_fix * n_fix)
+  ddg <- matrix(meas[idx], n_fix, n_fix)
+
+  # then the parameters for the conditional density of the state vector given
+  # the previous
+  idx <- max(idx) + 1:(dim_F + dim_Q)
+  df <- meas[idx]
+  idx <- max(idx) + 1:((dim_F + dim_Q) * (dim_F + dim_Q))
+  ddf <- matrix(meas[idx], dim_F + dim_Q, dim_F + dim_Q)
+
+  list(dg = dg, ddg = ddg, df = df, ddf = ddf)
+}
+
+# use function
+out <- get_grad_n_obs_info(mssm_obs_info)
+
+# Look at output for parameters in the observational equation
+out$dg # approximate gradient
+```
+
+    ## [1] -0.6439  0.1699  0.4309  2.8808
+
+``` r
+(cvov_fit <- solve(-out$ddg)) # inverse negative observation information
+```
+
+    ##             [,1]         [,2]         [,3]        [,4]
+    ## [1,]  0.00185387 -0.000049966 -0.000131756 0.001814648
+    ## [2,] -0.00004997  0.000792356  0.000002176 0.000003696
+    ## [3,] -0.00013176  0.000002176  0.000852571 0.000014141
+    ## [4,]  0.00181465  0.000003696  0.000014141 0.007585649
+
+``` r
+(ses <- sqrt(diag(cvov_fit))) # approximate standard errors
+```
+
+    ## [1] 0.04306 0.02815 0.02920 0.08710
+
+``` r
+# compare with glm model
+(cvov_fit <- vcov(glm_fit))
+```
+
+    ##             (Intercept)           X1           X2          Z
+    ## (Intercept)  0.00032520 -0.000041949 -0.000117913 0.00024162
+    ## X1          -0.00004195  0.000704501  0.000002523 0.00001204
+    ## X2          -0.00011791  0.000002523  0.000754839 0.00002072
+    ## Z            0.00024162  0.000012044  0.000020717 0.00081774
+
+``` r
+sqrt(diag(cvov_fit))
+```
+
+    ## (Intercept)          X1          X2           Z 
+    ##     0.01803     0.02654     0.02747     0.02860
+
+``` r
+# and relative to true parameters vs. estimated
+rbind(true = cfix, glm = coef(glm_fit), mssm = res_final$cfix, se = ses)
+```
+
+    ##      (Intercept)      X1     X2       Z
+    ## true    -1.00000 0.20000 0.5000 -1.0000
+    ## glm     -0.55576 0.20237 0.5160 -0.9122
+    ## mssm    -0.98639 0.21349 0.5241 -1.0262
+    ## se       0.04306 0.02815 0.0292  0.0871
+
+``` r
+# next look at parameters in state equation
+out$df # approximate gradient
+```
+
+    ## [1]  0.2519 -0.4234  0.6508  0.2961 -0.4528 -1.1871 -0.4186
+
+``` r
+(cvov_fit <- solve(-out$ddf)) # inverse negative observation information
+```
+
+    ##            [,1]       [,2]         [,3]        [,4]         [,5]
+    ## [1,]  0.0045581  0.0021530 -0.000608281 -0.00029388 -0.000665520
+    ## [2,]  0.0021530  0.0082830 -0.000268899 -0.00087664 -0.000555822
+    ## [3,] -0.0006083 -0.0002689  0.001075594  0.00045397 -0.000001381
+    ## [4,] -0.0002939 -0.0008766  0.000453968  0.00175210  0.000011931
+    ## [5,] -0.0006655 -0.0005558 -0.000001381  0.00001193  0.001329710
+    ## [6,] -0.0002382 -0.0010363 -0.000239156 -0.00016653  0.000706379
+    ## [7,] -0.0000593 -0.0007590 -0.000208198 -0.00103359  0.000358747
+    ##            [,6]       [,7]
+    ## [1,] -0.0002382 -0.0000593
+    ## [2,] -0.0010363 -0.0007590
+    ## [3,] -0.0002392 -0.0002082
+    ## [4,] -0.0001665 -0.0010336
+    ## [5,]  0.0007064  0.0003587
+    ## [6,]  0.0016094  0.0013579
+    ## [7,]  0.0013579  0.0050765
+
+``` r
+(ses <- sqrt(diag(cvov_fit))) # approximate standard errors
+```
+
+    ## [1] 0.06751 0.09101 0.03280 0.04186 0.03647 0.04012 0.07125
+
+``` r
+# first four are for F. Estimate vs. true values are given below
+rbind(true = c(F.), mssm = c(res_final$F.), se = ses[1:4])
+```
+
+    ##         [,1]     [,2]      [,3]    [,4]
+    ## true 0.50000 0.100000  0.000000 0.80000
+    ## mssm 0.50074 0.003564 -0.002725 0.79938
+    ## se   0.06751 0.091011  0.032796 0.04186
+
+``` r
+# next three are w.r.t. the lower diagonal part of Q
+rbind(
+  true =           Q[lower.tri(Q, diag = TRUE)], 
+  mssm = res_final$Q[lower.tri(Q, diag = TRUE)], 
+  se = ses[5:7])
+```
+
+    ##         [,1]    [,2]    [,3]
+    ## true 0.25000 0.10000 0.49000
+    ## mssm 0.30645 0.12821 0.50302
+    ## se   0.03647 0.04012 0.07125
 
 Supported Families
 ------------------

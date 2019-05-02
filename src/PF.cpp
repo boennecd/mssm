@@ -42,9 +42,13 @@ std::vector<particle_cloud> PF
     double ess = normalize_log_weights(new_cloud.ws_normalized);
     if(trace > 0){
       Rprintf("Effective sample size at %4d: %12.1f\n", i + 1L, ess);
-      Rcpp::Rcout << "cloud mean: " << new_cloud.get_cloud_mean().t()
-                  << "stats mean: " << new_cloud.get_stats_mean().t()
-                  << "log-likelihood contribution is: "
+
+      if(new_cloud.get_cloud_mean().n_elem < 20L)
+        Rcpp::Rcout << "cloud mean: " << new_cloud.get_cloud_mean().t();
+      if(new_cloud.get_stats_mean().n_elem < 20L)
+        Rcpp::Rcout << "stats mean: " << new_cloud.get_stats_mean().t();
+
+      Rcpp::Rcout << "log-likelihood contribution is: "
                   << arma::mean(new_cloud.ws) << '\n';
 
     }

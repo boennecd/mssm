@@ -1,6 +1,6 @@
 context("Test versus old results for 'mssm' methods")
 
-get_test_expr <- function(data, label, family){
+get_test_expr <- function(data, label, family, alway_hess = FALSE){
   substitute({
   ctrl <- mssm_control(N_part = 100L, n_threads = 2L, seed = 26545947)
   disp <- if(is.null(dat$disp)) numeric() else dat$disp
@@ -62,6 +62,26 @@ get_test_expr <- function(data, label, family){
     paste0("mssm-gradient-", label, ".RDS"),
     label = label)
 
+  if(alway_hess || dir.exists("local-tests-res")){
+    f <- paste0("mssm-hess-", label, ".RDS")
+    if(!alway_hess)
+      f <- file.path("local-tests-res", f)
+
+    func <- mssm(
+      fixed = y ~ x + Z, random = ~ Z, family = family,
+      data = dat$data, ti = time_idx,
+      control = mssm_control(
+        N_part = 50L, n_threads = 2L, seed = 26545947,
+        what = "Hessian"))
+
+    func_out_hess <- func$pf_filter(
+      cfix = dat$cfix, F. = dat$F., Q = dat$Q,
+      disp = disp)
+
+    expect_known_value(
+      func_out_hess[mssm_ele_to_check], f, label = label)
+  }
+
   #####
   # w/ k-d tree method
   ctrl <- mssm_control(N_part = 100L, n_threads = 2L, seed = 26545947,
@@ -86,20 +106,47 @@ get_test_expr <- function(data, label, family){
   func <- mssm(
     fixed = y ~ x + Z, random = ~ Z, family = family,
     data = dat$data, ti = time_idx, control = ctrl)
-  func_out <- func$pf_filter(
+  func_out_org <- func_out <- func$pf_filter(
     cfix = dat$cfix, F. = dat$F., Q = dat$Q,
     disp = disp)
   func_out <- prep_for_test(func_out)
   expect_known_value(
     func_out[mssm_ele_to_check], label = label,
     paste0("mssm-", label, "-kd-large-eps.RDS"))
+
+  if(alway_hess || dir.exists("local-tests-res")){
+    f <- paste0("mssm-hess-", label, "-kd-large-eps.RDS")
+    if(!alway_hess)
+      f <- file.path("local-tests-res", f)
+
+    ctrl$what <- "Hessian"
+    func <- mssm(
+      fixed = y ~ x + Z, random = ~ Z, family = family,
+      data = dat$data, ti = time_idx,
+      control = ctrl)
+
+    func_out_hess <- func$pf_filter(
+      cfix = dat$cfix, F. = dat$F., Q = dat$Q,
+      disp = disp)
+
+    expect_known_value(
+      func_out_hess[mssm_ele_to_check], f, label = label)
+
+    # test that we get the same as with the gradient call
+    t1 <- tail(func_out_hess$pf_output, 1L)[[1L]]
+    t2 <- tail(func_out_org$pf_output , 1L)[[1L]]
+
+    t1$stats <- t1$stats[c(1:3, 1:7 + 3L * (3L + 1L)), ]
+    expect_equal(t1, t2)
+  }
   }, list(dat = substitute(data), label = label, family = substitute(family),
-          disp = substitute(disp)))
+          disp = substitute(disp), alway_hess = alway_hess))
 }
 
 test_that(
   "get the same with 'poisson_log'",
-  eval(get_test_expr(poisson_log, "poisson-log", poisson())))
+  eval(get_test_expr(
+    poisson_log, "poisson-log", poisson(), alway_hess = TRUE)))
 
 test_that(
   "get the same with 'poisson_sqrt'",

@@ -127,7 +127,8 @@ class comp_stat_util {
         /* compute gradient and Hessian terms */
         d.di.comp_stats_state_only(state, tmp_i, what);
 
-        const int grad_dim = d.obs_stat_dim, hess_dim = d.obs_stat_dim_hess;
+        const int grad_dim = d.obs_stat_dim_grad,
+                  hess_dim = d.obs_stat_dim_hess;
         const double *d_g = tmp_i, *dd_g = tmp_i + grad_dim;
         double *d_out = stats_i, *dd_out = stats_i + grad_dim;
 
@@ -152,7 +153,7 @@ class comp_stat_util {
       /* subtract outer product of gradient from Hessian. Assumes that the
        * distribution only has either terms that involve the old and new state
        * or only the new state */
-      const int gr_dim = d.obs_stat_dim_grad + d.state_stat_dim;
+      const int gr_dim = d.obs_stat_dim_grad + d.state_stat_dim_grad;
       const double *d_out  = stats_i;
             double *dd_out = stats_i + gr_dim;
       F77_CALL(dsyr)(
@@ -165,9 +166,7 @@ class comp_stat_util {
         tmp = arma::symmatu(tmp);
       }
 
-      tmp_i   += d.state_stat_dim;
       stats_i += d.state_stat_dim;
-      tmp_i   += d.obs_stat_dim;
       stats_i += d.obs_stat_dim;
     }
   }
@@ -200,38 +199,39 @@ class comp_stat_util {
     thread_local static std::vector<double> stat_tmp_terms;
     if((int)stat_tmp_terms.size() < stat_dim)
       stat_tmp_terms.resize(stat_dim);
-    double *stat_i = stat_tmp_terms.data();
-    std::fill(stat_i, stat_i + stat_dim, 0.);
+    double * const stat_out = stat_tmp_terms.data();
+    std::fill(stat_out, stat_out + stat_dim, 0.);
 
     /* first add old stat */
     F77_CALL(daxpy)(
-        &stat_dim, &D_ONE, stats_old, &I_ONE, stat_i,
-        &I_ONE);
+        &stat_dim, &D_ONE, stats_old, &I_ONE, stat_out, &I_ONE);
 
     /* then compute the terms that is a function of the pair */
-    for(auto &d : dists){
-      if(d.trans_dist){
-        d.trans_dist->comp_stats_state_state(
-            state_old, state_new, D_ONE, stat_i, what);
+    {
+      double * stat_out_i = stat_out;
+      for(auto &d : dists){
+        if(d.trans_dist)
+          d.trans_dist->comp_stats_state_state(
+              state_old, state_new, 1., stat_out_i, what);
 
         /* make rank-one update. TODO: maybe use dsyr */
-        const int grad_dim = d.state_stat_dim_grad;
-        const double *d_f  = stat_i;
-              double *dd_f = stat_i + grad_dim;
+        const int grad_dim = d.state_stat_dim_grad + d.obs_stat_dim_grad;
+        const double *d_f  = stat_out_i;
+        double *dd_f = stat_out_i + grad_dim;
         F77_CALL(dger)(
-          &grad_dim, &grad_dim,
-          &D_ONE, d_f, &I_ONE, d_f, &I_ONE,
-          dd_f, &grad_dim);
-      }
+            &grad_dim, &grad_dim,
+            &D_ONE, d_f, &I_ONE, d_f, &I_ONE,
+            dd_f, &grad_dim);
 
-      stat_i += d.state_stat_dim;
-      stat_i += d.obs_stat_dim;
+        stat_out_i += d.state_stat_dim;
+        stat_out_i += d.obs_stat_dim;
+      }
     }
 
-    /* add terms */
+    /* add terms. TODO: we may be able to save this call */
     const double weight = std::exp(log_weight);
     F77_CALL(daxpy)(
-        &stat_dim, &weight, stat_i, &I_ONE, stats_new, &I_ONE);
+        &stat_dim, &weight, stat_out, &I_ONE, stats_new, &I_ONE);
   }
 
 public:
@@ -258,8 +258,6 @@ public:
    const double *stats_old, double *stats_new, const double log_weight) const
   {
     gaurd_new_comp_out(what);
-    if(what == Hessian)
-      throw std::invalid_argument("'Hessian' not implemeneted with 'comp_stat_util'");
 
     if(!any_work)
       return;

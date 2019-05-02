@@ -183,6 +183,16 @@ mssm <- function(
 #' matrix. See the examples in the README at
 #' \url{https://github.com/boennecd/mssm}.
 #'
+#' If an approximation of the observed information matrix is requested then
+#' each of the two gradient parts for the state equation and observational
+#' equation are followed by the corresponding elements
+#' of the approximation of the observed information matrix. That is, if we
+#' have \eqn{p} fixed coefficient then the first \eqn{p} elements is the
+#' gradient elements and the next \eqn{p^2} elements is the first block diagonal
+#' matrix of the observed information matrix. Next, if we have a \eqn{q}
+#' dimensional state vector then the first \eqn{q^2 + q(q + 1) /2} elements
+#' are the gradient w.r.t. the parameters and the remaining elements is the
+#' last block matrix of the observed information matrix.
 NULL
 
 #' @title Auxiliary for Controlling Multivariate State Space Model Fitting
@@ -201,7 +211,8 @@ NULL
 #' used if \code{nu <= 2}.
 #' @param what character indicating what to approximate. \code{"log_density"}
 #' implies only the log-likelihood. \code{"gradient"} also yields a gradient
-#' approximation.
+#' approximation. \code{"Hessian"} also yields an approximation of the
+#' observed information matrix.
 #' @param which_sampler character indicating what type of proposal
 #' distribution to use. \code{"mode_aprx"} yields a Taylor approximation at
 #' the mode. \code{"bootstrap"} yields a proposal distribution similar to the
@@ -234,7 +245,7 @@ mssm_control <- function(
     is.numeric(nu), length(nu) == 1L, nu > 2. || nu == -1.,
 
     is.character(what), length(what) == 1L,
-    what %in% c("log_density", "gradient"),
+    what %in% c("log_density", "gradient", "Hessian"),
 
     is.character(which_sampler), length(which_sampler) == 1L,
     which_sampler %in% c("mode_aprx", "bootstrap"),

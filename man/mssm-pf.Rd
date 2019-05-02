@@ -45,6 +45,17 @@ of the next, and the last element is w.r.t. the covariance matrix.
 Only the lower triangular matrix is kept for the covariance
 matrix. See the examples in the README at
 \url{https://github.com/boennecd/mssm}.
+
+If an approximation of the observed information matrix is requested then
+each of the two gradient parts for the state equation and observational
+equation are followed by the corresponding elements
+of the approximation of the observed information matrix. That is, if we
+have \eqn{p} fixed coefficient then the first \eqn{p} elements is the
+gradient elements and the next \eqn{p^2} elements is the first block diagonal
+matrix of the observed information matrix. Next, if we have a \eqn{q}
+dimensional state vector then the first \eqn{q^2 + q(q + 1) /2} elements
+are the gradient w.r.t. the parameters and the remaining elements is the
+last block matrix of the observed information matrix.
 }
 \description{
 Function returned from \code{\link{mssm}} which can be used to perform

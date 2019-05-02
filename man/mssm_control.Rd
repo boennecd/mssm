@@ -27,7 +27,8 @@ used if \code{nu <= 2}.}
 
 \item{what}{character indicating what to approximate. \code{"log_density"}
 implies only the log-likelihood. \code{"gradient"} also yields a gradient
-approximation.}
+approximation. \code{"Hessian"} also yields an approximation of the
+observed information matrix.}
 
 \item{which_sampler}{character indicating what type of proposal
 distribution to use. \code{"mode_aprx"} yields a Taylor approximation at

@@ -498,21 +498,22 @@ resa$Q
 resa$cfix
 ```
 
-We may want to use more particles. To do, we use the approximation 
-described in the next section.
+We may want to use more particles towards the end when we estimate the 
+parameters. To do, we use the approximation described in the next section 
+at the final estimates that we arrived at before. 
 
-```{r cont_est, cache = 1}
+```{r cont_est, cache = 1, dependson = "use_sgd"}
 ll_func <- mssm(
   fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
   random = ~ Z, ti = time_idx, control = mssm_control(
-    n_threads = 5L, N_part = 1000L, what = "gradient",
-    which_ll_cp = "KD", aprx_eps = .1))
+    n_threads = 5L, N_part = 10000L, what = "gradient",
+    which_ll_cp = "KD", aprx_eps = .01))
 
 set.seed(25164416)
 system.time( 
-  res_final <- adam(
-    ll_func, F. = diag(.5, 2), Q = diag(2, 2), cfix = coef(glm_fit), 
-    lr = .1))
+  res_final <- sgd(
+    ll_func, F. = resa$F., Q = resa$Q, cfix = resa$cfix, 
+    lrs = rep(.0001, 25L), n_it = 25L))
 ```
 
 ```{r show_cont_est}
@@ -520,6 +521,11 @@ plot(res_final$logLik, type = "l")
 res_final$F. 
 res_final$Q
 res_final$cfix
+```
+
+```{r clean_param_ests}
+# do this to not use them later by an error
+rm(res, resa)
 ```
 
 ### Faster Approximation
@@ -688,6 +694,104 @@ print(mean(ll_approx), digits = 6)
 # compare sd with 
 sd(ll_compare$ll_no_approx)
 print(mean(ll_compare$ll_no_approx), digits = 6)
+```
+
+### Approximate Observed Information Matrix
+
+Next, we look at approximating the observed information matrix with the method 
+suggested by @Poyiadjis11.
+
+```{r apprx_obs_info, cache = 1, dependson=c("use_sgd", "cont_est")}
+ll_func <- mssm(
+  fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
+  random = ~ Z, ti = time_idx, control = mssm_control(
+    n_threads = 5L, N_part = 10000L, what = "Hessian",
+    which_ll_cp = "KD", aprx_eps = .01))
+
+set.seed(46658529)
+system.time(
+  mssm_obs_info <- ll_func$pf_filter(
+    cfix = res_final$cfix, disp = numeric(), F. = res_final$F., 
+    Q = res_final$Q))
+```
+
+We define a function below to get the gradient and approximate the observed 
+information matrix from the returned output. Then we compare the output to 
+the GLM we estimated and to the true parameters.
+
+```{r show_apprx_obs_info}
+# Function to subtract the gradient elements and diagonal block diagonal  
+# matrices of the approximate observed information matrix. 
+# 
+# Args:
+#   object: an object of class mssm.
+#
+# Returns:
+#   approximate gradient elements and block diagonal matrices of the 
+#   approximate observed information matrix. 
+get_grad_n_obs_info <- function(object){
+  stopifnot(inherits(object, "mssm"))
+
+  # get dimension of the different components
+  n_fix <- nrow(object$X)
+  n_rng <- nrow(object$Z)
+  dim_fix <- n_fix
+  dim_F   <- n_rng * n_rng
+  dim_Q   <- (n_rng * (n_rng  + 1L)) / 2L
+
+
+  # get quantities for each particle
+  quants <- tail(object$pf_output, 1L)[[1L]]$stats
+  ws     <- tail(object$pf_output, 1L)[[1L]]$ws_normalized
+
+  # get mean estimates
+  meas <- colSums(t(quants) * drop(exp(ws)))
+
+  # separate out the different components. Start with parameters for
+  # the conditional density of the outcome given the state vector
+  idx <- 1:n_fix
+  dg  <- meas[idx]
+  idx <- max(idx) + 1:(n_fix * n_fix)
+  ddg <- matrix(meas[idx], n_fix, n_fix)
+
+  # then the parameters for the conditional density of the state vector given
+  # the previous
+  idx <- max(idx) + 1:(dim_F + dim_Q)
+  df <- meas[idx]
+  idx <- max(idx) + 1:((dim_F + dim_Q) * (dim_F + dim_Q))
+  ddf <- matrix(meas[idx], dim_F + dim_Q, dim_F + dim_Q)
+
+  list(dg = dg, ddg = ddg, df = df, ddf = ddf)
+}
+
+# use function
+out <- get_grad_n_obs_info(mssm_obs_info)
+
+# Look at output for parameters in the observational equation
+out$dg # approximate gradient
+(cvov_fit <- solve(-out$ddg)) # inverse negative observation information
+(ses <- sqrt(diag(cvov_fit))) # approximate standard errors
+
+# compare with glm model
+(cvov_fit <- vcov(glm_fit))
+sqrt(diag(cvov_fit))
+
+# and relative to true parameters vs. estimated
+rbind(true = cfix, glm = coef(glm_fit), mssm = res_final$cfix, se = ses)
+
+# next look at parameters in state equation
+out$df # approximate gradient
+(cvov_fit <- solve(-out$ddf)) # inverse negative observation information
+(ses <- sqrt(diag(cvov_fit))) # approximate standard errors
+
+# first four are for F. Estimate vs. true values are given below
+rbind(true = c(F.), mssm = c(res_final$F.), se = ses[1:4])
+
+# next three are w.r.t. the lower diagonal part of Q
+rbind(
+  true =           Q[lower.tri(Q, diag = TRUE)], 
+  mssm = res_final$Q[lower.tri(Q, diag = TRUE)], 
+  se = ses[5:7])
 ```
 
 ## Supported Families

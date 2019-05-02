@@ -4,4 +4,4 @@
 ^\.Rproj\.user$
 ^\.travis\.yml$
 render_toc\.R
-
+^tests/testthat/local-tests-res/*
