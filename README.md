@@ -23,15 +23,14 @@ devtools::install_github("boennecd/mssm")
 Table of Contents
 -----------------
 
--   [Multivariate State Space Models](#multivariate-state-space-models)
-    -   [Poisson Example](#poisson-example)
-        -   [Log-Likelihood Approximations](#log-likelihood-approximations)
-        -   [Parameter Estimation](#parameter-estimation)
-        -   [Faster Approximation](#faster-approximation)
-        -   [Approximate Observed Information Matrix](#approximate-observed-information-matrix)
-    -   [Supported Families](#supported-families)
-    -   [Fast Sum-Kernel Approximation](#fast-sum-kernel-approximation)
-    -   [Function Definitions](#function-definitions)
+-   [Poisson Example](#poisson-example)
+    -   [Log-Likelihood Approximations](#log-likelihood-approximations)
+    -   [Parameter Estimation](#parameter-estimation)
+    -   [Faster Approximation](#faster-approximation)
+    -   [Approximate Observed Information Matrix](#approximate-observed-information-matrix)
+-   [Supported Families](#supported-families)
+-   [Fast Sum-Kernel Approximation](#fast-sum-kernel-approximation)
+-   [Function Definitions](#function-definitions)
 -   [References](#references)
 
 Poisson Example
@@ -205,7 +204,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   1.898   0.025   0.479
+    ##   2.151   0.028   0.539
 
 ``` r
 # returns the log-likelihood approximation
@@ -275,7 +274,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   1.901   0.013   0.476
+    ##   1.819   0.010   0.456
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -839,6 +838,7 @@ The following families are supported:
 -   The binomial distribution is supported with logit, probit, and cloglog link.
 -   The Poisson distribution is supported with square root and log link.
 -   The gamma distribution is supported with log link.
+-   The normal distribution with identity link (to compare with e.g., a Kalman filter), log link, and the inverse link function.
 
 Fast Sum-Kernel Approximation
 -----------------------------
@@ -1272,7 +1272,7 @@ adam <- function(
 ```
 
 References
-==========
+----------
 
 Gray, Alexander G., and Andrew W. Moore. 2003. “Rapid Evaluation of Multiple Density Models.” In *AISTATS*.
 

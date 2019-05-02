@@ -26,13 +26,13 @@
 }
 
 adam <- function(
-  object, n_it = 150L, mp = .9, vp = .999, disp = numeric(),
-  lr = 1e-2, avg_start = n_it + 1L, cfix, F., Q,  verbose = FALSE)
+  object, n_it = 150L, mp = .9, vp = .999, lr = .01, cfix, F., Q,
+  verbose = FALSE, disp = numeric())
 {
   # make checks
   stopifnot(
     inherits(object, "mssmFunc"), object$control$what == "gradient", n_it > 0L,
-    lr > 0.)
+    lr > 0., mp > 0, mp < 1, vp > 0, vp < 1)
   n_fix <- nrow(object$X)
   n_rng <- nrow(object$Z)
 
@@ -47,29 +47,17 @@ adam <- function(
   idx_F   <- 1:(n_rng * n_rng) + n_fix
   idx_Q   <- 1:(n_rng * (n_rng  + 1L) / 2L) + n_fix + n_rng * n_rng
 
-  # we only want the lower part of `Q` so we make the following map for the
-  # gradient
-  library(matrixcalc) # TODO: get rid of this
-  gr_map <- matrix(
-    0., nrow = ncol(ests), ncol = length(cfix) + length(F.) + length(Q))
-  gr_map[idx_fix, idx_fix] <- diag(length(idx_fix))
-  gr_map[idx_F  , idx_F] <- diag(length(idx_F))
-  dup_mat <- duplication.matrix(ncol(Q))
-  gr_map[idx_Q  , -c(idx_fix, idx_F)] <- t(dup_mat)
-
   # function to set the parameters
+  library(matrixcalc) # TODO: get rid of this
+  dup_mat <- duplication.matrix(ncol(Q))
   set_parems <- function(i){
-    # select whether or not to average
-    idx <- if(i > avg_start) avg_start:i else i
-
-    # set new parameters
-    cfix <<-             colMeans(ests[idx, idx_fix, drop = FALSE])
-    F.[] <<-             colMeans(ests[idx, idx_F  , drop = FALSE])
-    Q[]  <<- dup_mat %*% colMeans(ests[idx, idx_Q  , drop = FALSE])
+    cfix <<-             ests[i, idx_fix]
+    F.[] <<-             ests[i, idx_F  ]
+    Q[]  <<- dup_mat %*% ests[i, idx_Q  ]
 
   }
 
-  # run gradient decent
+  # run algorithm
   max_half <- 25L
   m <- NULL
   v <- NULL
@@ -87,12 +75,6 @@ adam <- function(
 
     # compute the gradient and take a small step
     grad <- colSums(t(grads) * drop(exp(ws)))
-    if(any(!is.finite(grad))){
-      warning("non-finite gradient")
-      failed <- TRUE
-      break
-
-    }
 
     m <- if(is.null(m)) (1 - mp) * grad   else mp * m + (1 - mp) * grad
     v <- if(is.null(v)) (1 - vp) * grad^2 else vp * v + (1 - vp) * grad^2
@@ -103,7 +85,7 @@ adam <- function(
     lr_i <- lr
     k <- 0L
     while(k < max_half){
-      ests[i, ] <- ests[i - 1L, ] + lr_i * gr_map %*% de
+      ests[i, ] <- ests[i - 1L, ] + lr_i * de
       set_parems(i)
 
       # check that Q is positive definite and the system is stationary
@@ -146,6 +128,41 @@ adam <- function(
        failed = failed)
 }
 
+get_grad_n_obs_info <- function(object){
+  stopifnot(inherits(object, "mssm"))
+
+  # get dimension of the different components
+  n_fix <- nrow(object$X)
+  n_rng <- nrow(object$Z)
+  dim_fix <- n_fix
+  dim_F   <- n_rng * n_rng
+  dim_Q   <- (n_rng * (n_rng  + 1L)) / 2L
+
+
+  # get quantities for each particle
+  quants <- tail(object$pf_output, 1L)[[1L]]$stats
+  ws     <- tail(object$pf_output, 1L)[[1L]]$ws_normalized
+
+  # get mean estimates
+  meas <- colSums(t(quants) * drop(exp(ws)))
+
+  # separate out the different components. Start with parameters for
+  # the conditional density of the outcome given the state vector
+  idx <- 1:n_fix
+  dg  <- meas[idx]
+  idx <- max(idx) + 1:(n_fix * n_fix)
+  ddg <- matrix(meas[idx], n_fix, n_fix)
+
+  # then the parameters for the conditional density of the state vector given
+  # the previous
+  idx <- max(idx) + 1:(dim_F + dim_Q)
+  df <- meas[idx]
+  idx <- max(idx) + 1:((dim_F + dim_Q) * (dim_F + dim_Q))
+  ddf <- matrix(meas[idx], dim_F + dim_Q, dim_F + dim_Q)
+
+  list(dg = dg, ddg = ddg, df = df, ddf = ddf)
+}
+
 #####
 # poisson w/ log link
 n_periods <- 100L
@@ -163,7 +180,7 @@ ll_func <- mssm(
   fixed = y ~ x + Z, family = poisson(), data = dat,
   random = ~ Z, ti = time_idx, control = mssm_control(
     n_threads = 5L, N_part = 1000L, what = "gradient",
-    which_ll_cp = "KD", aprx_eps = 1e-2, which_sampler = "bootstrap"))
+    which_ll_cp = "KD", aprx_eps = 1e-2))
 sta <- coef(glm(y ~ x  + Z, poisson(), dat))
 system.time(
   res <- adam(
@@ -172,6 +189,16 @@ system.time(
 
 plot(res$logLik)
 plot(tail(res$logLik, 150))
+
+o <- ll_func$pf_filter(
+  cfix = res$cfix, F. = res$F., Q = res$Q, disp = numeric(), N_part = 10000L,
+  what = "Hessian", seed = NULL)
+
+he <- get_grad_n_obs_info(o)
+res$cfix
+sqrt(diag(solve(-he$ddg)))
+c(res$F., res$Q)
+sqrt(diag(solve(-he$ddf)))
 
 #####
 # poisson w/ sqrt
@@ -364,3 +391,150 @@ res2 <- adam(
   n_it = 100L, lr = .01, disp = disp)
 
 logLik(ll_func$pf_filter(cfix = cfix, disp = disp, F. = F., Q = Q))
+
+#####
+# Gaussian w/ identity link -- could just use Kalman fitler
+n_periods <- 800L
+F. <- matrix(c(.5, .2, -.1, .8), 2L)
+Q <- matrix(c(.5^2, .1, .1, .7^2), 2L)
+Q0 <- mssm:::.get_Q0(Q, F.)
+cfix <- c(-1, .2, .5)
+n_obs <- 100L
+
+set.seed(78727273)
+
+betas <- .get_beta(Q, Q0, F., n_periods)
+dat <- .get_dat(cfix, betas, sample_func = function(n, mu) rnorm(n, mu, sqrt(3)),
+                trans_func = identity)
+
+ll_func <- mssm(
+  fixed = y ~ x + Z, family = gaussian(), data = dat,
+  random = ~ Z, ti = time_idx, control = mssm_control(
+    n_threads = 5L, N_part = 200L, what = "gradient"))
+sta <- coef(glm_fit <- glm(y ~ x  + Z, gaussian(), dat))
+
+logLik(glm_fit)
+disp <- summary(glm_fit)$dispersion
+logLik(ll_func$pf_filter(cfix = sta, disp = disp, F. = diag(.001, 2),
+                         Q = diag(1e-8, 2)))
+system.time(
+  res <- adam(
+    ll_func, F. = F., Q = Q, cfix = cfix, verbose = TRUE,
+    n_it = 100L, lr = .01, disp = 3))
+
+plot(res$logLik)
+plot(tail(res$logLik, 150))
+
+ll_func <- mssm(
+  fixed = y ~ x + Z, family = gaussian(), data = dat,
+  random = ~ Z, ti = time_idx, control = mssm_control(
+    n_threads = 5L, N_part = 2000L, what = "Hessian",
+    which_ll_cp = "KD", aprx_eps = .01))
+o <- ll_func$pf_filter(
+  cfix = res$cfix, F. = res$F., Q = res$Q, disp = 3, seed = NULL)
+
+he <- get_grad_n_obs_info(o)
+res$cfix
+sqrt(diag(solve(-he$ddg)))
+c(res$F., res$Q)
+sqrt(diag(solve(-he$ddf)))
+
+plot(o)
+
+#####
+# Gaussian w/ log link
+n_periods <- 100L
+F. <- matrix(c(.5, 0, 0, .8), 2L)
+Q <- matrix(c(.5^2, .1, .1, .7^2), 2L)
+Q0 <- mssm:::.get_Q0(Q, F.)
+cfix <- c(-1, .2, .5)
+n_obs <- 100L
+
+set.seed(78727277)
+
+betas <- .get_beta(Q, Q0, F., n_periods)
+matplot(betas, type = "l")
+dat <- .get_dat(cfix, betas, sample_func = function(n, mu) rnorm(n, mu, sqrt(3)),
+                trans_func = exp)
+
+ll_func <- mssm(
+  fixed = y ~ x + Z, family = gaussian("log"), data = dat,
+  random = ~ Z, ti = time_idx, control = mssm_control(
+    n_threads = 5L, N_part = 1000L, what = "gradient",
+    which_ll_cp = "KD", aprx_eps = .01))
+sta <- coef(glm_fit <- glm(y ~ x  + Z, gaussian("log"), dat, start = cfix))
+
+logLik(glm_fit)
+disp <- summary(glm_fit)$dispersion
+logLik(ll_func$pf_filter(cfix = sta, disp = disp, F. = diag(.001, 2),
+                         Q = diag(1e-8, 2), seed = NULL))
+
+system.time(
+  res <- adam(
+    ll_func, F. = F., Q = Q, cfix = cfix, verbose = TRUE,
+    n_it = 100L, lr = .01, disp = 3))
+
+plot(res$logLik)
+
+o <- ll_func$pf_filter(
+  cfix = res$cfix, F. = res$F., Q = res$Q, disp = 3, seed = NULL,
+  what = "Hessian", N_part = 5000L)
+
+he <- get_grad_n_obs_info(o)
+res$cfix
+sqrt(diag(solve(-he$ddg)))
+sqrt(diag(vcov(glm_fit)))
+c(res$F., res$Q)
+sqrt(diag(solve(-he$ddf)))
+
+plot(o)
+
+#####
+# Gaussian w/ inverse link
+n_periods <- 100L
+F. <- matrix(c(.5, 0, 0, .8), 2L)
+Q <- matrix(c(.5^2, .1, .1, .7^2), 2L)
+Q0 <- mssm:::.get_Q0(Q, F.)
+cfix <- c(10, .2, .5)
+n_obs <- 1000L
+disp <- .1^2
+
+set.seed(78727279)
+
+betas <- .get_beta(Q, Q0, F., n_periods)
+matplot(betas, type = "l")
+dat <- .get_dat(cfix, betas,
+                sample_func = function(n, mu) rnorm(n, mu, sqrt(disp)),
+                trans_func = function(z) 1 / z)
+
+ll_func <- mssm(
+  fixed = y ~ x + Z, family = gaussian("inverse"), data = dat,
+  random = ~ Z, ti = time_idx, control = mssm_control(
+    n_threads = 5L, N_part = 1000L, what = "gradient",
+    which_ll_cp = "KD", aprx_eps = .01))
+sta <- coef(glm_fit <- glm(y ~ x  + Z, gaussian("inverse"), dat, start = cfix))
+
+logLik(glm_fit)
+disp <- summary(glm_fit)$dispersion
+logLik(ll_func$pf_filter(cfix = sta, disp = disp, F. = diag(.001, 2),
+                         Q = diag(1e-8, 2), seed = NULL))
+
+system.time(
+  res <- adam(
+    ll_func, F. = F., Q = Q, cfix = cfix, verbose = TRUE,
+    n_it = 100L, lr = .01, disp = disp))
+
+plot(res$logLik)
+
+o <- ll_func$pf_filter(
+  cfix = res$cfix, F. = res$F., Q = res$Q, disp = disp, seed = NULL,
+  what = "Hessian", N_part = 5000L)
+
+he <- get_grad_n_obs_info(o)
+res$cfix
+sqrt(diag(solve(-he$ddg)))
+sqrt(diag(vcov(glm_fit)))
+c(res$F., res$Q)
+sqrt(diag(solve(-he$ddf)))
+
+plot(o)

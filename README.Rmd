@@ -49,7 +49,7 @@ devtools::install_github("boennecd/mssm")
 ## Table of Contents
 
 ```{r echo = FALSE}
-render_toc("README.Rmd", toc_header_name = "Table of Contents", toc_depth = 3L)
+render_toc("README.Rmd", toc_header_name = "Table of Contents", toc_depth = 3L, base_level = 2L)
 ```
 
 ## Poisson Example
@@ -801,6 +801,8 @@ The following families are supported:
  - The binomial distribution is supported with logit, probit, and cloglog link. 
  - The Poisson distribution is supported with square root and log link. 
  - The gamma distribution is supported with log link.
+ - The normal distribution with identity link (to compare with e.g., a Kalman 
+ filter), log link, and the inverse link function.
 
 ## Fast Sum-Kernel Approximation
 
@@ -974,4 +976,4 @@ matplot(c(Ns, Ns_xtra) * 3L, meds, lty = 1:3, type = "l", log = "xy",
 ```{r mc_grad_est, eval = FALSE}
 ```
 
-# References
+## References

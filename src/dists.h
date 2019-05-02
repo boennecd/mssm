@@ -784,6 +784,8 @@ EXP_CLASS(poisson_log);
 EXP_CLASS(poisson_sqrt);
 EXP_CLASS_W_DISP(Gamma_log);
 EXP_CLASS_W_DISP(gaussian_identity);
+EXP_CLASS_W_DISP(gaussian_log);
+EXP_CLASS_W_DISP(gaussian_inverse);
 
 std::unique_ptr<exp_family> get_family
   (const std::string&,  const arma::vec&, const arma::mat&, const arma::vec&,

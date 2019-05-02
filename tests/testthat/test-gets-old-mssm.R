@@ -167,3 +167,15 @@ test_that(
 test_that(
   "get the same with 'Gamma_log'",
   eval(get_test_expr(Gamma_log, "Gamma-log", Gamma("log"))))
+
+test_that(
+  "get the same with 'gaussian_identity'",
+  eval(get_test_expr(gaussian_identity, "gaussian-identity", gaussian())))
+
+test_that(
+  "get the same with 'gaussian_log'",
+  eval(get_test_expr(gaussian_log, "gaussian-log", gaussian("log"))))
+
+test_that(
+  "get the same with 'gaussian_inverse'",
+  eval(get_test_expr(gaussian_inverse, "gaussian-inverse", gaussian("inverse"))))

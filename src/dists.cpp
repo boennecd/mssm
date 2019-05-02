@@ -404,6 +404,63 @@ std::array<double, 3> gaussian_identity::log_density_state_inner
   return out;
 }
 
+arma::vec* gaussian_log::set_disp(const arma::vec &in_vec){
+  return scalar_pos_dist(in_vec);
+}
+
+std::array<double, 3> gaussian_log::log_density_state_inner
+  (const double y, const double eta, const comp_out what) const
+{
+  gaurd_new_comp_out(what);
+
+  static constexpr double norm_term = -.5 * std::log(2. * M_PI),
+    eta_min = log(std::numeric_limits<double>::epsilon());
+
+  const double var = disp->operator()(0L),
+    log_var = disp->operator()(1L),
+    eta_use = std::max(eta, eta_min),
+    mu = std::exp(eta_use),
+    diff = y - mu;
+  std::array<double, 3> out;
+
+  out[0L] = norm_term - .5 * log_var - diff * diff / (2.  * var);
+  if(what == gradient or what == Hessian)
+    out[1L] = diff / var * mu;
+
+  if(what == Hessian)
+    out[2L] = (y - 2 * mu) * mu / var;
+
+  return out;
+}
+
+arma::vec* gaussian_inverse::set_disp(const arma::vec &in_vec){
+  return scalar_pos_dist(in_vec);
+}
+
+std::array<double, 3> gaussian_inverse::log_density_state_inner
+  (const double y, const double eta, const comp_out what) const
+{
+  gaurd_new_comp_out(what);
+
+  static constexpr double norm_term = -.5 * std::log(2. * M_PI);
+
+  const double var = disp->operator()(0L),
+    log_var = disp->operator()(1L),
+    mu = 1 / eta, diff = y - mu;
+  std::array<double, 3> out;
+
+  out[0L] = norm_term - .5 * log_var - diff * diff / (2.  * var);
+  if(what == gradient or what == Hessian){
+    const double veee = var * eta * eta * eta, ey = eta * y;
+    out[1L] = (1. - ey) / veee;
+
+    if(what == Hessian)
+      out[2L] = (2. * ey - 3.) / (veee * eta);
+  }
+
+  return out;
+}
+
 #define EXP_CLASS_PTR(fam)                                     \
   if(which == #fam)                                            \
     return(std::unique_ptr<exp_family>(new fam(                \
@@ -420,6 +477,8 @@ std::unique_ptr<exp_family> get_family
   EXP_CLASS_PTR(poisson_sqrt);
   EXP_CLASS_PTR(Gamma_log);
   EXP_CLASS_PTR(gaussian_identity);
+  EXP_CLASS_PTR(gaussian_log);
+  EXP_CLASS_PTR(gaussian_inverse);
 
   throw invalid_argument("'" + which + "' is not supported");
 }

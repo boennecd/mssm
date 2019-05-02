@@ -102,7 +102,8 @@ mssm <- function(
     call = match.call(), control = control, family = fam)
 
   # assign function to compute the requested objects
-  out_func <- function(cfix, disp, F., Q, Q0, mu0, trace = 0L, seed){
+  out_func <- function(cfix, disp, F., Q, Q0, mu0, trace = 0L, seed, what,
+                       N_part){
     p <- nrow(Z)
     stopifnot(
       is.numeric(cfix), length(cfix) == nrow(X),
@@ -111,6 +112,8 @@ mssm <- function(
       is.numeric(Q ), is.matrix(Q ), nrow(Q ) == p, ncol(Q ) == p,
       is.integer(trace),
       is.null(seed) || is.numeric(seed))
+    .is_valid_N_part(N_part)
+    .is_valid_what(what)
 
     if(missing(Q0))
       Q0 <- .get_Q0(Q, F.)
@@ -130,13 +133,16 @@ mssm <- function(
       time_indices_len = time_indices_len, F = F., Q = Q, Q0 = Q0,
       fam = fam, mu0 = mu0, n_threads = control$n_threads, nu = control$nu,
       covar_fac = control$covar_fac, ftol_rel = control$ftol_rel,
-      N_part = control$N_part, what = control$what,
+      N_part = N_part, what = what,
       which_sampler = control$which_sampler, which_ll_cp = control$which_ll_cp,
       trace, KD_N_max = control$KD_N_max, aprx_eps = control$aprx_eps)
 
     structure(c(list(pf_output = out), output_list), class = "mssm")
   }
-  formals(out_func)$seed <- control$seed
+
+  # set defaults
+  idx_set <- c("seed", "what", "N_part")
+  formals(out_func)[idx_set] <- control[idx_set]
 
   structure(
     c(list(pf_filter = out_func), output_list), class = "mssmFunc")
@@ -161,6 +167,7 @@ mssm <- function(
 #' during particle filtering. Zero yields no information.
 #' @param seed integer to pass to \code{\link{set.seed}}. The seed is not set
 #' if the argument is \code{NULL}.
+#' @param what,N_part as as in \code{\link{mssm_control}}.
 #'
 #' @return
 #' An object of class \code{mssm} with the following elements
@@ -238,14 +245,10 @@ mssm_control <- function(
   what = "log_density", which_sampler = "mode_aprx", which_ll_cp = "no_aprx",
   seed = 1L, KD_N_max = 10L, aprx_eps = 1e-3){
   stopifnot(
-    is.integer(N_part), length(N_part) == 1L, N_part > 0L,
     is.integer(n_threads), length(n_threads) == 1L, n_threads > 0L,
     is.numeric(covar_fac), length(covar_fac) == 1L, covar_fac > 0.,
     is.numeric(ftol_rel), length(ftol_rel) == 1L, ftol_rel > 0.,
     is.numeric(nu), length(nu) == 1L, nu > 2. || nu == -1.,
-
-    is.character(what), length(what) == 1L,
-    what %in% c("log_density", "gradient", "Hessian"),
 
     is.character(which_sampler), length(which_sampler) == 1L,
     which_sampler %in% c("mode_aprx", "bootstrap"),
@@ -256,6 +259,8 @@ mssm_control <- function(
     is.numeric(seed),
     is.integer(KD_N_max), length(KD_N_max) == 1L, KD_N_max > 1L,
     is.numeric(aprx_eps), length(aprx_eps) == 1L, aprx_eps > 0.)
+  .is_valid_N_part(N_part)
+  .is_valid_what(what)
 
   list(
     N_part = N_part, n_threads = n_threads, covar_fac = covar_fac,
@@ -263,6 +268,14 @@ mssm_control <- function(
     which_ll_cp = which_ll_cp, nu = nu, seed = seed, KD_N_max = KD_N_max,
     aprx_eps = aprx_eps)
 }
+
+.is_valid_N_part <- function(N_part)
+  stopifnot(is.integer(N_part), length(N_part) == 1L, N_part > 0L)
+
+.is_valid_what <- function(what)
+  stopifnot(
+    is.character(what), length(what) == 1L,
+    what %in% c("log_density", "gradient", "Hessian"))
 
 .get_Q0 <- function(Qmat, Fmat){
   stopifnot(is.matrix(Qmat), is.numeric(Qmat),

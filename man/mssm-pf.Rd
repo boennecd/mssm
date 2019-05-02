@@ -24,6 +24,8 @@ during particle filtering. Zero yields no information.}
 
 \item{seed}{integer to pass to \code{\link{set.seed}}. The seed is not set
 if the argument is \code{NULL}.}
+
+\item{what, N_part}{as as in \code{\link{mssm_control}}.}
 }
 \value{
 An object of class \code{mssm} with the following elements

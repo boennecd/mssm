@@ -150,3 +150,61 @@ binomial_probit <- readRDS("binomial_probit.RDS")
 #                   disp = disp)
 # saveRDS(Gamma_log, "Gamma_log.RDS")
 Gamma_log <- readRDS("Gamma_log.RDS")
+
+# # gaussian w/ identity -- only for e.g., comparison w/ Kalman filter
+# n_periods <- 20L
+# F. <- matrix(c(.5, .2, -.1, .8), 2L)
+# Q <- matrix(c(.5^2, .1, .1, .7^2), 2L)
+# Q0 <- mssm:::.get_Q0(Q, F.)
+# cfix <- c(-1, .2, .5)
+# n_obs <- 20L
+#
+# set.seed(78727269)
+# betas <- .get_beta(Q, Q0, F., n_periods)
+# disp <- 3
+# dat <- .get_dat(cfix, betas,
+#                 function(n, mu) rnorm(n, mu, sqrt(disp)), trans_func = identity)
+#
+# gaussian_identity <- list(data = dat, betas = betas, cfix = cfix, Q = Q, F. = F.,
+#                           disp = disp)
+# saveRDS(gaussian_identity, "gaussian_identity.RDS")
+gaussian_identity <- readRDS("gaussian_identity.RDS")
+
+# # gaussian w/ log
+# n_periods <- 20L
+# F. <- matrix(c(.5, .2, -.1, .8), 2L)
+# Q <- matrix(c(.5^2, .1, .1, .7^2), 2L)
+# Q0 <- mssm:::.get_Q0(Q, F.)
+# cfix <- c(-1, .2, .5)
+# n_obs <- 20L
+#
+# set.seed(78727270)
+# betas <- .get_beta(Q, Q0, F., n_periods)
+# disp <- 3
+# dat <- .get_dat(cfix, betas,
+#                 function(n, mu) rnorm(n, mu, sqrt(disp)), trans_func = exp)
+#
+# gaussian_log <- list(data = dat, betas = betas, cfix = cfix, Q = Q, F. = F.,
+#                      disp = disp)
+# saveRDS(gaussian_log, "gaussian_log.RDS")
+gaussian_log <- readRDS("gaussian_log.RDS")
+
+# # gaussian w/ inverse
+# n_periods <- 20L
+# F. <- matrix(c(.5, 0, 0, .8), 2L)
+# Q <- matrix(c(.5^2, .1, .1, .7^2), 2L)
+# Q0 <- mssm:::.get_Q0(Q, F.)
+# cfix <- c(10, .2, .5)
+# n_obs <- 20L
+#
+# set.seed(78727270)
+# betas <- .get_beta(Q, Q0, F., n_periods)
+# disp <- .1^2
+# dat <- .get_dat(cfix, betas,
+#                 function(n, mu) rnorm(n, mu, sqrt(disp)),
+#                 trans_func = function(z) 1 / z)
+#
+# gaussian_inverse <- list(data = dat, betas = betas, cfix = cfix, Q = Q, F. = F.,
+#                      disp = disp)
+# saveRDS(gaussian_inverse, "gaussian_inverse.RDS")
+gaussian_inverse <- readRDS("gaussian_inverse.RDS")
