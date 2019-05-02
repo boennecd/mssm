@@ -98,7 +98,7 @@ void mv_norm_reg::comp_stats_state_state
    */
 
   /* start with Q */
-  arma::vec xv(x, dim), yv(y, dim); /* TODO: maybe make thread_local */
+  arma::vec xv(x, dim), yv(y, dim);
   double w_half = w * .5, w_half_neg = -w_half;
   yv -= xv;                    /* R^{-\top}(y - Fx) */
   chol_.solve_half(yv, true);  /* R^{-1}R^{-\top}(y - Fx) */

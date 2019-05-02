@@ -204,7 +204,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   1.909   0.032   0.483
+    ##   1.905   0.027   0.487
 
 ``` r
 # returns the log-likelihood approximation
@@ -274,7 +274,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   1.905   0.006   0.487
+    ##   2.024   0.014   0.501
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -309,7 +309,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 706.312   4.405 163.170
+    ## 638.295   3.821 147.706
 
 ``` r
 # use Adam algorithm instead
@@ -321,7 +321,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 633.397   3.644 146.327
+    ## 642.249   3.801 148.648
 
 A plot of the approximate log-likelihoods at each iteration is shown below along with the final estimates.
 
@@ -419,7 +419,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##  533.39   16.65  153.03
+    ##  547.24   15.56  158.73
 
 ``` r
 plot(res_final$logLik, type = "l")
@@ -483,12 +483,12 @@ local({
 ```
 
     ## Unit: milliseconds
-    ##  expr     min      lq    mean  median      uq     max neval
-    ##   100   60.36   62.36   63.43   64.36   64.97   65.58     3
-    ##   200  122.26  127.19  131.91  132.12  136.73  141.35     3
-    ##   400  335.14  340.10  347.56  345.06  353.77  362.48     3
-    ##   800  972.61  990.84 1014.37 1009.08 1035.25 1061.42     3
-    ##  1600 3211.90 3214.23 3254.42 3216.57 3275.68 3334.78     3
+    ##  expr    min      lq    mean  median      uq     max neval
+    ##   100   61.1   61.33   62.67   61.56   63.46   65.35     3
+    ##   200  127.0  128.83  131.17  130.68  133.26  135.83     3
+    ##   400  350.9  351.96  355.86  353.04  358.35  363.65     3
+    ##   800 1010.6 1039.94 1054.21 1069.23 1075.99 1082.76     3
+    ##  1600 3370.2 3379.06 3398.45 3387.90 3412.56 3437.22     3
 
 A solution is to use the dual k-d tree method I cover later. The computational complexity is ![\\mathcal{O}(N \\log N)](https://chart.googleapis.com/chart?cht=tx&chl=%5Cmathcal%7BO%7D%28N%20%5Clog%20N%29 "\mathcal{O}(N \log N)") for this method which is somewhat indicated by the run times shown below.
 
@@ -525,12 +525,12 @@ local({
 
     ## Unit: milliseconds
     ##   expr    min     lq   mean median     uq    max neval
-    ##    100  102.0  103.9  107.4  105.7  110.1  114.5     3
-    ##    200  195.3  196.7  197.8  198.0  199.0  200.0     3
-    ##    400  387.5  394.6  397.4  401.8  402.3  402.9     3
-    ##    800  782.2  789.4  802.7  796.6  812.9  829.3     3
-    ##   1600 1473.2 1489.5 1514.7 1505.8 1535.5 1565.3     3
-    ##  12800 8096.4 8133.4 8169.6 8170.4 8206.2 8241.9     3
+    ##    100  106.6  106.7  108.7  106.9  109.8  112.7     3
+    ##    200  192.0  199.8  207.6  207.6  215.3  223.1     3
+    ##    400  410.1  415.4  418.0  420.7  422.0  423.4     3
+    ##    800  841.6  841.7  843.4  841.8  844.3  846.9     3
+    ##   1600 1506.0 1532.5 1549.5 1559.1 1571.3 1583.4     3
+    ##  12800 8831.0 8853.0 8886.2 8875.1 8913.8 8952.6     3
 
 The `aprx_eps` controls the size of the error. To be precise about what this value does then we need to some notation for the complete likelihood (the likelihood where we observe ![\\vec\\beta\_1,\\dots,\\vec\\beta\_T](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_1%2C%5Cdots%2C%5Cvec%5Cbeta_T "\vec\beta_1,\dots,\vec\beta_T")s). This is
 
@@ -744,11 +744,11 @@ microbenchmark::microbenchmark(
 ```
 
     ## Unit: milliseconds
-    ##         expr     min      lq    mean  median      uq      max neval
-    ##  dual tree 1  110.52  113.33  163.92  117.99  134.84   521.65    10
-    ##  dual tree 4   43.08   44.03   48.97   49.15   55.14    55.38    10
-    ##      naive 1 3372.50 3498.81 4528.22 3572.72 3653.23 10660.27    10
-    ##      naive 4  961.06 1003.81 1113.54 1078.65 1189.08  1468.22    10
+    ##         expr     min      lq    mean  median      uq     max neval
+    ##  dual tree 1  103.52  105.13  111.10  110.86  115.91  121.33    10
+    ##  dual tree 4   40.01   40.21   42.98   42.51   45.42   46.77    10
+    ##      naive 1 3315.93 3345.30 3483.81 3378.50 3470.81 4273.35    10
+    ##      naive 4  937.60 1030.78 1098.48 1045.87 1157.48 1313.02    10
 
 ``` r
 # The functions return the un-normalized log weights. We first compare
@@ -829,20 +829,20 @@ meds
 ```
 
     ##          method
-    ## N         Dual-tree     Naive Dual-tree 1
-    ##   384      0.001274  0.001055    0.003382
-    ##   768      0.002606  0.002479    0.006263
-    ##   1536     0.004439  0.009691    0.011442
-    ##   3072     0.010069  0.037756    0.024626
-    ##   6144     0.018591  0.144852    0.046698
-    ##   12288    0.036910  0.597269    0.103663
-    ##   24576    0.065379  2.490314    0.165373
-    ##   49152    0.113865 11.358416    0.313790
-    ##   98304    0.220877        NA          NA
-    ##   196608   0.486669        NA          NA
-    ##   393216   1.069044        NA          NA
-    ##   786432   1.993602        NA          NA
-    ##   1572864  4.027646        NA          NA
+    ## N         Dual-tree      Naive Dual-tree 1
+    ##   384      0.001307  0.0007127    0.003247
+    ##   768      0.002572  0.0025440    0.006550
+    ##   1536     0.004832  0.0094395    0.012611
+    ##   3072     0.009252  0.0440001    0.024702
+    ##   6144     0.019060  0.1718900    0.047890
+    ##   12288    0.041501  0.6534322    0.091706
+    ##   24576    0.059958  2.5300058    0.163021
+    ##   49152    0.112644 10.6032526    0.312012
+    ##   98304    0.219456         NA          NA
+    ##   196608   0.462263         NA          NA
+    ##   393216   0.877304         NA          NA
+    ##   786432   1.849081         NA          NA
+    ##   1572864  3.893610         NA          NA
 
 ``` r
 par(mar = c(5, 4, 1, 1))

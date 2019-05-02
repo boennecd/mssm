@@ -72,9 +72,6 @@ using namespace std::placeholders;
   \end{align*}
  */
 
-/* object to store temporary terms in computation */
-thread_local static arma::vec stat_tmp_terms;
-
 class comp_stat_util {
   const comp_out what;
 
@@ -116,12 +113,13 @@ class comp_stat_util {
 
   void state_only_Hessian(const arma::vec &state, double *stats) const
   {
+    thread_local static std::vector<double> stat_tmp_terms;
     if((int)stat_tmp_terms.size() < stat_dim)
-      stat_tmp_terms.set_size(stat_dim);
+      stat_tmp_terms.resize(stat_dim);
 
     /* we only update the upper part of the Hessian. We copy it to the
      * lower part at the end */
-    double *tmp_i = stat_tmp_terms.memptr(), *stats_i = stats;
+    double *tmp_i = stat_tmp_terms.data(), *stats_i = stats;
     for(auto &d : dists){
       if(d.obs_stat_dim > 0L){
         std::fill(tmp_i, tmp_i + d.obs_stat_dim, 0.);
@@ -199,17 +197,18 @@ class comp_stat_util {
     (const double *state_old, const double *state_new,
      const double *stats_old, double *stats_new, const double log_weight) const
   {
+    thread_local static std::vector<double> stat_tmp_terms;
     if((int)stat_tmp_terms.size() < stat_dim)
-      stat_tmp_terms.set_size(stat_dim);
-    stat_tmp_terms.zeros();
+      stat_tmp_terms.resize(stat_dim);
+    double *stat_i = stat_tmp_terms.data();
+    std::fill(stat_i, stat_i + stat_dim, 0.);
 
     /* first add old stat */
     F77_CALL(daxpy)(
-        &stat_dim, &D_ONE, stats_old, &I_ONE, stat_tmp_terms.memptr(),
+        &stat_dim, &D_ONE, stats_old, &I_ONE, stat_i,
         &I_ONE);
 
     /* then compute the terms that is a function of the pair */
-    double *stat_i = stat_tmp_terms.memptr();
     for(auto &d : dists){
       if(d.trans_dist){
         d.trans_dist->comp_stats_state_state(
@@ -232,8 +231,7 @@ class comp_stat_util {
     /* add terms */
     const double weight = std::exp(log_weight);
     F77_CALL(daxpy)(
-        &stat_dim, &weight, stat_tmp_terms.memptr(), &I_ONE, stats_new,
-        &I_ONE);
+        &stat_dim, &weight, stat_i, &I_ONE, stats_new, &I_ONE);
   }
 
 public:
