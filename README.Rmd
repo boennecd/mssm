@@ -38,7 +38,8 @@ can be used in the method suggested by @Poyiadjis11. I will show an example
 of how to use the package through the rest of the document and highlight some 
 implementation details. 
 
-The package is not on CRAN but you can be installed from Github using e.g., 
+The package is not on CRAN but it can be installed from Github e.g., by 
+calling
 
 ```{r eval = FALSE}
 devtools::install_github("boennecd/mssm")
@@ -523,7 +524,7 @@ res_final$Q
 res_final$cfix
 ```
 
-```{r clean_param_ests}
+```{r clean_param_ests, echo = FALSE}
 # do this to not use them later by an error
 rm(res, resa)
 ```
@@ -720,14 +721,14 @@ information matrix from the returned output. Then we compare the output to
 the GLM we estimated and to the true parameters.
 
 ```{r show_apprx_obs_info}
-# Function to subtract the gradient elements and diagonal block diagonal  
+# Function to subtract the gradient elements and diagonal block  
 # matrices of the approximate observed information matrix. 
 # 
 # Args:
 #   object: an object of class mssm.
 #
 # Returns:
-#   approximate gradient elements and block diagonal matrices of the 
+#   approximate gradient elements and diagonal block matrices of the 
 #   approximate observed information matrix. 
 get_grad_n_obs_info <- function(object){
   stopifnot(inherits(object, "mssm"))
@@ -769,7 +770,7 @@ out <- get_grad_n_obs_info(mssm_obs_info)
 
 # Look at output for parameters in the observational equation
 out$dg # approximate gradient
-(cvov_fit <- solve(-out$ddg)) # inverse negative observation information
+(cvov_fit <- solve(-out$ddg)) # inverse negative observed information matrix
 (ses <- sqrt(diag(cvov_fit))) # approximate standard errors
 
 # compare with glm model
@@ -781,7 +782,7 @@ rbind(true = cfix, glm = coef(glm_fit), mssm = res_final$cfix, se = ses)
 
 # next look at parameters in state equation
 out$df # approximate gradient
-(cvov_fit <- solve(-out$ddf)) # inverse negative observation information
+(cvov_fit <- solve(-out$ddf)) # inverse negative observed information matrix
 (ses <- sqrt(diag(cvov_fit))) # approximate standard errors
 
 # first four are for F. Estimate vs. true values are given below

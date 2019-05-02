@@ -14,7 +14,7 @@ This package provides methods to estimate models of the form
 
 where ![g](https://chart.googleapis.com/chart?cht=tx&chl=g "g") is simple distribution, we observe ![t=1,\\dots,T](https://chart.googleapis.com/chart?cht=tx&chl=t%3D1%2C%5Cdots%2CT "t=1,\dots,T") periods, and ![I\_t](https://chart.googleapis.com/chart?cht=tx&chl=I_t "I_t"), ![y\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=y_%7Bit%7D "y_{it}"), ![\\vec x\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20x_%7Bit%7D "\vec x_{it}"), and ![\\vec z\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20z_%7Bit%7D "\vec z_{it}") are known. What is multivariate is ![\\vec y\_t = \\{y\_{it}\\}\_{i\\in I\_t}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20y_t%20%3D%20%5C%7By_%7Bit%7D%5C%7D_%7Bi%5Cin%20I_t%7D "\vec y_t = \{y_{it}\}_{i\in I_t}") (though, ![\\vec \\beta\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20%5Cbeta_t "\vec \beta_t") can also be multivariate) and this package is written to scale well in the dimension of ![| I\_t |](https://chart.googleapis.com/chart?cht=tx&chl=%7C%20I_t%20%7C "| I_t |"). The package uses independent particle filters as suggested by Lin et al. (2005). This particular type of filter can be used in the method suggested by Poyiadjis, Doucet, and Singh (2011). I will show an example of how to use the package through the rest of the document and highlight some implementation details.
 
-The package is not on CRAN but you can be installed from Github using e.g.,
+The package is not on CRAN but it can be installed from Github e.g., by calling
 
 ``` r
 devtools::install_github("boennecd/mssm")
@@ -205,7 +205,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   1.810   0.026   0.466
+    ##   1.898   0.025   0.479
 
 ``` r
 # returns the log-likelihood approximation
@@ -275,7 +275,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   2.001   0.014   0.489
+    ##   1.901   0.013   0.476
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -449,11 +449,6 @@ res_final$cfix
 ```
 
     ## [1] -0.9864  0.2135  0.5241 -1.0262
-
-``` r
-# do this to not use them later by an error
-rm(res, resa)
-```
 
 ### Faster Approximation
 
@@ -681,14 +676,14 @@ system.time(
 We define a function below to get the gradient and approximate the observed information matrix from the returned output. Then we compare the output to the GLM we estimated and to the true parameters.
 
 ``` r
-# Function to subtract the gradient elements and diagonal block diagonal  
+# Function to subtract the gradient elements and diagonal block  
 # matrices of the approximate observed information matrix. 
 # 
 # Args:
 #   object: an object of class mssm.
 #
 # Returns:
-#   approximate gradient elements and block diagonal matrices of the 
+#   approximate gradient elements and diagonal block matrices of the 
 #   approximate observed information matrix. 
 get_grad_n_obs_info <- function(object){
   stopifnot(inherits(object, "mssm"))
@@ -735,7 +730,7 @@ out$dg # approximate gradient
     ## [1] -0.6439  0.1699  0.4309  2.8808
 
 ``` r
-(cvov_fit <- solve(-out$ddg)) # inverse negative observation information
+(cvov_fit <- solve(-out$ddg)) # inverse negative observed information matrix
 ```
 
     ##             [,1]         [,2]         [,3]        [,4]
@@ -787,7 +782,7 @@ out$df # approximate gradient
     ## [1]  0.2519 -0.4234  0.6508  0.2961 -0.4528 -1.1871 -0.4186
 
 ``` r
-(cvov_fit <- solve(-out$ddf)) # inverse negative observation information
+(cvov_fit <- solve(-out$ddf)) # inverse negative observed information matrix
 ```
 
     ##            [,1]       [,2]         [,3]        [,4]         [,5]

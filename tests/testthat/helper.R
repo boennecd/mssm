@@ -70,7 +70,7 @@ poisson_log <- readRDS("poisson_log.RDS")
 # set.seed(78727269)
 # betas <- .get_beta(Q, Q0, F., n_periods)
 # dat <- .get_dat(
-#   cfix, betas, sample_func = rpois, trans_func = trans_func = function(x) x * x)
+#   cfix, betas, sample_func = rpois, trans_func = function(x) x * x)
 #
 # poisson_sqrt <- list(data = dat, betas = betas, cfix = cfix, Q = Q, F. = F.)
 # saveRDS(poisson_sqrt, "poisson_sqrt.RDS")
