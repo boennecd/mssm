@@ -716,31 +716,36 @@ system.time(
     Q = res_final$Q))
 ```
 
-We define a function below to get the gradient and approximate the observed 
-information matrix from the returned output. Then we compare the output to 
-the GLM we estimated and to the true parameters.
+We define a function below to get the approximate gradient and approximate 
+observed information matrix from the returned object. Then we compare 
+the output to the GLM we estimated and to the true parameters.
 
 ```{r show_apprx_obs_info}
-# Function to subtract the gradient elements and diagonal block  
-# matrices of the approximate observed information matrix. 
+# Function to subtract the approximate gradient elements and approximate 
+# observed information matrix. 
 # 
 # Args:
 #   object: an object of class mssm.
 #
 # Returns:
-#   approximate gradient elements and diagonal block matrices of the 
-#   approximate observed information matrix. 
+#   list with the approximate gradient elements and approximate observed 
+# information matrix. 
 get_grad_n_obs_info <- function(object){
   stopifnot(inherits(object, "mssm"))
 
-  # get dimension of the different components
-  n_fix <- nrow(object$X)
-  n_rng <- nrow(object$Z)
-  dim_fix <- n_fix
-  dim_F   <- n_rng * n_rng
-  dim_Q   <- (n_rng * (n_rng  + 1L)) / 2L
-
-
+  # get dimension of the components
+  n_rng   <- nrow(object$Z)
+  dim_fix <- nrow(object$X)
+  dim_rng <- n_rng * n_rng + ((n_rng + 1L) * n_rng) / 2L
+  
+  # create vector with dimension names
+  di_names <- row.names(object$X)
+  di_names <- c(
+    di_names, paste0("F", outer(1:n_rng, 1:n_rng, paste, sep = ".")))
+  Q_names  <- outer(1:n_rng, 1:n_rng, paste, sep = ".")
+  di_names <- c(
+    di_names, paste0("Q", Q_names[lower.tri(Q_names, diag = TRUE)]))
+  
   # get quantities for each particle
   quants <- tail(object$pf_output, 1L)[[1L]]$stats
   ws     <- tail(object$pf_output, 1L)[[1L]]$ws_normalized
@@ -748,51 +753,41 @@ get_grad_n_obs_info <- function(object){
   # get mean estimates
   meas <- colSums(t(quants) * drop(exp(ws)))
 
-  # separate out the different components. Start with parameters for
-  # the conditional density of the outcome given the state vector
-  idx <- 1:n_fix
-  dg  <- meas[idx]
-  idx <- max(idx) + 1:(n_fix * n_fix)
-  ddg <- matrix(meas[idx], n_fix, n_fix)
+  # separate out the different components. Start with the gradient
+  idx <- dim_fix + dim_rng
+  grad <- structure(meas[1:idx], names = di_names)
 
-  # then the parameters for the conditional density of the state vector given
-  # the previous
-  idx <- max(idx) + 1:(dim_F + dim_Q)
-  df <- meas[idx]
-  idx <- max(idx) + 1:((dim_F + dim_Q) * (dim_F + dim_Q))
-  ddf <- matrix(meas[idx], dim_F + dim_Q, dim_F + dim_Q)
+  # then the observed information matrix
+  hess <- matrix(
+    meas[-(1:idx)], dim_fix + dim_rng, dimnames = list(di_names, di_names))
 
-  list(dg = dg, ddg = ddg, df = df, ddf = ddf)
+  list(grad = grad, hess = hess)
 }
 
 # use function
 out <- get_grad_n_obs_info(mssm_obs_info)
 
-# Look at output for parameters in the observational equation
-out$dg # approximate gradient
-(cvov_fit <- solve(-out$ddg)) # inverse negative observed information matrix
-(ses <- sqrt(diag(cvov_fit))) # approximate standard errors
+# approximate gradient
+out$grad
 
-# compare with glm model
-(cvov_fit <- vcov(glm_fit))
-sqrt(diag(cvov_fit))
+# approximate standard errors
+(ses <- sqrt(diag(solve(-out$hess))))
+
+# look at output for parameters in the observational equation. First, compare 
+# with glm's standard errors
+sqrt(diag(vcov(glm_fit)))
 
 # and relative to true parameters vs. estimated
-rbind(true = cfix, glm = coef(glm_fit), mssm = res_final$cfix, se = ses)
+rbind(true = cfix, glm = coef(glm_fit), mssm = res_final$cfix, se = ses[1:4])
 
-# next look at parameters in state equation
-out$df # approximate gradient
-(cvov_fit <- solve(-out$ddf)) # inverse negative observed information matrix
-(ses <- sqrt(diag(cvov_fit))) # approximate standard errors
-
-# first four are for F. Estimate vs. true values are given below
-rbind(true = c(F.), mssm = c(res_final$F.), se = ses[1:4])
+# next look at parameters in state equation. First four are for F.
+rbind(true = c(F.), mssm = c(res_final$F.), se = ses[5:8])
 
 # next three are w.r.t. the lower diagonal part of Q
 rbind(
   true =           Q[lower.tri(Q, diag = TRUE)], 
   mssm = res_final$Q[lower.tri(Q, diag = TRUE)], 
-  se = ses[5:7])
+  se = ses[9:11])
 ```
 
 ## Supported Families

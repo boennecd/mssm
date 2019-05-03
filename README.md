@@ -204,7 +204,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   2.151   0.028   0.539
+    ##   1.955   0.027   0.500
 
 ``` r
 # returns the log-likelihood approximation
@@ -274,7 +274,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   1.819   0.010   0.456
+    ##   1.945   0.017   0.480
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -670,31 +670,36 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 286.072   1.332  61.472
+    ## 371.914   2.944  82.075
 
-We define a function below to get the gradient and approximate the observed information matrix from the returned output. Then we compare the output to the GLM we estimated and to the true parameters.
+We define a function below to get the approximate gradient and approximate observed information matrix from the returned object. Then we compare the output to the GLM we estimated and to the true parameters.
 
 ``` r
-# Function to subtract the gradient elements and diagonal block  
-# matrices of the approximate observed information matrix. 
+# Function to subtract the approximate gradient elements and approximate 
+# observed information matrix. 
 # 
 # Args:
 #   object: an object of class mssm.
 #
 # Returns:
-#   approximate gradient elements and diagonal block matrices of the 
-#   approximate observed information matrix. 
+#   list with the approximate gradient elements and approximate observed 
+# information matrix. 
 get_grad_n_obs_info <- function(object){
   stopifnot(inherits(object, "mssm"))
 
-  # get dimension of the different components
-  n_fix <- nrow(object$X)
-  n_rng <- nrow(object$Z)
-  dim_fix <- n_fix
-  dim_F   <- n_rng * n_rng
-  dim_Q   <- (n_rng * (n_rng  + 1L)) / 2L
-
-
+  # get dimension of the components
+  n_rng   <- nrow(object$Z)
+  dim_fix <- nrow(object$X)
+  dim_rng <- n_rng * n_rng + ((n_rng + 1L) * n_rng) / 2L
+  
+  # create vector with dimension names
+  di_names <- row.names(object$X)
+  di_names <- c(
+    di_names, paste0("F", outer(1:n_rng, 1:n_rng, paste, sep = ".")))
+  Q_names  <- outer(1:n_rng, 1:n_rng, paste, sep = ".")
+  di_names <- c(
+    di_names, paste0("Q", Q_names[lower.tri(Q_names, diag = TRUE)]))
+  
   # get quantities for each particle
   quants <- tail(object$pf_output, 1L)[[1L]]$stats
   ws     <- tail(object$pf_output, 1L)[[1L]]$ws_normalized
@@ -702,61 +707,43 @@ get_grad_n_obs_info <- function(object){
   # get mean estimates
   meas <- colSums(t(quants) * drop(exp(ws)))
 
-  # separate out the different components. Start with parameters for
-  # the conditional density of the outcome given the state vector
-  idx <- 1:n_fix
-  dg  <- meas[idx]
-  idx <- max(idx) + 1:(n_fix * n_fix)
-  ddg <- matrix(meas[idx], n_fix, n_fix)
+  # separate out the different components. Start with the gradient
+  idx <- dim_fix + dim_rng
+  grad <- structure(meas[1:idx], names = di_names)
 
-  # then the parameters for the conditional density of the state vector given
-  # the previous
-  idx <- max(idx) + 1:(dim_F + dim_Q)
-  df <- meas[idx]
-  idx <- max(idx) + 1:((dim_F + dim_Q) * (dim_F + dim_Q))
-  ddf <- matrix(meas[idx], dim_F + dim_Q, dim_F + dim_Q)
+  # then the observed information matrix
+  hess <- matrix(
+    meas[-(1:idx)], dim_fix + dim_rng, dimnames = list(di_names, di_names))
 
-  list(dg = dg, ddg = ddg, df = df, ddf = ddf)
+  list(grad = grad, hess = hess)
 }
 
 # use function
 out <- get_grad_n_obs_info(mssm_obs_info)
 
-# Look at output for parameters in the observational equation
-out$dg # approximate gradient
+# approximate gradient
+out$grad
 ```
 
-    ## [1] -0.6439  0.1699  0.4309  2.8808
+    ## (Intercept)          X1          X2           Z        F1.1        F2.1 
+    ##     -0.6439      0.1699      0.4309      2.8808      0.2519     -0.4234 
+    ##        F1.2        F2.2        Q1.1        Q2.1        Q2.2 
+    ##      0.6508      0.2961     -0.4528     -1.1871     -0.4186
 
 ``` r
-(cvov_fit <- solve(-out$ddg)) # inverse negative observed information matrix
+# approximate standard errors
+(ses <- sqrt(diag(solve(-out$hess))))
 ```
 
-    ##             [,1]         [,2]         [,3]        [,4]
-    ## [1,]  0.00185387 -0.000049966 -0.000131756 0.001814648
-    ## [2,] -0.00004997  0.000792356  0.000002176 0.000003696
-    ## [3,] -0.00013176  0.000002176  0.000852571 0.000014141
-    ## [4,]  0.00181465  0.000003696  0.000014141 0.007585649
+    ## (Intercept)          X1          X2           Z        F1.1        F2.1 
+    ##     0.04335     0.02815     0.02920     0.08740     0.06752     0.09102 
+    ##        F1.2        F2.2        Q1.1        Q2.1        Q2.2 
+    ##     0.03284     0.04195     0.03661     0.04021     0.07133
 
 ``` r
-(ses <- sqrt(diag(cvov_fit))) # approximate standard errors
-```
-
-    ## [1] 0.04306 0.02815 0.02920 0.08710
-
-``` r
-# compare with glm model
-(cvov_fit <- vcov(glm_fit))
-```
-
-    ##             (Intercept)           X1           X2          Z
-    ## (Intercept)  0.00032520 -0.000041949 -0.000117913 0.00024162
-    ## X1          -0.00004195  0.000704501  0.000002523 0.00001204
-    ## X2          -0.00011791  0.000002523  0.000754839 0.00002072
-    ## Z            0.00024162  0.000012044  0.000020717 0.00081774
-
-``` r
-sqrt(diag(cvov_fit))
+# look at output for parameters in the observational equation. First, compare 
+# with glm's standard errors
+sqrt(diag(vcov(glm_fit)))
 ```
 
     ## (Intercept)          X1          X2           Z 
@@ -764,71 +751,37 @@ sqrt(diag(cvov_fit))
 
 ``` r
 # and relative to true parameters vs. estimated
-rbind(true = cfix, glm = coef(glm_fit), mssm = res_final$cfix, se = ses)
+rbind(true = cfix, glm = coef(glm_fit), mssm = res_final$cfix, se = ses[1:4])
 ```
 
     ##      (Intercept)      X1     X2       Z
     ## true    -1.00000 0.20000 0.5000 -1.0000
     ## glm     -0.55576 0.20237 0.5160 -0.9122
     ## mssm    -0.98639 0.21349 0.5241 -1.0262
-    ## se       0.04306 0.02815 0.0292  0.0871
+    ## se       0.04335 0.02815 0.0292  0.0874
 
 ``` r
-# next look at parameters in state equation
-out$df # approximate gradient
+# next look at parameters in state equation. First four are for F.
+rbind(true = c(F.), mssm = c(res_final$F.), se = ses[5:8])
 ```
 
-    ## [1]  0.2519 -0.4234  0.6508  0.2961 -0.4528 -1.1871 -0.4186
-
-``` r
-(cvov_fit <- solve(-out$ddf)) # inverse negative observed information matrix
-```
-
-    ##            [,1]       [,2]         [,3]        [,4]         [,5]
-    ## [1,]  0.0045581  0.0021530 -0.000608281 -0.00029388 -0.000665520
-    ## [2,]  0.0021530  0.0082830 -0.000268899 -0.00087664 -0.000555822
-    ## [3,] -0.0006083 -0.0002689  0.001075594  0.00045397 -0.000001381
-    ## [4,] -0.0002939 -0.0008766  0.000453968  0.00175210  0.000011931
-    ## [5,] -0.0006655 -0.0005558 -0.000001381  0.00001193  0.001329710
-    ## [6,] -0.0002382 -0.0010363 -0.000239156 -0.00016653  0.000706379
-    ## [7,] -0.0000593 -0.0007590 -0.000208198 -0.00103359  0.000358747
-    ##            [,6]       [,7]
-    ## [1,] -0.0002382 -0.0000593
-    ## [2,] -0.0010363 -0.0007590
-    ## [3,] -0.0002392 -0.0002082
-    ## [4,] -0.0001665 -0.0010336
-    ## [5,]  0.0007064  0.0003587
-    ## [6,]  0.0016094  0.0013579
-    ## [7,]  0.0013579  0.0050765
-
-``` r
-(ses <- sqrt(diag(cvov_fit))) # approximate standard errors
-```
-
-    ## [1] 0.06751 0.09101 0.03280 0.04186 0.03647 0.04012 0.07125
-
-``` r
-# first four are for F. Estimate vs. true values are given below
-rbind(true = c(F.), mssm = c(res_final$F.), se = ses[1:4])
-```
-
-    ##         [,1]     [,2]      [,3]    [,4]
+    ##         F1.1     F2.1      F1.2    F2.2
     ## true 0.50000 0.100000  0.000000 0.80000
     ## mssm 0.50074 0.003564 -0.002725 0.79938
-    ## se   0.06751 0.091011  0.032796 0.04186
+    ## se   0.06752 0.091016  0.032839 0.04195
 
 ``` r
 # next three are w.r.t. the lower diagonal part of Q
 rbind(
   true =           Q[lower.tri(Q, diag = TRUE)], 
   mssm = res_final$Q[lower.tri(Q, diag = TRUE)], 
-  se = ses[5:7])
+  se = ses[9:11])
 ```
 
-    ##         [,1]    [,2]    [,3]
+    ##         Q1.1    Q2.1    Q2.2
     ## true 0.25000 0.10000 0.49000
     ## mssm 0.30645 0.12821 0.50302
-    ## se   0.03647 0.04012 0.07125
+    ## se   0.03661 0.04021 0.07133
 
 Supported Families
 ------------------

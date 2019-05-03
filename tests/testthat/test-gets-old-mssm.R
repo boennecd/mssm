@@ -137,7 +137,7 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE){
     t1 <- tail(func_out_hess$pf_output, 1L)[[1L]]
     t2 <- tail(func_out_org$pf_output , 1L)[[1L]]
 
-    t1$stats <- t1$stats[c(1:3, 1:7 + 3L * (3L + 1L)), ]
+    t1$stats <- t1$stats[1:nrow(t2$stats), ]
     expect_equal(t1, t2)
   }
   }, list(dat = substitute(data), label = label, family = substitute(family),

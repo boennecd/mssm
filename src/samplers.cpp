@@ -34,8 +34,19 @@ inline particle_cloud sample_util
    const cdist &state_dist, const cdist &obs_dist)
 {
   const comp_out what = prob.ctrl.what_stat;
+  gaurd_new_comp_out(what);
+
   const arma::uword dim_state = state_dist.state_dim(),
-    stat_dim = state_dist.stat_dim(what) + obs_dist.stat_dim(what);
+    stat_dim = ([&]{
+      unsigned int out =
+        state_dist.state_stat_dim_grad(what) +
+        obs_dist  .obs_stat_dim_grad  (what);
+      if(what != Hessian)
+        return out;
+
+      out *= (1L + out);
+      return out;
+    })();
   particle_cloud out(prob.ctrl.N_part, dim_state, stat_dim);
 
   if(prob.ctrl.trace > 1L)

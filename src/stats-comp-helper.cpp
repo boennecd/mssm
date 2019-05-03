@@ -5,7 +5,7 @@
 
 static constexpr double D_ONE = 1., D_M_ONE = -1.;
 static constexpr int I_ONE = 1L;
-static constexpr char C_U = 'U';
+static constexpr char C_L = 'L';
 using std::ref;
 using std::cref;
 using namespace std::placeholders;
@@ -75,99 +75,92 @@ using namespace std::placeholders;
 class comp_stat_util {
   const comp_out what;
 
-  struct dist {
+  struct dist_util {
+    const comp_out what;
     const cdist     &di;
     const trans_obj *trans_dist;
-    const arma::uword state_stat_dim, obs_stat_dim;
     const int
-      state_stat_dim_grad, state_stat_dim_hess,
-      obs_stat_dim_grad, obs_stat_dim_hess;
+      grad_dim  = trans_dist ? di.state_stat_dim_grad(what) :
+                               di.obs_stat_dim_grad  (what),
+      hess_size = trans_dist ? di.state_stat_dim_hess(what) :
+                               di.obs_stat_dim_hess  (what),
+      total_size = grad_dim + hess_size;
 
-    dist() = delete;
-    dist(const cdist &di, const comp_out what):
-      di(di),
-      trans_dist(dynamic_cast<const trans_obj*>(&di)),
-      state_stat_dim(di.state_stat_dim(what)),
-      obs_stat_dim(di.obs_stat_dim(what)),
-
-      state_stat_dim_grad(di.state_stat_dim_grad(what)),
-      state_stat_dim_hess(di.state_stat_dim_hess(what)),
-
-      obs_stat_dim_grad(di.obs_stat_dim_grad(what)),
-      obs_stat_dim_hess(di.obs_stat_dim_hess(what))
-
+    dist_util() = delete;
+    dist_util(const cdist &di, const comp_out what):
+      what(what), di(di),
+      trans_dist(dynamic_cast<const trans_obj*>(&di))
       { }
   };
-  const std::array<dist, 2L> dists;
-  const int stat_dim;
+  const dist_util dobs, dstat;
+public:
+  const int stat_dim, grad_dim = dobs.grad_dim + dstat.grad_dim;
 
+private:
   void state_only_gradient(const arma::vec &state, double *stats) const
   {
-    double *stat_i = stats;
-    for(auto &d : dists){
-      d.di.comp_stats_state_only(state, stat_i, what);
-      stat_i += d.state_stat_dim;
-      stat_i += d.obs_stat_dim;
-    }
+    dobs.di.comp_stats_state_only(state, stats, what);
   }
 
   void state_only_Hessian(const arma::vec &state, double *stats) const
   {
     thread_local static std::vector<double> stat_tmp_terms;
-    if((int)stat_tmp_terms.size() < stat_dim)
-      stat_tmp_terms.resize(stat_dim);
+    if((int)stat_tmp_terms.size() < dobs.total_size)
+      stat_tmp_terms.resize(dobs.total_size);
 
-    /* we only update the upper part of the Hessian. We copy it to the
-     * lower part at the end */
-    double *tmp_i = stat_tmp_terms.data(), *stats_i = stats;
-    for(auto &d : dists){
-      if(d.obs_stat_dim > 0L){
-        std::fill(tmp_i, tmp_i + d.obs_stat_dim, 0.);
+    /* we only compute the lower part of the Hessian. We copy it to the
+     * upper part at the end. First, we create pointer to the different
+     * elements */
+    const int obs_grad_dim = dobs.grad_dim;
+    double * const grad_obs   = stats,
+           * const grad_state = stats + obs_grad_dim,
+           * const hess_obs   = stats + grad_dim,
+           * const hess_cross = stats + grad_dim + obs_grad_dim;
 
-        /* compute gradient and Hessian terms */
-        d.di.comp_stats_state_only(state, tmp_i, what);
+    /* we compute the new gradient and hessian terms */
+    double * tmp_mem = stat_tmp_terms.data();
+    std::fill(tmp_mem, tmp_mem + dobs.total_size, 0.);
+    dobs.di.comp_stats_state_only(state, tmp_mem, what);
+    const double * const dg  = tmp_mem,
+                 * const dgg = tmp_mem + obs_grad_dim;
 
-        const int grad_dim = d.obs_stat_dim_grad,
-                  hess_dim = d.obs_stat_dim_hess;
-        const double *d_g = tmp_i, *dd_g = tmp_i + grad_dim;
-        double *d_out = stats_i, *dd_out = stats_i + grad_dim;
+    /* compute the outer products which we need to add to the Hessian.
+     * \nabla g \nabla g^\top */
+    F77_CALL(dsyr)(
+        &C_L, &obs_grad_dim, &D_ONE, dg, &I_ONE,
+        hess_obs, &grad_dim);
 
-        /* first make additions to Hessian */
-        /* \nabla g \nabla g^\top */
-        F77_CALL(dsyr)(
-            &C_U, &grad_dim, &D_ONE, d_g, &I_ONE,
-            dd_out, &grad_dim);
-        /* \nabla^2 g */
+    /* next, we do the two outer products*/
+    F77_CALL(dsyr2)(
+        &C_L, &obs_grad_dim, &D_ONE, dg, &I_ONE, grad_obs, &I_ONE,
+        hess_obs, &grad_dim);
+
+    /* then the outer product in the lower diagonal matrix */
+    F77_CALL(dger)(
+      &dstat.grad_dim, &obs_grad_dim, &D_ONE, grad_state, &I_ONE,
+      dg, &I_ONE, hess_cross, &grad_dim);
+
+    /* add the gradient and Hessian terms themself */
+    {
+      const double *x = dgg;
+      double *y = hess_obs;
+      for(int i = 0; i < obs_grad_dim;
+          ++i, x += obs_grad_dim, y += grad_dim)
         F77_CALL(daxpy)(
-          &hess_dim, &D_ONE, dd_g, &I_ONE, dd_out, &I_ONE);
-        /* cross product terms */
-        F77_CALL(dsyr2)(
-          &C_U, &grad_dim, &D_ONE, d_g, &I_ONE, d_out, &I_ONE,
-          dd_out, &grad_dim);
+            &obs_grad_dim, &D_ONE, x, &I_ONE, y, &I_ONE);
+    }
+    F77_CALL(daxpy)(
+      &obs_grad_dim, &D_ONE, dg, &I_ONE, grad_obs, &I_ONE);
 
-        /* add terms to gradient */
-        F77_CALL(daxpy)(
-            &grad_dim, &D_ONE, d_g, &I_ONE, d_out, &I_ONE);
-      }
+    /* subtract outer product of gradient from the Hessian */
+    F77_CALL(dsyr)(
+        &C_L, &grad_dim, &D_M_ONE, stats, &I_ONE,
+        stats + grad_dim, &grad_dim);
 
-      /* subtract outer product of gradient from Hessian. Assumes that the
-       * distribution only has either terms that involve the old and new state
-       * or only the new state */
-      const int gr_dim = d.obs_stat_dim_grad + d.state_stat_dim_grad;
-      const double *d_out  = stats_i;
-            double *dd_out = stats_i + gr_dim;
-      F77_CALL(dsyr)(
-          &C_U, &gr_dim, &D_M_ONE, d_out, &I_ONE,
-          dd_out, &gr_dim);
-
-      /* copy upper half to lower half. TODO: do this in a smarter way*/
-      {
-        arma::mat tmp(dd_out, gr_dim, gr_dim, false);
-        tmp = arma::symmatu(tmp);
-      }
-
-      stats_i += d.state_stat_dim;
-      stats_i += d.obs_stat_dim;
+    /* copy upper half to lower half. TODO: do this in a smarter way */
+    {
+      arma::mat tmp(stats + grad_dim, grad_dim, grad_dim, false);
+      tmp = arma::symmatl(tmp);
     }
   }
 
@@ -180,16 +173,10 @@ class comp_stat_util {
     F77_CALL(daxpy)(
         &stat_dim, &weight, stats_old, &I_ONE, stats_new, &I_ONE);
 
-    /* then compute the terms that is a function of the pair */
-    double *stat_i = stats_new;
-    for(auto &d : dists){
-      if(d.trans_dist)
-        d.trans_dist->comp_stats_state_state(
-            state_old, state_new, weight, stat_i, what);
-
-      stat_i += d.state_stat_dim;
-      stat_i += d.obs_stat_dim;
-    }
+    /* then compute the terms that is a function of the pair of the states */
+    double * stat_i = stats_new + dobs.grad_dim;
+    dstat.trans_dist->comp_stats_state_state(
+        state_old, state_new, weight, stat_i, what);
   }
 
   void state_state_Hessian
@@ -197,38 +184,45 @@ class comp_stat_util {
      const double *stats_old, double *stats_new, const double log_weight) const
   {
     thread_local static std::vector<double> stat_tmp_terms;
-    if((int)stat_tmp_terms.size() < stat_dim)
-      stat_tmp_terms.resize(stat_dim);
+    unsigned int needed_size = stat_dim + dstat.total_size;
+    if(stat_tmp_terms.size() < needed_size)
+      stat_tmp_terms.resize(needed_size);
     double * const stat_out = stat_tmp_terms.data();
-    std::fill(stat_out, stat_out + stat_dim, 0.);
+    std::fill(stat_out, stat_out + needed_size, 0.);
 
     /* first add old stat */
     F77_CALL(daxpy)(
         &stat_dim, &D_ONE, stats_old, &I_ONE, stat_out, &I_ONE);
 
-    /* then compute the terms that is a function of the pair */
+    /* then compute the terms that is a function of the pair of the states */
+    double * const grad_start = stat_out + dobs.grad_dim,
+           * const hess_start = stat_out + grad_dim * (1L + dobs.grad_dim) +
+                                dobs.grad_dim,
+           * const tmp_mem    = stat_out + stat_dim;
+    const int state_grad_dim = dstat.grad_dim;
     {
-      double * stat_out_i = stat_out;
-      for(auto &d : dists){
-        if(d.trans_dist)
-          d.trans_dist->comp_stats_state_state(
-              state_old, state_new, 1., stat_out_i, what);
-
-        /* make rank-one update. TODO: maybe use dsyr */
-        const int grad_dim = d.state_stat_dim_grad + d.obs_stat_dim_grad;
-        const double *d_f  = stat_out_i;
-        double *dd_f = stat_out_i + grad_dim;
-        F77_CALL(dger)(
-            &grad_dim, &grad_dim,
-            &D_ONE, d_f, &I_ONE, d_f, &I_ONE,
-            dd_f, &grad_dim);
-
-        stat_out_i += d.state_stat_dim;
-        stat_out_i += d.obs_stat_dim;
-      }
+      dstat.trans_dist->comp_stats_state_state(
+        state_old, state_new, 1., tmp_mem, what);
+      /* add gradient terms */
+      F77_CALL(daxpy)(
+          &state_grad_dim, &D_ONE, tmp_mem, &I_ONE, grad_start, &I_ONE);
+      /* add hessian terms */
+      const double *t = tmp_mem + state_grad_dim;
+            double *x = hess_start;
+      for(int i = 0; i < state_grad_dim;
+          ++i, t += state_grad_dim, x += grad_dim)
+        F77_CALL(daxpy)(
+            &state_grad_dim, &D_ONE, t, &I_ONE, x, &I_ONE);
     }
 
-    /* add terms. TODO: we may be able to save this call */
+    /* make rank-one update. Use dsyr and assume we update the upper part
+     * later */
+    F77_CALL(dsyr)(
+        &C_L, &grad_dim,
+        &D_ONE, stat_out, &I_ONE,
+        stat_out + grad_dim, &grad_dim);
+
+    /* add terms */
     const double weight = std::exp(log_weight);
     F77_CALL(daxpy)(
         &stat_dim, &weight, stat_out, &I_ONE, stats_new, &I_ONE);
@@ -237,8 +231,17 @@ class comp_stat_util {
 public:
   const bool any_work = stat_dim > 0L;
   comp_stat_util(const comp_out what, const cdist &d1, const cdist &d2):
-  what(what), dists({ dist(d1, what), dist(d2, what) }),
-  stat_dim(dists[0].di.stat_dim(what) + dists[1].di.stat_dim(what)) { }
+  what(what), dobs(d1, what), dstat(d2, what),
+  stat_dim(([&]{
+    unsigned int out = dobs.grad_dim + dstat.grad_dim;
+    gaurd_new_comp_out(what);
+
+    if(what != Hessian)
+      return out;
+
+    out = out * (1L + out);
+    return out;
+  }())) { }
 
   void state_only(const arma::vec &state, double *stats) const
   {
@@ -328,6 +331,20 @@ void stats_comp_helper::set_ll_n_stat_
 
   comp_stat_util util(
       dat.ctrl.what_stat, obs_dist, *trans_func_dist);
+
+#ifdef MSSM_DEBUG
+  auto gen_err_msg = []
+  (const unsigned expected_size, const unsigned actual_size){
+    throw std::runtime_error("incorrect 'util.stat_dim'. Size is " +
+                             std::to_string(actual_size) + " but expected " +
+                             std::to_string(expected_size));
+  };
+
+  if(util.stat_dim != (int)new_cloud.dim_stats())
+    gen_err_msg(util.stat_dim, new_cloud.dim_stats());
+  if(old_cloud and util.stat_dim != (int)old_cloud->dim_stats())
+    gen_err_msg(util.stat_dim, old_cloud->dim_stats());
+#endif
 
   /* flip sign of weights. Assumes that they are the log density of the
    * proposal distribution */

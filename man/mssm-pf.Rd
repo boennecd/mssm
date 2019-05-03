@@ -25,7 +25,7 @@ during particle filtering. Zero yields no information.}
 \item{seed}{integer to pass to \code{\link{set.seed}}. The seed is not set
 if the argument is \code{NULL}.}
 
-\item{what, N_part}{as as in \code{\link{mssm_control}}.}
+\item{what, N_part}{same as in \code{\link{mssm_control}}.}
 }
 \value{
 An object of class \code{mssm} with the following elements
@@ -49,15 +49,8 @@ matrix. See the examples in the README at
 \url{https://github.com/boennecd/mssm}.
 
 If an approximation of the observed information matrix is requested then
-each of the two gradient parts for the state equation and observational
-equation are followed by the corresponding elements
-of the approximation of the observed information matrix. That is, if we
-have \eqn{p} fixed coefficient then the first \eqn{p} elements is the
-gradient elements and the next \eqn{p^2} elements is the first block diagonal
-matrix of the observed information matrix. Next, if we have a \eqn{q}
-dimensional state vector then the first \eqn{q^2 + q(q + 1) /2} elements
-are the gradient w.r.t. the parameters and the remaining elements is the
-last block matrix of the observed information matrix.
+it's components are given after the gradient elements in the
+\code{stats} object.
 }
 \description{
 Function returned from \code{\link{mssm}} which can be used to perform

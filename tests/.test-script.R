@@ -137,13 +137,18 @@ adam <- function(
 get_grad_n_obs_info <- function(object){
   stopifnot(inherits(object, "mssm"))
 
-  # get dimension of the different components
-  n_fix <- nrow(object$X)
-  n_rng <- nrow(object$Z)
-  dim_fix <- n_fix
-  dim_F   <- n_rng * n_rng
-  dim_Q   <- (n_rng * (n_rng  + 1L)) / 2L
+  # get dimension of the components
+  n_rng   <- nrow(object$Z)
+  dim_fix <- nrow(object$X)
+  dim_rng <- n_rng * n_rng + ((n_rng + 1L) * n_rng) / 2L
 
+  # create vector with dimension names
+  di_names <- row.names(object$X)
+  di_names <- c(
+    di_names, paste0("F", outer(1:n_rng, 1:n_rng, paste, sep = ".")))
+  Q_names  <- outer(1:n_rng, 1:n_rng, paste, sep = ".")
+  di_names <- c(
+    di_names, paste0("Q", Q_names[lower.tri(Q_names, diag = TRUE)]))
 
   # get quantities for each particle
   quants <- tail(object$pf_output, 1L)[[1L]]$stats
@@ -152,21 +157,15 @@ get_grad_n_obs_info <- function(object){
   # get mean estimates
   meas <- colSums(t(quants) * drop(exp(ws)))
 
-  # separate out the different components. Start with parameters for
-  # the conditional density of the outcome given the state vector
-  idx <- 1:n_fix
-  dg  <- meas[idx]
-  idx <- max(idx) + 1:(n_fix * n_fix)
-  ddg <- matrix(meas[idx], n_fix, n_fix)
+  # separate out the different components. Start with the gradient
+  idx <- dim_fix + dim_rng
+  grad <- structure(meas[1:idx], names = di_names)
 
-  # then the parameters for the conditional density of the state vector given
-  # the previous
-  idx <- max(idx) + 1:(dim_F + dim_Q)
-  df <- meas[idx]
-  idx <- max(idx) + 1:((dim_F + dim_Q) * (dim_F + dim_Q))
-  ddf <- matrix(meas[idx], dim_F + dim_Q, dim_F + dim_Q)
+  # then the observed information matrix
+  hess <- matrix(
+    meas[-(1:idx)], dim_fix + dim_rng, dimnames = list(di_names, di_names))
 
-  list(dg = dg, ddg = ddg, df = df, ddf = ddf)
+  list(grad = grad, hess = hess)
 }
 
 #####
@@ -288,14 +287,14 @@ logLik(o)
 
 #####
 # binomial w/ logit
-n_periods <- 100L
+n_periods <- 1000L
 F. <- matrix(c(.5, .1, 0, .8), 2L)
 Q <- matrix(c(.5^2, -.5^2, -.5^2, .7^2), 2L)
 Q0 <- mssm:::.get_Q0(Q, F.)
 cfix <- c(-1, .2, .5)
 n_obs <- 100L
 
-set.seed(78727270)
+set.seed(78727271)
 betas <- .get_beta(Q, Q0, F., n_periods)
 dat <- .get_dat(
   cfix, betas,
@@ -310,7 +309,7 @@ ll_func <- mssm(
 sta <- coef(glm(y ~ x  + Z, binomial(), dat))
 system.time(
   res <- adam(
-    ll_func, F. = diag(.5, 2), Q = diag(1, 2), cfix = sta, verbose = TRUE,
+    ll_func, F. = F., Q = Q, cfix = cfix, verbose = TRUE,
     n_it = 200L, lr = .005))
 
 res$F.
@@ -330,7 +329,7 @@ matplot(t(po$means), type = "l", lty = 2, add = TRUE)
 
 #####
 # binomial w/ logit and grouped data
-n_periods <- 400L
+n_periods <- 1000L
 F. <- matrix(c(.5, .1, 0, .8), 2L)
 Q <- matrix(c(.5^2, -.5^2, -.5^2, .7^2), 2L)
 Q0 <- mssm:::.get_Q0(Q, F.)
@@ -373,8 +372,8 @@ logLik(ll_func$pf_filter(cfix = sta, F. = diag(1e-5, 2), disp = numeric(),
 
 system.time(
   res <- adam(
-    ll_func, F. = diag(.5, 2), Q = diag(1, 2), cfix = sta, verbose = TRUE,
-    n_it = 200L, lr = .01))
+    ll_func, F. = F., Q = Q, cfix = cfix, verbose = TRUE,
+    n_it = 50L, lr = .01))
 
 plot(res$logLik)
 plot(tail(res$logLik, 50))
@@ -384,11 +383,10 @@ o <- ll_func$pf_filter(
   what = "Hessian", N_part = 5000L)
 
 he <- get_grad_n_obs_info(o)
+sqrt(diag(solve(-he$hess)))
 res$cfix
-sqrt(diag(solve(-he$ddg)))
-sqrt(diag(vcov(glm_fit)))
-c(res$F., res$Q)
-sqrt(diag(solve(-he$ddf)))
+res$F.
+res$Q
 
 #####
 # binomial w/ cloglog
