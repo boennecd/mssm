@@ -8,7 +8,7 @@
   betas
 }
 
-.get_dat <- function(cfix, betas, sample_func, trans_func){
+.get_dat <- function(cfix, betas, sample_func, trans_func, foffset = NULL){
   n_periods <- nrow(betas)
   n_rng <- ncol(betas)
   n_fix <- length(cfix) - n_rng
@@ -17,10 +17,16 @@
     x <- matrix(runif(n_periods * n_fix, -1, 1), nc = n_fix)
     z <- matrix(runif(n_periods * (n_rng - 1L), -1, 1), nc = n_rng - 1L)
 
-    eta <- drop(cbind(1, x, z) %*% cfix + rowSums(cbind(1, z) * betas))
+    offs <- if(!is.null(foffset))
+      foffset(n_periods) else 0.
+
+    eta <- drop(cbind(1, x, z) %*% cfix + rowSums(cbind(1, z) * betas)) +
+      offs
+
     y <- sample_func(n_periods, trans_func(eta))
     keep <- .5 > runif(n_periods)
-    data.frame(y = y, x, Z = z, id = id, time_idx = 1:n_periods)[keep, ]
+    data.frame(y = y, x, Z = z, id = id, time_idx = 1:n_periods,
+               offs = offs)[keep, ]
   })
   dat <- do.call(rbind, dat)
 }
@@ -201,6 +207,50 @@ c(res$F., res$Q)
 sqrt(diag(solve(-he$ddf)))
 
 #####
+# poisson w/ log link and offsets
+n_periods <- 100L
+F. <- matrix(c(.5, .3, 0, .8), 2L)
+Q <- matrix(c(.5^2, -.5^2, -.5^2, .7^2), 2L)
+Q0 <- mssm:::.get_Q0(Q, F.)
+cfix <- c(-1, .2, .5)
+n_obs <- 20L
+
+set.seed(78727270)
+betas <- .get_beta(Q, Q0, F., n_periods)
+dat <- .get_dat(cfix, betas, sample_func = rpois, trans_func = exp,
+                foffset = function(n) rnorm(n))
+
+(sta <- coef(glm_fit <- glm(y ~ x  + Z, poisson(), dat, offset = offs)))
+
+ll_func <- mssm(
+  fixed = y ~ x + Z, family = poisson(), data = dat,
+  random = ~ Z, ti = time_idx, control = mssm_control(
+    n_threads = 5L, N_part = 1000L, what = "gradient",
+    which_ll_cp = "KD", aprx_eps = 1e-2))
+
+logLik(glm_fit)
+logLik(ll_func$pf_filter(cfix = sta, disp = numeric(), F. = diag(.001, 2),
+                         Q = diag(1e-8, 2)))
+
+system.time(
+  res <- adam(
+    ll_func, F. = diag(.5, 2), Q = diag(1, 2), cfix = sta, verbose = TRUE,
+    n_it = 200L, lr = .01))
+
+plot(res$logLik)
+res$F.
+res$Q
+
+o <- ll_func$pf_filter(
+  cfix = res$cfix, F. = res$F., disp = numeric(), Q = res$Q, what = "Hessian",
+  N_part = 2000L)
+o <- get_grad_n_obs_info(o)
+res$cfix
+sqrt(diag(solve(-o$ddg)))
+c(res$F., res$Q)
+sqrt(diag(solve(-o$ddf)))
+
+#####
 # poisson w/ sqrt
 n_periods <- 200L
 F. <- matrix(c(.5, .1, 0, .8), 2L)
@@ -277,6 +327,68 @@ plot(get_ess(o))
 po <- plot(o)
 matplot(betas, type = "l", lty = 1)
 matplot(t(po$means), type = "l", lty = 2, add = TRUE)
+
+#####
+# binomial w/ logit and grouped data
+n_periods <- 400L
+F. <- matrix(c(.5, .1, 0, .8), 2L)
+Q <- matrix(c(.5^2, -.5^2, -.5^2, .7^2), 2L)
+Q0 <- mssm:::.get_Q0(Q, F.)
+cfix <- c(-1, .2, .5)
+n_obs <- 100L
+
+set.seed(78727270)
+betas <- .get_beta(Q, Q0, F., n_periods)
+dat <- local({
+  n_periods <- nrow(betas)
+  n_rng <- ncol(betas)
+  n_fix <- length(cfix) - n_rng
+
+  dat <- lapply(1:n_obs, function(id){
+    size <- sample.int(9L, n_periods, replace = TRUE) + 1L
+    x <- matrix(runif(n_periods * n_fix, -1, 1), nc = n_fix)
+    z <- matrix(runif(n_periods * (n_rng - 1L), -1, 1), nc = n_rng - 1L)
+
+    eta <- drop(cbind(1, x, z) %*% cfix + rowSums(cbind(1, z) * betas))
+    y <- rbinom(n_periods, size = size, prob = (1 + exp(-eta))^(-1))
+
+    keep <- .5 > runif(n_periods)
+    data.frame(
+      y = y, x, Z = z, id = id, time_idx = 1:n_periods, size = size)[keep, ]
+  })
+  dat <- do.call(rbind, dat)
+})
+
+(sta <- coef(
+  glm_fit <- glm(I(y/size) ~ x  + Z, binomial("logit"), weights = size, dat)))
+ll_func <- mssm(
+  fixed = I(y/size) ~ x + Z, family = binomial("logit"), data = dat,
+  weights = size, random = ~ Z, ti = time_idx, control = mssm_control(
+    n_threads = 5L, N_part = 1000L, what = "gradient",
+    which_ll_cp = "KD", aprx_eps = .1, covar_fac = 2))
+
+logLik(glm_fit)
+logLik(ll_func$pf_filter(cfix = sta, F. = diag(1e-5, 2), disp = numeric(),
+                         Q = diag(1e-8, 2)))
+
+system.time(
+  res <- adam(
+    ll_func, F. = diag(.5, 2), Q = diag(1, 2), cfix = sta, verbose = TRUE,
+    n_it = 200L, lr = .01))
+
+plot(res$logLik)
+plot(tail(res$logLik, 50))
+
+o <- ll_func$pf_filter(
+  cfix = res$cfix, F. = res$F., Q = res$Q, disp = numeric(), seed = NULL,
+  what = "Hessian", N_part = 5000L)
+
+he <- get_grad_n_obs_info(o)
+res$cfix
+sqrt(diag(solve(-he$ddg)))
+sqrt(diag(vcov(glm_fit)))
+c(res$F., res$Q)
+sqrt(diag(solve(-he$ddf)))
 
 #####
 # binomial w/ cloglog

@@ -1,5 +1,26 @@
 context("Test versus old results for 'mssm' methods")
 
+prep_for_test <- function(obj){
+  N <- length(obj$pf_output)
+  ta <- obj$pf_output[[N]]
+  if(length(ta$stats) > 0L){
+    # add gradient and set stats to NA
+    gr <- colSums(t(ta$stats) * drop(exp(ta$ws_normalized)))
+    obj$pf_output[[N]]$stats <- ta$stats[0L, ]
+
+  } else
+    gr <- NULL
+
+  obj$pf_output <- lapply(obj$pf_output, function(x)
+    lapply(x[names(x) != "gr"], function(z){
+      if(NROW(z) < NCOL(z))
+        z <- t(z)
+      rbind(head(z, 2L), tail(z, 2L))
+    }))
+  obj$pf_output[[N]]$gr <- gr
+  obj
+}
+
 get_test_expr <- function(data, label, family, alway_hess = FALSE){
   substitute({
   ctrl <- mssm_control(N_part = 100L, n_threads = 2L, seed = 26545947)
@@ -17,26 +38,6 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE){
     cfix = dat$cfix, F. = dat$F., Q = dat$Q,
     disp = disp)
 
-  prep_for_test <- function(obj){
-    N <- length(obj$pf_output)
-    ta <- obj$pf_output[[N]]
-    if(length(ta$stats) > 0L){
-      # add gradient and set stats to NA
-      gr <- colSums(t(ta$stats) * drop(exp(ta$ws_normalized)))
-      obj$pf_output[[N]]$stats <- ta$stats[0L, ]
-
-    } else
-      gr <- NULL
-
-    obj$pf_output <- lapply(obj$pf_output, function(x)
-      lapply(x[names(x) != "gr"], function(z){
-        if(NROW(z) < NCOL(z))
-          z <- t(z)
-        rbind(head(z, 2L), tail(z, 2L))
-      }))
-    obj$pf_output[[N]]$gr <- gr
-    obj
-  }
   func_out_org <- func_out
   func_out <- prep_for_test(func_out)
   expect_known_value(
@@ -158,11 +159,13 @@ test_that(
 
 test_that(
   "get the same with 'binomial_cloglog'",
-  eval(get_test_expr(binomial_cloglog, "binomial-cloglog", binomial("cloglog"))))
+  eval(get_test_expr(
+    binomial_cloglog, "binomial-cloglog", binomial("cloglog"))))
 
 test_that(
   "get the same with 'binomial_probit'",
-  eval(get_test_expr(binomial_probit, "binomial-probit", binomial("probit"))))
+  eval(get_test_expr(
+    binomial_probit, "binomial-probit", binomial("probit"))))
 
 test_that(
   "get the same with 'Gamma_log'",
@@ -178,4 +181,33 @@ test_that(
 
 test_that(
   "get the same with 'gaussian_inverse'",
-  eval(get_test_expr(gaussian_inverse, "gaussian-inverse", gaussian("inverse"))))
+  eval(get_test_expr(
+    gaussian_inverse, "gaussian-inverse", gaussian("inverse"))))
+
+test_that("gets the same with Poisson data with offsets", {
+  ctrl <- mssm_control(N_part = 100L, n_threads = 2L, seed = 26545947)
+  poisson_log$data$offs <-
+    (1:nrow(poisson_log$data)) / nrow(poisson_log$data) - .5
+
+  ll_func <- mssm(
+    fixed = y ~ x + Z, random = ~ Z, family = poisson("log"),
+    offsets = offs, data = poisson_log$data, ti = time_idx)
+
+  out <- with(
+    poisson_log, ll_func$pf_filter(cfix = cfix, disp = numeric(), F. = F., Q = Q))
+  out <- prep_for_test(out)
+  expect_known_value(out, "poisson-log-w-offsets.RDS")
+})
+
+test_that("gets the same with binomial data with weights", {
+  ctrl <- mssm_control(N_part = 100L, n_threads = 2L, seed = 26545947)
+
+  ll_func <- mssm(
+    fixed = I(y/size) ~ x + Z, random = ~ Z, family = binomial(),
+    weights = size, data = binomial_logit_grouped, ti = time_idx)
+
+  out <- with(
+    poisson_log, ll_func$pf_filter(cfix = cfix, disp = numeric(), F. = F., Q = Q))
+  out <- prep_for_test(out)
+  expect_known_value(out, "binomial-logit-grouped-w-weights.RDS")
+})

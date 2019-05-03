@@ -1,5 +1,4 @@
 Test output with bootstrap method
 Add smoothing method
-Test output with offsets and weights
 Better `logLik` method implementation
 Test that method works when there are time points with no observations

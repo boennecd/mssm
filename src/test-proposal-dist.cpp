@@ -9,7 +9,7 @@
 
       ll <- function(mea)
         switch(family$family,
-          "binomial" = sum(w * dbinom(y, 1L, mea, log = TRUE)),
+          "binomial" = sum(dbinom(y * w, w, mea, log = TRUE)),
           "poisson"  = sum(w * dpois(y, mea, log = TRUE)),
           "Gamma"    = sum(w * dgamma(y, 1/disp, scale = mea * disp, log = TRUE)),
           "gaussian" = sum(w * dnorm(y, mea, sd = sqrt(disp), log = TRUE)),
@@ -173,18 +173,19 @@ void test_func
 context("Test mode_approximation") {
   test_that("Test mode_approximation with binomial_logit") {
     /*  R code
-     y <- c(1, 1, 1, 0, 0)
+     y <- c(1, 1, 2, 0, 1)
      X <- matrix(c(0.51, 0.49, 0.38, 0.45, 0.078, 0.61, 0.14, 0.34, 0.56, 0.072), ncol = 2L, byrow = TRUE)
      cfix <- c(.5, -.3)
      Z <- matrix(c(0.19, 0.032, 0.96, 0.87, 0.65, 0.89, 0.12, 0.96, 0.51, 0.91), ncol = 2L, byrow = TRUE)
      w <- c(1, 1, 2, 1, 3)
+     dput(y <- y / w)
      Q <- matrix(c(4, 2, 2, 6), 2L)
      offs <- c(0.6, 0.92, 0.9, 0.32, 0.11)
      mu <- c(-1, 1)
      func(y = y, X = X, cfix = cfix, Z = Z, w = w, Q = Q, mu = mu, family = binomial("logit"), offs = offs)
      */
     test_func<binomial_logit>(
-      create_vec<5L>({1, 1, 1, 0, 0}),
+      create_vec<5L>({1, 1, 1, 0, 0.333333333333333}),
       create_mat<2L, 5L>({0.51, 0.49, 0.38, 0.45, 0.078, 0.61, 0.14, 0.34, 0.56, 0.072}),
       create_vec<2L>({.5, -.3}),
       create_mat<2L, 5L>({0.19, 0.032, 0.96, 0.87, 0.65, 0.89, 0.12, 0.96, 0.51, 0.91}),
@@ -193,27 +194,28 @@ context("Test mode_approximation") {
       create_mat<2L, 2L>({4, 2, 2, 6}),
       create_vec<5L>({ 0.6, 0.92, 0.9, 0.32, 0.11 }),
       create_vec<2L>({-1, 1}),
-      create_vec<2L>({-0.258260431468893, -0.536885689732472}),
-      create_mat<2L, 2L>({1.72869439861343, -0.817859451565818, -0.817859451565818, 1.00457591787154}),
-      create_vec<2L>({ -0.913816462483681, 0.235381274400983 }),
-      create_mat<2L, 2L>({ -0.299857413439919, -0.147059696954301, -0.147059696954301, -0.268891531233221 })
+      create_vec<2L>({ -0.108347603592228, -0.0385530861670482 }),
+      create_mat<2L, 2L>({ 1.77015319261325, -0.806846139429892, -0.806846139429893, 1.01166064584202 }),
+      create_vec<2L>({ -0.353816462390114, 0.307381274122112 }),
+      create_mat<2L, 2L>({ -0.299857413431918, -0.147059696961003, -0.147059696961003, -0.268891531492241 })
     );
   }
 
   test_that("Test mode_approximation with binomial_cloglog") {
     /*  R code
-    y <- c(1, 1, 1, 0, 0)
+    y <- c(1, 1, 2, 0, 1)
     X <- matrix(c(0.51, 0.49, 0.38, 0.45, 0.078, 0.61, 0.14, 0.34, 0.56, 0.072), ncol = 2L, byrow = TRUE)
     cfix <- c(.5, -.3)
     Z <- matrix(c(0.19, 0.032, 0.96, 0.87, 0.65, 0.89, 0.12, 0.96, 0.51, 0.91), ncol = 2L, byrow = TRUE)
     w <- c(1, 1, 2, 1, 3)
+    dput(y <- y / w)
     Q <- matrix(c(4, 2, 2, 6), 2L)
     offs <- c(0.6, 0.92, 0.9, 0.32, 0.11)
     mu <- c(-1, 1)
     func(y = y, X = X, cfix = cfix, Z = Z, w = w, Q = Q, mu = mu, family = binomial("cloglog"), offs = offs)
     */
     test_func<binomial_cloglog>(
-      create_vec<5L>({1, 1, 1, 0, 0}),
+      create_vec<5L>({1, 1, 1, 0, 0.333333333333333}),
       create_mat<2L, 5L>({0.51, 0.49, 0.38, 0.45, 0.078, 0.61, 0.14, 0.34, 0.56, 0.072}),
       create_vec<2L>({.5, -.3}),
       create_mat<2L, 5L>({0.19, 0.032, 0.96, 0.87, 0.65, 0.89, 0.12, 0.96, 0.51, 0.91}),
@@ -222,27 +224,28 @@ context("Test mode_approximation") {
       create_mat<2L, 2L>({4, 2, 2, 6}),
       create_vec<5L>({ 0.6, 0.92, 0.9, 0.32, 0.11 }),
       create_vec<2L>({-1, 1}),
-      create_vec<2L>({-0.0963723669234773, -0.945471747557031}),
-      create_mat<2L, 2L>({1.51739165055043, -0.747584786238312, -0.747584786238312, 0.713986160683541}),
-      create_vec<2L>({ -3.74564360775489, -0.991734308708669 }),
-      create_mat<2L, 2L>({ -2.25709474934536, -0.612503573039887, -0.612503573039887, -0.842339622167918 })
+      create_vec<2L>({ 0.028263372927748, -0.607925854870125 }),
+      create_mat<2L, 2L>({ 1.41054525834946, -0.692233490041432, -0.692233490041431, 0.629834595722303 }),
+      create_vec<2L>({ -2.38003778071049, -0.816156416318663 }),
+      create_mat<2L, 2L>({ -1.70821724733621, -0.541933608428215, -0.541933608428215, -0.833266341121643 })
     );
   }
 
   test_that("Test mode_approximation with binomial_probit") {
     /*  R code
-     y <- c(1, 1, 1, 0, 0)
+     y <- c(1, 1, 2, 0, 2)
      X <- matrix(c(0.51, 0.49, 0.38, 0.45, 0.078, 0.61, 0.14, 0.34, 0.56, 0.072), ncol = 2L, byrow = TRUE)
      cfix <- c(.5, -.3)
      Z <- matrix(c(0.19, 0.032, 0.96, 0.87, 0.65, 0.89, 0.12, 0.96, 0.51, 0.91), ncol = 2L, byrow = TRUE)
      w <- c(1, 1, 2, 1, 3)
+     dput(y <- y / w)
      Q <- matrix(c(4, 2, 2, 6), 2L)
      offs <- c(0.6, 0.92, 0.9, 0.32, 0.11)
      mu <- c(-1, 1)
      func(y = y, X = X, cfix = cfix, Z = Z, w = w, Q = Q, mu = mu, family = binomial("probit"), offs = offs)
      */
     test_func<binomial_probit>(
-      create_vec<5L>({1, 1, 1, 0, 0}),
+      create_vec<5L>({1, 1, 1, 0, 0.666666666666667}),
       create_mat<2L, 5L>({0.51, 0.49, 0.38, 0.45, 0.078, 0.61, 0.14, 0.34, 0.56, 0.072}),
       create_vec<2L>({.5, -.3}),
       create_mat<2L, 5L>({0.19, 0.032, 0.96, 0.87, 0.65, 0.89, 0.12, 0.96, 0.51, 0.91}),
@@ -251,10 +254,10 @@ context("Test mode_approximation") {
       create_mat<2L, 2L>({4, 2, 2, 6}),
       create_vec<5L>({ 0.6, 0.92, 0.9, 0.32, 0.11 }),
       create_vec<2L>({-1, 1}),
-      create_vec<2L>({0.114731813326727, -0.77743827278269}),
-      create_mat<2L, 2L>({1.37326636929922, -0.754747097306099, -0.754747097306099, 0.702786380258149}),
-      create_vec<2L>({ -2.06610787478159, -0.104583761594978 }),
-      create_mat<2L, 2L>({ -0.934885230067643, -0.361609507885171, -0.361609507885171, -0.584661997326541 })
+      create_vec<2L>({ 0.296218806751709, -0.0169477214065822 }),
+      create_mat<2L, 2L>({ 1.48694166880951, -0.709302975602664, -0.709302975602664, 0.656500390842832 }),
+      create_vec<2L>({ -0.134981616682794, 0.143703900098055 }),
+      create_mat<2L, 2L>({ -0.725861590804269, -0.334735039906621, -0.334735039906621, -0.581206708842952 })
     );
   }
 

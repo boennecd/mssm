@@ -66,7 +66,6 @@ std::unique_ptr<cdist> problem_data::get_obs_dist(const arma::uword ti) const {
                 << "Z\n" << z;
   }
 
-
   return get_family(
     fam, std::move(y), std::move(x), cfix, std::move(z), &ws_,
     disp, std::move(offs));

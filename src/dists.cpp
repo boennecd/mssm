@@ -207,8 +207,17 @@ void mv_norm_reg::comp_stats_state_state
   tmp = arma::symmatl(tmp);
 }
 
+/* TODO: maybe copy parts of code from r-source/src/nmath/dbinom.c */
+inline double binom_pdf
+  (const double y, const double w, const double mu)
+{
+  if(w == 1.)
+    return y * log(mu) + (1. - y) * log1p(-mu);
+  return R::dbinom(std::lround(y * w), w, mu, 1L);
+}
+
 std::array<double, 3> binomial_logit::log_density_state_inner
-  (const double y, const double eta, const comp_out what) const
+  (const double y, const double eta, const comp_out what, const double w) const
 {
   gaurd_new_comp_out(what);
 
@@ -218,18 +227,18 @@ std::array<double, 3> binomial_logit::log_density_state_inner
   const double expp1 = eta_exp + 1;
   const double mu = eta_exp / expp1;
 
-  out[0L] = y * log(mu) + (1. - y) * log1p(-mu);
+  out[0L] = binom_pdf(y, w, mu);
   if(what == gradient or what == Hessian){
-    out[1L] = (eta_exp * (y - 1) + y) / expp1;
+    out[1L] = w * (eta_exp * (y - 1) + y) / expp1;
     if(what == Hessian)
-      out[2L] = - eta_exp / expp1 / expp1;
+      out[2L] = - w * eta_exp / expp1 / expp1;
   }
 
   return out;
 }
 
 std::array<double, 3> binomial_cloglog::log_density_state_inner
-  (const double y, const double eta, const comp_out what) const
+  (const double y, const double eta, const comp_out what, const double w) const
 {
   gaurd_new_comp_out(what);
 
@@ -245,14 +254,14 @@ std::array<double, 3> binomial_cloglog::log_density_state_inner
   const double eta_exp = exp(eta_use);
   const double mu = -std::expm1(-eta_exp);
 
-  out[0L] = y * log(mu) + (1. - y) * log1p(-mu);
+  out[0L] = binom_pdf(y, w, mu);
   if(what == gradient or what == Hessian){
     /* TODO: maybe issues with cancellation */
-    out[1L] = (y - mu) / mu * eta_exp;
+    out[1L] = w * (y - mu) / mu * eta_exp;
     if(what == Hessian){
       const double mumu   = mu * mu;
       /* TODO: maybe issues with cancellation */
-      out[2L] = eta_exp / mumu * (y * (eta_exp * (mu - 1) + mu) - mumu);
+      out[2L] = w * eta_exp / mumu * (y * (eta_exp * (mu - 1) + mu) - mumu);
     }
   }
 
@@ -260,7 +269,7 @@ std::array<double, 3> binomial_cloglog::log_density_state_inner
 }
 
 std::array<double, 3> binomial_probit::log_density_state_inner
-  (const double y, const double eta, const comp_out what) const
+  (const double y, const double eta, const comp_out what, const double w) const
 {
   gaurd_new_comp_out(what);
 
@@ -273,17 +282,17 @@ std::array<double, 3> binomial_probit::log_density_state_inner
   const double eta_use = MAX(MIN(eta, eta_upper), eta_lower);
   const double mu = R::pnorm5(eta_use, 0, 1, 1, 0);
 
-  out[0L] = y * log(mu) + (1. - y) * log1p(-mu);
+  out[0L] = binom_pdf(y, w, mu);
   if(what == gradient or what == Hessian){
     static constexpr double norm_const = 1. / sqrt(2. * M_PI);
     const double
       dmu_deta = norm_const * exp(-eta_use * eta_use / 2.),
       denom = mu * (1 - mu),
       dy_dmu = (y - mu) / denom;
-    out[1L] = dy_dmu * dmu_deta;
+    out[1L] = w * dy_dmu * dmu_deta;
     if(what == Hessian)
       out[2L] =
-        (2 * y * mu - mu * mu - y) / (denom * denom) * dmu_deta * dmu_deta -
+        w * (2 * y * mu - mu * mu - y) / (denom * denom) * dmu_deta * dmu_deta -
         out[1L] * eta_use;
   }
 
@@ -291,7 +300,7 @@ std::array<double, 3> binomial_probit::log_density_state_inner
 }
 
 std::array<double, 3> poisson_log::log_density_state_inner
-  (const double y, const double eta, const comp_out what) const
+  (const double y, const double eta, const comp_out what, const double w) const
 {
   gaurd_new_comp_out(what);
 
@@ -304,18 +313,19 @@ std::array<double, 3> poisson_log::log_density_state_inner
     /* TODO: maybe look at aproximation used in r-source/src/nmath/dpois.c */
       return y * eta - lambda - std::lgamma(y + 1.);
   })();
+  out[0] *= w;
 
   if(what == gradient or what == Hessian)
-    out[1] = y - lambda;
+    out[1] = w * (y - lambda);
 
   if(what == Hessian)
-    out[2] = - lambda;
+    out[2] = - w * lambda;
 
   return out;
 }
 
 std::array<double, 3> poisson_sqrt::log_density_state_inner
-  (const double y, const double eta, const comp_out what) const
+  (const double y, const double eta, const comp_out what, const double w) const
 {
   gaurd_new_comp_out(what);
 
@@ -328,12 +338,13 @@ std::array<double, 3> poisson_sqrt::log_density_state_inner
     /* TODO: maybe look at aproximation used in r-source/src/nmath/dpois.c */
     return y * log(lambda) - lambda - std::lgamma(y + 1.);
   })();
+  out[0] *= w;
 
   if(what == gradient or what == Hessian)
-    out[1] = y2 / eta - 2. * eta;
+    out[1] = w * (y2 / eta - 2. * eta);
 
   if(what == Hessian)
-    out[2] = - y2 / lambda  - 2.;
+    out[2] = - w * (y2 / lambda + 2.);
 
   return out;
 }
@@ -354,7 +365,7 @@ arma::vec* Gamma_log::set_disp(const arma::vec &in_vec){
 }
 
 std::array<double, 3> Gamma_log::log_density_state_inner
-  (const double y, const double eta, const comp_out what) const
+  (const double y, const double eta, const comp_out what, const double w) const
 {
   gaurd_new_comp_out(what);
 
@@ -369,12 +380,13 @@ std::array<double, 3> Gamma_log::log_density_state_inner
   out[0] =
    - std::lgamma(shape) - shape * log_scale  + (shape - 1) * log_y -
    y / scale;
+  out[0] *= w;
 
   if(what == gradient or what == Hessian)
-    out[1] = - shape + y / scale;
+    out[1] = - w * (shape - y / scale);
 
   if(what == Hessian)
-    out[2] = - y / scale;
+    out[2] = - w * y / scale;
 
   return out;
 }
@@ -384,7 +396,7 @@ arma::vec* gaussian_identity::set_disp(const arma::vec &in_vec){
 }
 
 std::array<double, 3> gaussian_identity::log_density_state_inner
-  (const double y, const double eta, const comp_out what) const
+  (const double y, const double eta, const comp_out what, const double w) const
 {
   gaurd_new_comp_out(what);
 
@@ -395,11 +407,12 @@ std::array<double, 3> gaussian_identity::log_density_state_inner
   std::array<double, 3> out;
 
   out[0L] = norm_term - .5 * log_var - diff * diff / (2.  * var);
+  out[0L] *= w;
   if(what == gradient or what == Hessian)
-    out[1L] = diff / var;
+    out[1L] = w * diff / var;
 
   if(what == Hessian)
-    out[2L] = - 1. / var;
+    out[2L] = - w / var;
 
   return out;
 }
@@ -409,7 +422,7 @@ arma::vec* gaussian_log::set_disp(const arma::vec &in_vec){
 }
 
 std::array<double, 3> gaussian_log::log_density_state_inner
-  (const double y, const double eta, const comp_out what) const
+  (const double y, const double eta, const comp_out what, const double w) const
 {
   gaurd_new_comp_out(what);
 
@@ -424,11 +437,12 @@ std::array<double, 3> gaussian_log::log_density_state_inner
   std::array<double, 3> out;
 
   out[0L] = norm_term - .5 * log_var - diff * diff / (2.  * var);
+  out[0L] *= w;
   if(what == gradient or what == Hessian)
-    out[1L] = diff / var * mu;
+    out[1L] = w * diff / var * mu;
 
   if(what == Hessian)
-    out[2L] = (y - 2 * mu) * mu / var;
+    out[2L] = w * (y - 2 * mu) * mu / var;
 
   return out;
 }
@@ -438,7 +452,7 @@ arma::vec* gaussian_inverse::set_disp(const arma::vec &in_vec){
 }
 
 std::array<double, 3> gaussian_inverse::log_density_state_inner
-  (const double y, const double eta, const comp_out what) const
+  (const double y, const double eta, const comp_out what, const double w) const
 {
   gaurd_new_comp_out(what);
 
@@ -449,13 +463,13 @@ std::array<double, 3> gaussian_inverse::log_density_state_inner
     mu = 1 / eta, diff = y - mu;
   std::array<double, 3> out;
 
-  out[0L] = norm_term - .5 * log_var - diff * diff / (2.  * var);
+  out[0L] = w * (norm_term - .5 * log_var - diff * diff / (2.  * var));
   if(what == gradient or what == Hessian){
     const double veee = var * eta * eta * eta, ey = eta * y;
-    out[1L] = (1. - ey) / veee;
+    out[1L] = w * (1. - ey) / veee;
 
     if(what == Hessian)
-      out[2L] = (2. * ey - 3.) / (veee * eta);
+      out[2L] = w * (2. * ey - 3.) / (veee * eta);
   }
 
   return out;

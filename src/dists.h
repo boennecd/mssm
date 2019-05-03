@@ -613,7 +613,7 @@ protected:
   /* Given a linear predictor, computes the log density and potentially
    * the derivatives. */
   virtual std::array<double, 3> log_density_state_inner
-    (const double, const double, const comp_out) const = 0;
+    (const double, const double, const comp_out, const double) const = 0;
 
 public:
   virtual ~exp_family() = default;
@@ -670,13 +670,13 @@ public:
         i < eta.n_elem; ++i, ++e, ++w, ++y)
     {
       const std::array<double, 3> log_den_eval =
-        log_density_state_inner(*y, *e, what);
+        log_density_state_inner(*y, *e, what, *w);
 
-      out += *w * log_den_eval[0];
+      out += log_den_eval[0];
       if(compute_gr)
-        *gr += *w * log_den_eval[1] * Z.col(i);
+        *gr += log_den_eval[1] * Z.col(i);
       if(compute_H)
-        arma_dsyr(*H, Z.unsafe_col(i), *w * log_den_eval[2]);
+        arma_dsyr(*H, Z.unsafe_col(i), log_den_eval[2]);
     }
 
     if(compute_H)
@@ -730,12 +730,12 @@ public:
         i < eta.n_elem; ++i, ++e, ++w, ++y)
     {
       const std::array<double, 3> log_den_eval =
-        log_density_state_inner(*y, *e, what);
+        log_density_state_inner(*y, *e, what, *w);
 
       if(compute_gr)
-        gr += *w * log_den_eval[1] * X.col(i);
+        gr += log_den_eval[1] * X.col(i);
       if(compute_H)
-        arma_dsyr(*H, X.unsafe_col(i), *w * log_den_eval[2]);
+        arma_dsyr(*H, X.unsafe_col(i), log_den_eval[2]);
     }
 
     if(compute_H)
@@ -749,7 +749,8 @@ class fname final : public exp_family {                             \
     return nullptr;                                                 \
   }                                                                 \
   std::array<double, 3> log_density_state_inner                     \
-  (const double, const double, const comp_out) const override final;\
+  (const double, const double, const comp_out, const double)        \
+  const override final;                                             \
 public:                                                             \
   fname                                                             \
   (const arma::vec &Y, const arma::mat &X, const arma::vec &cfix,   \
@@ -765,7 +766,8 @@ public:                                                             \
 class fname final : public exp_family {                               \
   arma::vec* set_disp(const arma::vec&) override final;               \
   std::array<double, 3> log_density_state_inner                       \
-  (const double, const double, const comp_out) const override final;  \
+  (const double, const double, const comp_out, const double)          \
+  const override final;                                               \
 public:                                                               \
   fname                                                               \
   (const arma::vec &Y, const arma::mat &X, const arma::vec &cfix,     \
