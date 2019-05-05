@@ -17,6 +17,8 @@ struct Laplace_aprx_output {
   unsigned n_it;
   int code;
 };
-Laplace_aprx_output Laplace_aprx(problem_data&);
+Laplace_aprx_output Laplace_aprx
+  (problem_data&, const double, const double, const double, const double,
+   const unsigned, const unsigned);
 
 #endif

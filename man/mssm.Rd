@@ -33,6 +33,8 @@ Left hand side is ignored.}
 An object of class \code{mssmFunc} with the following elements
 \item{pf_filter}{function to perform particle filtering. See
 \link{mssm-pf}.}
+\item{Laplace}{function to perform parameter estimation with a Laplace
+approximation. See \link{mssm-Laplace}.}
 \item{terms_fixed}{\code{\link{terms.object}} for the covariates with
 fixed effects.}
 \item{terms_random}{\code{\link{terms.object}} for the covariates with

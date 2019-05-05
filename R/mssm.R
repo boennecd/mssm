@@ -20,6 +20,8 @@
 #' An object of class \code{mssmFunc} with the following elements
 #' \item{pf_filter}{function to perform particle filtering. See
 #' \link{mssm-pf}.}
+#' \item{Laplace}{function to perform parameter estimation with a Laplace
+#' approximation. See \link{mssm-Laplace}.}
 #' \item{terms_fixed}{\code{\link{terms.object}} for the covariates with
 #' fixed effects.}
 #' \item{terms_random}{\code{\link{terms.object}} for the covariates with
@@ -167,10 +169,15 @@ mssm <- function(
       fam = fam, mu0 = mu0, n_threads = control$n_threads, nu = control$nu,
       covar_fac = control$covar_fac, ftol_rel = control$ftol_rel,
       N_part = N_part, what = what, trace, KD_N_max = control$KD_N_max,
-      aprx_eps = control$aprx_eps)
+      aprx_eps = control$aprx_eps,
+
+      ftol_abs = control$ftol_abs, la_ftol_rel = control$la_ftol_rel,
+      ftol_abs_inner = control$ftol_abs_inner,
+      la_ftol_rel_inner = control$la_ftol_rel_inner,
+      maxeval = control$maxeval, maxeval_inner = control$maxeval_inner)
     out$cfix <- drop(out$cfix)
 
-    structure(c(list(Laplace = out), output_list), class = "mssmLaplace")
+    structure(c(out, output_list), class = "mssmLaplace")
   }
 
   # set defaults
@@ -181,6 +188,12 @@ mssm <- function(
     c(list(pf_filter = out_func, Laplace = Laplace),
       output_list), class = "mssmFunc")
 }
+
+.is.num.le1 <- function(x)
+  is.numeric(x) && length(x) == 1L
+
+.is.int.le1 <- function(x)
+  is.integer(x) && length(x) == 1L
 
 #' @title Particle Filter Function for Multivariate State Space Model
 #' @name mssm-pf
@@ -214,7 +227,8 @@ mssm <- function(
 #' and
 #' \code{ws_normalized:} normalized log particle weights for the filtering
 #' distribution.}
-#' \item{remaining elements}{same as return by \code{\link{mssm}}.}
+#'
+#' Remaining elements are the same as returned by \code{\link{mssm}}.
 #'
 #' If gradient approximation is requested then the first elements of
 #' \code{stats} are w.r.t. the fixed coefficients, the next elements are
@@ -227,6 +241,43 @@ mssm <- function(
 #' If an approximation of the observed information matrix is requested then
 #' it's components are given after the gradient elements in the
 #' \code{stats} object.
+#'
+#' @seealso
+#' \code{\link{mssm}}.
+NULL
+
+#' @title Parameter Estimation with Laplace Approximation for Multivariate
+#' State Space Model
+#' @name mssm-Laplace
+#' @description
+#' Function returned from \code{\link{mssm}} which can be used to perform
+#' parameter estimation with a Laplace approximation.
+#'
+#' @param cfix starting values for coefficient for fixed effects.
+#' @param disp additional parameters for the family (e.g., a dispersion
+#' parameter).
+#' @param F. starting values for matrix in the transition density of the state
+#' vector.
+#' @param Q starting values for covariance matrix in the transition density
+#' of the state vector.
+#' @param Q0 unused.
+#' @param mu0 unused.
+#' @param trace integer controlling whether information should be printed
+#' during parameter estimation. Zero yields no information.
+#'
+#' @return
+#' An object of class \code{mssmLaplace} with the following elements
+#' \item{F.}{estimate of \code{F.}.}
+#' \item{Q}{estimate of \code{Q}.}
+#' \item{cfix}{estimate of \code{cfix}.}
+#' \item{logLik}{approximate log-likelihood at estimates.}
+#' \item{n_it}{number of Laplace approximations.}
+#' \item{code}{returned code from \code{nlopt}.}
+#'
+#' Remaining elements are the same as returned by \code{\link{mssm}}.
+#'
+#' @seealso
+#' \code{\link{mssm}}.
 NULL
 
 #' @title Auxiliary for Controlling Multivariate State Space Model Fitting
@@ -261,6 +312,10 @@ NULL
 #' method is used.
 #' @param aprx_eps positive numeric scalar with the maximum error if the
 #' dual k-d tree method is used.
+#' @param ftol_abs,ftol_abs_inner,la_ftol_rel,la_ftol_rel_inner,maxeval,maxeval_inner
+#' scalars passed to \code{nlopt} when in estimation with Laplace approximation.
+#' The \code{_inner} denotes the value passed in the mode estimation.
+#'
 #'
 #' @seealso
 #' See README of the package for details of the dual k-d tree method
@@ -270,12 +325,14 @@ NULL
 mssm_control <- function(
   N_part = 1000L, n_threads = 1L, covar_fac = 1.2, ftol_rel = 1e-6, nu = 8.,
   what = "log_density", which_sampler = "mode_aprx", which_ll_cp = "no_aprx",
-  seed = 1L, KD_N_max = 10L, aprx_eps = 1e-3){
+  seed = 1L, KD_N_max = 10L, aprx_eps = 1e-3, ftol_abs = 1e-4,
+  ftol_abs_inner = 1e-4, la_ftol_rel = -1., la_ftol_rel_inner = -1.,
+  maxeval = 10000L, maxeval_inner = 10000L){
   stopifnot(
-    is.integer(n_threads), length(n_threads) == 1L, n_threads > 0L,
-    is.numeric(covar_fac), length(covar_fac) == 1L, covar_fac > 0.,
-    is.numeric(ftol_rel), length(ftol_rel) == 1L, ftol_rel > 0.,
-    is.numeric(nu), length(nu) == 1L, nu > 2. || nu == -1.,
+    .is.num.le1(n_threads), n_threads > 0L,
+    .is.num.le1(covar_fac), covar_fac > 0.,
+    .is.num.le1(ftol_rel), ftol_rel > 0.,
+    .is.num.le1(nu), nu > 2. || nu == -1.,
 
     is.character(which_sampler), length(which_sampler) == 1L,
     which_sampler %in% c("mode_aprx", "bootstrap"),
@@ -284,8 +341,17 @@ mssm_control <- function(
     which_ll_cp %in% c("no_aprx", "KD"),
 
     is.numeric(seed),
-    is.integer(KD_N_max), length(KD_N_max) == 1L, KD_N_max > 1L,
-    is.numeric(aprx_eps), length(aprx_eps) == 1L, aprx_eps > 0.)
+    .is.int.le1(KD_N_max), KD_N_max > 1L,
+    .is.num.le1(aprx_eps), aprx_eps > 0.,
+
+    .is.num.le1(ftol_abs), .is.num.le1(la_ftol_rel),
+    ftol_abs > 0. || la_ftol_rel > 0.,
+
+    .is.num.le1(ftol_abs_inner), .is.num.le1(la_ftol_rel_inner),
+    ftol_abs_inner > 0. || la_ftol_rel_inner > 0.,
+
+    .is.int.le1(maxeval), maxeval > 0L,
+    .is.int.le1(maxeval_inner), maxeval_inner > 0L)
   .is_valid_N_part(N_part)
   .is_valid_what(what)
 
@@ -293,7 +359,9 @@ mssm_control <- function(
     N_part = N_part, n_threads = n_threads, covar_fac = covar_fac,
     ftol_rel = ftol_rel, what = what, which_sampler = which_sampler,
     which_ll_cp = which_ll_cp, nu = nu, seed = seed, KD_N_max = KD_N_max,
-    aprx_eps = aprx_eps)
+    aprx_eps = aprx_eps, ftol_abs = ftol_abs, la_ftol_rel = la_ftol_rel,
+    ftol_abs_inner = ftol_abs_inner, la_ftol_rel_inner = la_ftol_rel_inner,
+    maxeval = maxeval, maxeval_inner = maxeval_inner)
 }
 
 .is_valid_N_part <- function(N_part)
@@ -303,29 +371,6 @@ mssm_control <- function(
   stopifnot(
     is.character(what), length(what) == 1L,
     what %in% c("log_density", "gradient", "Hessian"))
-
-.get_Q0 <- function(Qmat, Fmat){
-  stopifnot(is.matrix(Qmat), is.numeric(Qmat),
-            is.matrix(Fmat), is.numeric(Fmat),
-            all(dim(Qmat) == dim(Fmat)))
-
-  eg  <- eigen(Fmat)
-  las <- eg$values
-  if(any(abs(las) >= 1))
-    stop("Divergent series")
-  U   <- eg$vectors
-  T. <- solve(U, t(solve(U, Qmat)))
-  Z   <- T. / (1 - tcrossprod(las))
-  out <- tcrossprod(U %*% Z, U)
-  if(is.complex(out)){
-    if(all(abs(Im(out)) < .Machine$double.eps^(1/2)))
-      return(Re(out))
-
-    stop("Q_0 has imaginary part")
-  }
-
-  out
-}
 
 #' @title Approximate Log-likelihood for a mssm Object
 #' @description

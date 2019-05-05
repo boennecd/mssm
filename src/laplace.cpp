@@ -1,6 +1,7 @@
 #include "laplace.h"
 #include <functional>
 #include "nlopt.h"
+#include <math.h>
 
 using namespace std::placeholders;
 
@@ -41,7 +42,8 @@ namespace {
   double call_mode_objective(unsigned int, const double*, double*, void*);
   double call_laplace_approx(unsigned int, const double*, double*, void*);
   double call_Q_constraint(unsigned int, const double*, double*, void*);
-  double call_F_constraint(unsigned int, const double*, double*, void*);
+  double call_F_constraint1(unsigned int, const double*, double*, void*);
+  double call_F_constraint2(unsigned int, const double*, double*, void*);
 
   /* Takes a pointer to values of upper diagonal and size of the matrix and
    * return the full dense symmetric matrix */
@@ -69,6 +71,9 @@ namespace {
     double max_ll = -std::numeric_limits<double>::infinity();
     /* counters for number of outer and inner evaluations */
     unsigned it_inner = 0L, it_outer = 0L;
+    /* parameters to nlopt */
+    const double ftol_abs, ftol_rel, ftol_abs_inner, ftol_rel_inner;
+    const unsigned maxeval, maxeval_inner;
 
     /* matrix that contains random effect modes */
     arma::mat random_effects =
@@ -89,7 +94,7 @@ namespace {
       if(n != random_effects.n_elem + cfix_dim)
         throw std::invalid_argument("wrong 'n' in 'mode_objective'");
 #endif
-      const bool verbose = data.ctrl.trace > 1L;
+      const bool verbose = data.ctrl.trace > 2L;
       if(verbose)
         Rcpp::Rcout << "Running mode objective... ";
 
@@ -194,20 +199,37 @@ namespace {
       return Q_constraint_u(x + F_size.n_cols * F_size.n_rows, Q_size);
     }
 
-    /* constraint F such that the system is stationary*/
-    double F_constraint(
+    /* constraint F such that the system is stationary */
+    double F_constraint1(
         unsigned int n, const double *x, double *grad, void *data_in) const
     {
       arma::mat F(x, F_size.n_rows, F_size.n_cols);
-      arma::vec eigs_vals = arma::eig_sym(F);
+      arma::cx_vec eigs_vals = arma::eig_gen(F);
       double maxv = 0.;
       for(auto d : eigs_vals){
-        const double da = std::abs(d);
+        const double da = std::sqrt(d.real() * d.real() + d.imag() * d.imag());
         if(da > maxv)
           maxv = da;
       }
 
-      return maxv - 1;
+      return maxv - 1 + std::pow(std::numeric_limits<double>::epsilon(), .25);
+    }
+
+    /* constraint F such that it is not too close to being singular (required
+     * for some computation but could be avoided). TODO: avoid this... */
+    double F_constraint2(
+        unsigned int n, const double *x, double *grad, void *data_in) const
+    {
+      arma::mat F(x, F_size.n_rows, F_size.n_cols);
+      arma::vec eigs_vals = arma::real(arma::eig_gen(F));
+      double minx = std::numeric_limits<double>::infinity();
+      for(auto d : eigs_vals){
+        const double da = std::abs(d);
+        if(da < minx)
+          minx = da;
+      }
+
+      return -minx + std::pow(std::numeric_limits<double>::epsilon(), .25);
     }
 
     /* This function computes the approximate log-likelihood given fixed
@@ -227,14 +249,11 @@ namespace {
         for(unsigned i = 0; i < Q_size.n_cols; ++i)
           if(Qu(Qmem, Q_size) >= 0.)
             return -std::numeric_limits<double>::infinity();
-
-        if(F_constraint(n, x, grad, data_in) >= 0.)
+        if(F_constraint1(n, x, grad, data_in) >= 0.)
+          return -std::numeric_limits<double>::infinity();
+        if(F_constraint2(n, x, grad, data_in) >= 0.)
           return -std::numeric_limits<double>::infinity();
       }
-
-      if(it_outer % 10L == 0L)
-        Rcpp::checkUserInterrupt();
-      it_outer++;
 
       /* set parameters */
       {
@@ -244,15 +263,32 @@ namespace {
         data.set_F(F_new);
         data.set_Q(Q_new);
 
-        /* TODO: update Q0 */
+        arma::mat Q0_new = get_Q0(Q_new, F_new);
+        data.set_Q0(Q0_new);
+
+        if(arma::rank(Q0_new) < Q0_new.n_cols)
+          return -std::numeric_limits<double>::infinity();
       }
 
-      const bool verbose = data.ctrl.trace > 0L;
+      if(it_outer % 10L == 0L)
+        Rcpp::checkUserInterrupt();
+      it_outer++;
+
+      const bool verbose = ([&]{
+        if(data.ctrl.trace == 1L and (it_outer -1L) % 10L == 0L)
+          return true;
+        else if(data.ctrl.trace > 1L)
+          return true;
+
+        return false;
+      })();
       if(verbose){
         Rprintf("It: %5d: Making Laplace approximation at Q\n", it_outer);
         Rcpp::Rcout << data.get_Q()
-                    << "and F\n"
-                    << data.get_F();
+                    << ", F\n"
+                    << data.get_F()
+                    << ", and Q0\n"
+                    << data.get_Q0();
       }
 
       /* set concentration matrix */
@@ -265,8 +301,9 @@ namespace {
       opt = nlopt_create(NLOPT_LD_TNEWTON, n_inner);
 
       nlopt_set_max_objective(opt, call_mode_objective, this);
-      nlopt_set_ftol_rel(opt, data.ctrl.ftol_rel);
-      nlopt_set_maxeval(opt, 1000L); /* TODO: allow user to change */
+      nlopt_set_ftol_abs(opt, ftol_abs_inner);
+      nlopt_set_ftol_rel(opt, ftol_rel_inner);
+      nlopt_set_maxeval(opt, maxeval_inner);
 
       /* set starting values  */
       std::unique_ptr<double[]> val(new double[n_inner]);
@@ -323,6 +360,8 @@ namespace {
         for(auto c : con_state)
           ll -= c * *s++ * .5;
         ll += get_abs_ldeter() * .5;
+        if(isinf(ll))
+          return -std::numeric_limits<double>::infinity();
       }
 
       /* compute terms from observations conditional density and update the
@@ -351,7 +390,7 @@ namespace {
 
         Rprintf("It: %5d: cfix is ", it_outer);
         Rcpp::Rcout << data.get_cfix().t();
-        Rprintf("It: %5d: Log-likelihood approximation (current -- max): %14.4f -- %14.4f\n",
+        Rprintf("It: %5d: Log-likelihood approximation (current, max): %14.4f, %14.4f\n",
                 it_outer, ll, max_ll);
       }
 
@@ -359,15 +398,32 @@ namespace {
     }
 
   public:
-    Laplace_util(problem_data &data): data(data) { }
+    Laplace_util
+    (problem_data &data, const double ftol_abs, const double ftol_rel,
+     const double ftol_abs_inner, const double ftol_rel_inner,
+     const unsigned maxeval, const unsigned maxeval_inner):
+    data(data), ftol_abs(ftol_abs), ftol_rel(ftol_rel),
+    ftol_abs_inner(ftol_abs_inner), ftol_rel_inner(ftol_rel_inner),
+    maxeval(maxeval), maxeval_inner(maxeval_inner) { }
 
     /* uses Laplace approximation to estimate the parameters */
     Laplace_aprx_output operator()(){
       max_ll = -std::numeric_limits<double>::infinity();
       it_inner = it_outer = 0L;
       const bool verbose = data.ctrl.trace > 0L;
-      if(verbose)
-        Rcpp::Rcout << "Running 'Laplace_util::Laplace_aprx_output()'\n";
+      if(verbose){
+        std::string msg =
+          "Estimating parameters with Laplace approximation. Settings are:\n";
+        msg += "ftol_rel        %17.10f\n";
+        msg += "ftol_abs        %17.10f\n";
+        msg += "ftol_rel-inner  %17.10f\n";
+        msg += "ftol_abs-inner  %17.10f\n";
+        msg += "maxeval         %6d\n";
+        msg += "maxeval-inner   %6d\n";
+        Rprintf(msg.c_str(), ftol_rel, ftol_abs, ftol_rel_inner,
+                ftol_abs_inner, maxeval, maxeval_inner);
+      }
+
 
       /* setup parameters */
       std::unique_ptr<double[]> vals =
@@ -387,20 +443,23 @@ namespace {
       nlopt_opt opt, opt_inner;
       opt = nlopt_create(NLOPT_AUGLAG, outer_dim);
       opt_inner = nlopt_create(NLOPT_LN_SBPLX, outer_dim);
-      nlopt_set_ftol_rel(opt_inner, data.ctrl.ftol_rel);
+      nlopt_set_ftol_abs(opt_inner, ftol_abs);
+      nlopt_set_ftol_rel(opt_inner, ftol_rel);
+      nlopt_set_maxeval(opt_inner, maxeval);
 
       nlopt_set_max_objective(opt, call_laplace_approx, this);
       nlopt_set_local_optimizer(opt, opt_inner);
-
-      nlopt_set_maxeval(opt, 10000L); /* TODO: allow user to change */
 
       /* add constraints */
       /* TODO: replace by 'nlopt_add_inequality_mconstraint' */
       for(unsigned i = 0; i < Q_size.n_cols; ++i)
         nlopt_add_inequality_constraint(
           opt, call_Q_constraint, this, 0);
+      /* TODO: replace by 'nlopt_add_inequality_mconstraint' */
       nlopt_add_inequality_constraint(
-        opt, call_F_constraint, this, 0);
+        opt, call_F_constraint1, this, 0);
+      nlopt_add_inequality_constraint(
+        opt, call_F_constraint2, this, 0);
 
       /* solve problem */
       double maxf;
@@ -426,7 +485,9 @@ namespace {
       (unsigned int, const double*, double*, void*);
     friend double call_Q_constraint
       (unsigned int, const double*, double*, void*);
-    friend double call_F_constraint
+    friend double call_F_constraint1
+      (unsigned int, const double*, double*, void*);
+    friend double call_F_constraint2
       (unsigned int, const double*, double*, void*);
   };
 
@@ -445,13 +506,22 @@ namespace {
     Laplace_util *obj = (Laplace_util*)(data_in);
     return obj->Q_constraint(n, x, grad, nullptr);
   }
-  double call_F_constraint
+  double call_F_constraint1
     (unsigned int n, const double *x, double *grad, void *data_in){
     Laplace_util *obj = (Laplace_util*)(data_in);
-    return obj->F_constraint(n, x, grad, nullptr);
+    return obj->F_constraint1(n, x, grad, nullptr);
+  }
+  double call_F_constraint2
+    (unsigned int n, const double *x, double *grad, void *data_in){
+    Laplace_util *obj = (Laplace_util*)(data_in);
+    return obj->F_constraint2(n, x, grad, nullptr);
   }
 }
 
-Laplace_aprx_output Laplace_aprx(problem_data &data){
-  return Laplace_util(data)();
+Laplace_aprx_output Laplace_aprx
+  (problem_data &data, const double ftol_abs, const double ftol_rel,
+   const double ftol_abs_inner, const double ftol_rel_inner,
+   const unsigned maxeval, const unsigned maxeval_inner){
+  return Laplace_util(data, ftol_abs, ftol_rel, ftol_abs_inner, ftol_rel_inner,
+                      maxeval, maxeval_inner)();
 }

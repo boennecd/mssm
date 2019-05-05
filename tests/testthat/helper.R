@@ -3,13 +3,15 @@
 formals(expect_known_value)$update <- FALSE
 formals(expect_known_output)$update <- FALSE
 
-# vector of elements that we want to test on mssmFunc object
-mssmFunc_ele_to_check <- c(
-  "control", "family")
+# elements that we want to test on mssmFunc object
+mssmFunc_ele_to_check <- c("control", "family")
 
-# vector of elements that we want to test on mssm object
-mssm_ele_to_check <- c(
-  "pf_output", "control", "family")
+# elements that we want to test on mssm object
+mssm_ele_to_check <- c("pf_output", "control", "family")
+
+# elements that we want to test on mssmLaplace object
+mssmLaplace_to_check <- c("control", "family", "F.", "Q", "cfix", "n_it",
+                          "code", "logLik")
 
 #####
 # simulate or load data sets to use

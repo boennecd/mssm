@@ -604,7 +604,7 @@ protected:
   /* case weights */
   const arma::vec ws;
   /* dispersion parameter */
-  virtual arma::vec* set_disp(const arma::vec&) = 0; /* reminder to implement this */
+  virtual std::unique_ptr<arma::vec> set_disp(const arma::vec&) = 0; /* reminder to implement this */
   std::unique_ptr<arma::vec> disp;
 
   /* offset from fixed effects and offsets */
@@ -745,8 +745,8 @@ public:
 
 #define EXP_CLASS(fname)                                            \
 class fname final : public exp_family {                             \
-  arma::vec* set_disp(const arma::vec&) final {                     \
-    return nullptr;                                                 \
+  std::unique_ptr<arma::vec> set_disp(const arma::vec&) final {     \
+    return std::unique_ptr<arma::vec>();                            \
   }                                                                 \
   std::array<double, 3> log_density_state_inner                     \
   (const double, const double, const comp_out, const double)        \
@@ -758,13 +758,14 @@ public:                                                             \
    const arma::vec &offset):                                        \
   exp_family(Y, X, cfix, Z, ws, di, offset)                         \
   {                                                                 \
-    disp.reset(set_disp(di));                                       \
+    disp = set_disp(di);                                            \
   }                                                                 \
 }
 
 #define EXP_CLASS_W_DISP(fname)                                       \
 class fname final : public exp_family {                               \
-  arma::vec* set_disp(const arma::vec&) override final;               \
+  std::unique_ptr<arma::vec> set_disp(const arma::vec&)               \
+  override final;                                                     \
   std::array<double, 3> log_density_state_inner                       \
   (const double, const double, const comp_out, const double)          \
   const override final;                                               \
@@ -775,7 +776,7 @@ public:                                                               \
    const arma::vec &offset):                                          \
   exp_family(Y, X, cfix, Z, ws, di, offset)                           \
   {                                                                   \
-    disp.reset(set_disp(di));                                         \
+    disp = set_disp(di);                                              \
   }                                                                   \
 }
 

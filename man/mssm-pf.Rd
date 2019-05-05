@@ -38,7 +38,8 @@ each particle,
 and
 \code{ws_normalized:} normalized log particle weights for the filtering
 distribution.}
-\item{remaining elements}{same as return by \code{\link{mssm}}.}
+
+Remaining elements are the same as returned by \code{\link{mssm}}.
 
 If gradient approximation is requested then the first elements of
 \code{stats} are w.r.t. the fixed coefficients, the next elements are
@@ -55,4 +56,7 @@ it's components are given after the gradient elements in the
 \description{
 Function returned from \code{\link{mssm}} which can be used to perform
 particle filtering given values for the parameters in the model.
+}
+\seealso{
+\code{\link{mssm}}.
 }

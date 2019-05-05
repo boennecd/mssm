@@ -267,13 +267,17 @@ Rcpp::List run_Laplace_aprx
    const arma::mat &Q0, const std::string &fam, const arma::vec &mu0,
    const arma::uword n_threads, const double nu, const double covar_fac,
    const double ftol_rel, const arma::uword N_part, const std::string &what,
-   const unsigned int trace, const arma::uword KD_N_max, const double aprx_eps){
+   const unsigned int trace, const arma::uword KD_N_max, const double aprx_eps,
+   const double ftol_abs, const double la_ftol_rel,
+   const double ftol_abs_inner, const double la_ftol_rel_inner,
+   const unsigned maxeval, const unsigned maxeval_inner){
   std::unique_ptr<problem_data> dat = get_problem_data(
     Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len,
     F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what,
     trace, KD_N_max, aprx_eps);
 
-  auto result = Laplace_aprx(*dat);
+  auto result = Laplace_aprx(*dat, ftol_abs, la_ftol_rel, ftol_abs_inner,
+                             la_ftol_rel_inner, maxeval, maxeval_inner);
 
   return Rcpp::List::create(
     Named("F.") = std::move(result.F),

@@ -462,36 +462,41 @@ adam <- function(
 }
 ```
 
-```{r use_sgd, cache = 1}
+```{r laplace, cache = 1}
 # setup mssmFunc object to use
 ll_func <- mssm(  
   fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
   random = ~ Z, ti = time_idx, control = mssm_control(
     n_threads = 5L, N_part = 200L, what = "gradient"))
 
-# use Laplace approximatio
+# use Laplace approximation to get starting values
 system.time(
   sta <- ll_func$Laplace(
     F. = diag(.5, 2), Q = diag(1, 2), cfix = coef(glm_fit), disp = numeric()))
+```
 
-# it return an object with the estimated parameters and log-likelihood
-sta$Laplace$F.
-sta$Laplace$Q
-sta$Laplace$cfix
-print(sta$Laplace$logLik, digits = 6) # log-likelihood approximation
+```{r show_laplace}
+# the function returns an object with the estimated parameters and log-likelihood
+sta$F.
+sta$Q
+sta$cfix
+print(sta$logLik, digits = 6) # log-likelihood approximation
+```
 
+
+```{r sgd, cache = 1, dependson = "laplace"}
 # use stochastic gradient descent with averaging
 set.seed(25164416)
 system.time( 
   res <- sgd(
-    ll_func, F. = sta$Laplace$F., Q = sta$Laplace$Q, cfix = sta$Laplace$cfix, 
+    ll_func, F. = sta$F., Q = sta$Q, cfix = sta$cfix, 
     lrs = .001 * (1:50)^(-1/2), n_it = 50L, avg_start = 30L))
 
 # use Adam algorithm instead
 set.seed(25164416)
 system.time( 
   resa <- adam(
-    ll_func, F. = sta$Laplace$F., Q = sta$Laplace$Q, cfix = sta$Laplace$cfix, 
+    ll_func, F. = sta$F., Q = sta$Q, cfix = sta$cfix, 
     lr = .01, n_it = 50L))
 ```
 

@@ -328,3 +328,31 @@ arma::mat sym_band_mat::get_dense() const  {
 
   return out;
 }
+
+// [[Rcpp::export(.get_Q0)]]
+arma::mat get_Q0(const arma::mat &Qmat, const arma::mat &Fmat){
+#ifdef MSSM_DEBUG
+  if(arma::size(Qmat) != arma::size(Fmat))
+    throw std::invalid_argument("'Qmat' and 'Fmat' sizes' do not match");
+#endif
+
+  arma::cx_vec eigval;
+  arma::cx_mat eigvec;
+  arma::eig_gen(eigval, eigvec, Fmat);
+
+  if(std::any_of(eigval.begin(), eigval.end(),
+                 [](const arma::cx_vec::value_type x){
+                   return
+                   std::sqrt(x.real() * x.real() + x.imag() * x.imag()) >= 1.;
+                 }))
+    throw std::runtime_error("Divergent series");
+
+  arma::mat dum(arma::size(Qmat), arma::fill::zeros);
+  arma::cx_mat T(Qmat, dum);
+  T = arma::solve(eigvec, T);
+  T = arma::solve(eigvec, T.t());
+  arma::cx_mat Z = T / (1 - eigval * eigval.t());
+
+  return arma::real(eigvec * Z * eigvec.t());
+}
+

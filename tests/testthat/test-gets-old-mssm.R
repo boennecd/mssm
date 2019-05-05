@@ -23,12 +23,14 @@ prep_for_test <- function(obj){
 
 get_test_expr <- function(data, label, family, alway_hess = FALSE){
   substitute({
-  ctrl <- mssm_control(N_part = 100L, n_threads = 2L, seed = 26545947)
+  ctrl <- mssm_control(N_part = 100L, n_threads = 2L, seed = 26545947,
+                       maxeval = 100L)
   disp <- if(is.null(dat$disp)) numeric() else dat$disp
 
   func <- mssm(
     fixed = y ~ x + Z, random = ~ Z, family = family,
     data = dat$data, ti = time_idx, control = ctrl)
+  expect_s3_class(func, "mssmFunc")
 
   expect_known_value(
     func[mssmFunc_ele_to_check], paste0("mssmFunc-", label, ".RDS"),
@@ -37,6 +39,7 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE){
   func_out <- func$pf_filter(
     cfix = dat$cfix, F. = dat$F., Q = dat$Q,
     disp = disp)
+  expect_s3_class(func_out, "mssm")
 
   func_out_org <- func_out
   func_out <- prep_for_test(func_out)
@@ -44,14 +47,27 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE){
     func_out[mssm_ele_to_check], paste0("mssm-", label, ".RDS"),
     label = label)
 
+  # take a few iterations of laplace approximation
+  lpa <- func$Laplace(
+    cfix = dat$cfix, F. = dat$F., Q = dat$Q, disp = disp)
+  expect_s3_class(lpa, "mssmLaplace")
+
+  expect_known_value(
+    lpa[mssmLaplace_to_check],
+    paste0("mssmLaplace-", label, ".RDS"),
+    label = label)
+
+  # make gradient approximation
   ctrl$what <- "gradient"
   func <- mssm(
     fixed = y ~ x + Z, random = ~ Z, family = family,
     data = dat$data, ti = time_idx, control = ctrl)
+  expect_s3_class(func, "mssmFunc")
 
   func_out_grad <- func$pf_filter(
     cfix = dat$cfix, F. = dat$F., Q = dat$Q,
     disp = disp)
+  expect_s3_class(func_out_grad, "mssm")
 
   expect_equal(
     lapply(func_out_grad$pf_output, "[", "ws"),
@@ -74,10 +90,12 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE){
       control = mssm_control(
         N_part = 50L, n_threads = 2L, seed = 26545947,
         what = "Hessian"))
+    expect_s3_class(func, "mssmFunc")
 
     func_out_hess <- func$pf_filter(
       cfix = dat$cfix, F. = dat$F., Q = dat$Q,
       disp = disp)
+    expect_s3_class(func_out_hess, "mssm")
 
     expect_known_value(
       func_out_hess[mssm_ele_to_check], f, label = label)
@@ -91,9 +109,13 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE){
   func <- mssm(
     fixed = y ~ x + Z, random = ~ Z, family = family,
     data = dat$data, ti = time_idx, control = ctrl)
+  expect_s3_class(func, "mssmFunc")
+
   func_out <- func$pf_filter(
     cfix = dat$cfix, F. = dat$F., Q = dat$Q,
     disp = disp)
+  expect_s3_class(func_out, "mssm")
+
   func_out <- prep_for_test(func_out)
   expect_known_value(
     func_out[mssm_ele_to_check], label = label,
@@ -107,9 +129,13 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE){
   func <- mssm(
     fixed = y ~ x + Z, random = ~ Z, family = family,
     data = dat$data, ti = time_idx, control = ctrl)
+  expect_s3_class(func, "mssmFunc")
+
   func_out_org <- func_out <- func$pf_filter(
     cfix = dat$cfix, F. = dat$F., Q = dat$Q,
     disp = disp)
+  expect_s3_class(func_out, "mssm")
+
   func_out <- prep_for_test(func_out)
   expect_known_value(
     func_out[mssm_ele_to_check], label = label,
@@ -125,10 +151,12 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE){
       fixed = y ~ x + Z, random = ~ Z, family = family,
       data = dat$data, ti = time_idx,
       control = ctrl)
+    expect_s3_class(func, "mssmFunc")
 
     func_out_hess <- func$pf_filter(
       cfix = dat$cfix, F. = dat$F., Q = dat$Q,
       disp = disp)
+    expect_s3_class(func_out_hess, "mssm")
 
     expect_known_value(
       func_out_hess[mssm_ele_to_check], f, label = label)

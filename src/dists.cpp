@@ -349,18 +349,18 @@ std::array<double, 3> poisson_sqrt::log_density_state_inner
   return out;
 }
 
-inline arma::vec* scalar_pos_dist(const arma::vec &in_vec)
+inline std::unique_ptr<arma::vec> scalar_pos_dist(const arma::vec &in_vec)
 {
   if(in_vec.n_elem != 1L or in_vec(0) <= 0.)
     throw std::invalid_argument("Invalid dispersion parameter");
   /* we store the log dispersion parameter as the second element */
-  arma::vec *out = new arma::vec(2L);
+  std::unique_ptr<arma::vec> out(new arma::vec(2L));
   out->operator()(0L) =          in_vec(0L);
   out->operator()(1L) = std::log(in_vec(0L));
   return out;
 }
 
-arma::vec* Gamma_log::set_disp(const arma::vec &in_vec){
+std::unique_ptr<arma::vec> Gamma_log::set_disp(const arma::vec &in_vec){
   return scalar_pos_dist(in_vec);
 }
 
@@ -391,7 +391,7 @@ std::array<double, 3> Gamma_log::log_density_state_inner
   return out;
 }
 
-arma::vec* gaussian_identity::set_disp(const arma::vec &in_vec){
+std::unique_ptr<arma::vec> gaussian_identity::set_disp(const arma::vec &in_vec){
   return scalar_pos_dist(in_vec);
 }
 
@@ -417,7 +417,7 @@ std::array<double, 3> gaussian_identity::log_density_state_inner
   return out;
 }
 
-arma::vec* gaussian_log::set_disp(const arma::vec &in_vec){
+std::unique_ptr<arma::vec> gaussian_log::set_disp(const arma::vec &in_vec){
   return scalar_pos_dist(in_vec);
 }
 
@@ -447,7 +447,7 @@ std::array<double, 3> gaussian_log::log_density_state_inner
   return out;
 }
 
-arma::vec* gaussian_inverse::set_disp(const arma::vec &in_vec){
+std::unique_ptr<arma::vec> gaussian_inverse::set_disp(const arma::vec &in_vec){
   return scalar_pos_dist(in_vec);
 }
 

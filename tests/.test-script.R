@@ -186,14 +186,18 @@ ll_func <- mssm(
   random = ~ Z, ti = time_idx, control = mssm_control(
     n_threads = 5L, N_part = 1000L, what = "gradient",
     which_ll_cp = "KD", aprx_eps = 1e-2))
-sta <- coef(glm(y ~ x  + Z, poisson(), dat))
+sta <- coef(glm_fit <- glm(y ~ x  + Z, poisson(), dat))
+la <- ll_func$Laplace(
+  cfix = sta, disp = numeric(), F. = diag(.5, 2), Q = diag(1, 2), trace = 1L)
+logLik(glm_fit)
+
 system.time(
   res <- adam(
-    ll_func, F. = diag(.5, 2), Q = diag(1, 2), cfix = sta, verbose = TRUE,
-    n_it = 200L, lr = .01))
+    ll_func, F. = la$F., Q = la$Q, cfix = la$cfix,
+    verbose = TRUE, n_it = 50L, lr = .01))
+la$Laplace
 
 plot(res$logLik)
-plot(tail(res$logLik, 150))
 
 o <- ll_func$pf_filter(
   cfix = res$cfix, F. = res$F., Q = res$Q, disp = numeric(), N_part = 10000L,
@@ -201,9 +205,8 @@ o <- ll_func$pf_filter(
 
 he <- get_grad_n_obs_info(o)
 res$cfix
-sqrt(diag(solve(-he$ddg)))
+sqrt(diag(solve(-he$hess)))
 c(res$F., res$Q)
-sqrt(diag(solve(-he$ddf)))
 
 #####
 # poisson w/ log link and offsets
@@ -269,25 +272,25 @@ ll_func <- mssm(
     n_threads = 5L, N_part = 1000L, what = "gradient",
     which_ll_cp = "KD", aprx_eps = .1, covar_fac = 2))
 (sta <- coef(glm(y ~ x  + Z, poisson("sqrt"), dat, start = cfix)))
+
+la <- ll_func$Laplace(
+  cfix = sta, disp = numeric(), F. = diag(.5, 2), Q = diag(1, 2), trace = 1L)
+logLik(glm_fit)
+
 system.time(
   res <- adam(
-    ll_func, F. = diag(.2, 2), Q = diag(.01^2, 2), cfix = sta, verbose = TRUE,
-    n_it = 200L, lr = .01))
+    ll_func, F. = la$F., Q = la$Q, cfix = la$cfix,
+    verbose = TRUE, n_it = 100L, lr = .001))
+print(la$Laplace$logLik, digits = 6)
 
-system.time(
-  res2 <- adam(
-    ll_func, F. = res$F., Q = res$Q, cfix = res$cfix, verbose = TRUE,
-    n_it = 150L, lr = .001))
-
-plot(res2$logLik)
-plot(tail(res2$logLik, 100))
+plot(res$logLik)
 
 o <- ll_func$pf_filter(F. = F., Q = Q, cfix = cfix, disp = numeric())
 logLik(o)
 
 #####
 # binomial w/ logit
-n_periods <- 1000L
+n_periods <- 400L
 F. <- matrix(c(.5, .1, 0, .8), 2L)
 Q <- matrix(c(.5^2, -.5^2, -.5^2, .7^2), 2L)
 Q0 <- mssm:::.get_Q0(Q, F.)
@@ -306,16 +309,24 @@ ll_func <- mssm(
   random = ~ Z, ti = time_idx, control = mssm_control(
     n_threads = 2L, N_part = 1000L, what = "gradient",
     which_ll_cp = "KD", aprx_eps = .1, covar_fac = 2))
-sta <- coef(glm(y ~ x  + Z, binomial(), dat))
+sta <- coef(glm_fit <- glm(y ~ x  + Z, binomial(), dat))
+la <- ll_func$Laplace(
+  cfix = sta, disp = numeric(), F. = diag(.5, 2), Q = diag(1, 2), trace = 1L)
+logLik(glm_fit)
+
 system.time(
   res <- adam(
-    ll_func, F. = F., Q = Q, cfix = cfix, verbose = TRUE,
-    n_it = 200L, lr = .005))
+    ll_func, F. = la$Laplace$F., Q = la$Laplace$Q, cfix = la$Laplace$cfix,
+    verbose = TRUE, n_it = 50L, lr = .005))
 
 res$F.
+la$Laplace$F.
 res$Q
+la$Laplace$Q
+res$cfix
+la$Laplace$cfix
+
 plot(res$logLik)
-plot(tail(res$logLik, 100))
 matplot(res$estimates, col = 1:10)
 abline(h = c(cfix, F., Q), lty = 2, col = 1:10)
 
@@ -336,7 +347,7 @@ Q0 <- mssm:::.get_Q0(Q, F.)
 cfix <- c(-1, .2, .5)
 n_obs <- 100L
 
-set.seed(78727270)
+set.seed(78727223)
 betas <- .get_beta(Q, Q0, F., n_periods)
 dat <- local({
   n_periods <- nrow(betas)
@@ -358,25 +369,32 @@ dat <- local({
   dat <- do.call(rbind, dat)
 })
 
-(sta <- coef(
-  glm_fit <- glm(I(y/size) ~ x  + Z, binomial("logit"), weights = size, dat)))
 ll_func <- mssm(
   fixed = I(y/size) ~ x + Z, family = binomial("logit"), data = dat,
   weights = size, random = ~ Z, ti = time_idx, control = mssm_control(
     n_threads = 5L, N_part = 1000L, what = "gradient",
     which_ll_cp = "KD", aprx_eps = .1, covar_fac = 2))
 
-logLik(glm_fit)
-logLik(ll_func$pf_filter(cfix = sta, F. = diag(1e-5, 2), disp = numeric(),
-                         Q = diag(1e-8, 2)))
+(sta <- coef(
+  glm_fit <- glm(I(y/size) ~ x  + Z, binomial("logit"), weights = size, dat)))
+la <- ll_func$Laplace(cfix = sta, disp = numeric(), F. = diag(.5, 2),
+                      Q = diag(1, 2), trace = 1L)
 
 system.time(
   res <- adam(
-    ll_func, F. = F., Q = Q, cfix = cfix, verbose = TRUE,
-    n_it = 50L, lr = .01))
+    ll_func, F. = la$Laplace$F., Q = la$Laplace$Q, cfix = la$Laplace$cfix,
+    verbose = TRUE, n_it = 50L, lr = .01))
 
 plot(res$logLik)
-plot(tail(res$logLik, 50))
+la$Laplace$logLik
+la$Laplace$F.
+res$F
+la$Laplace$Q
+
+la2 <- ll_func$Laplace(cfix = res$cfix, disp = numeric(), F. = res$F.,
+                      Q = res$Q, trace = 1L)
+print(la2$logLik, digits = 6)
+print(tail(res$logLik), digits = 6)
 
 o <- ll_func$pf_filter(
   cfix = res$cfix, F. = res$F., Q = res$Q, disp = numeric(), seed = NULL,
@@ -390,12 +408,12 @@ res$Q
 
 #####
 # binomial w/ cloglog
-n_periods <- 100L
+n_periods <- 400L
 F. <- matrix(c(.5, .1, 0, .8), 2L)
 Q <- matrix(c(.5^2, -.5^2, -.5^2, .7^2), 2L)
 Q0 <- mssm:::.get_Q0(Q, F.)
 cfix <- c(0, .2, -1)
-n_obs <- 200L
+n_obs <- 50L
 
 set.seed(78727274)
 betas <- .get_beta(Q, Q0, F., n_periods)
@@ -410,20 +428,24 @@ ll_func <- mssm(
     n_threads = 5L, N_part = 1000L, what = "gradient",
     which_ll_cp = "KD", aprx_eps = .1, covar_fac = 2))
 sta <- coef(glm_fit <- glm(y ~ x  + Z, binomial("cloglog"), dat))
+la <- ll_func$Laplace(cfix = sta, disp = numeric(), F. = diag(.5, 2), Q = diag(1, 2), trace = 1L)
 logLik(glm_fit)
+
 system.time(
   res <- adam(
-    ll_func, F. = diag(.5, 2), Q = diag(.2^2, 2), cfix = sta, verbose = TRUE,
-    n_it = 200L, lr = .01))
-
-logLik(pf_out <- ll_func$pf_filter(cfix = cfix, F. = F., Q = Q, disp = numeric()))
-
-o <- plot(pf_out)
-
-matplot(cbind(o$means[2, ], o$lbs[2, ], o$ubs[2, ], betas[,2]), type = "l", lty = c(1, 2, 2, 3), col = "black")
+    ll_func, F. = la$F., Q = la$Q, cfix = la$cfix, verbose = TRUE,
+    n_it = 50L, lr = .01))
 
 plot(res$logLik)
-plot(tail(res$logLik, 50))
+lines(smooth.spline(seq_along(res$logLik), res$logLik))
+print(la$logLik, digits = 6)
+
+o <- ll_func$pf_filter(
+  cfix = res$cfix, disp = numeric(), Q = res$Q, F. = res$F, what = "Hessian",
+  N_part = 10000L)
+
+out <- get_grad_n_obs_info(o)
+sqrt(diag(solve(-out$hess)))
 
 #####
 # binomial w/ probit
@@ -445,22 +467,35 @@ ll_func <- mssm(
   fixed = y ~ x + Z, family = binomial("probit"), data = dat,
   random = ~ Z, ti = time_idx, control = mssm_control(
     n_threads = 5L, N_part = 1000L, what = "gradient",
-    covar_fac = 2))
+    covar_fac = 2, which_ll_cp = "KD", aprx_eps = .01))
 sta <- coef(glm_fit <- glm(y ~ x  + Z, binomial("probit"), dat))
+lap <- ll_func$Laplace(
+  cfix = sta, disp = numeric(), F. = diag(.5, 2), Q = diag(1, 2), trace = 1L)
+
 logLik(glm_fit)
 system.time(
   res <- adam(
-    ll_func, F. = F., Q = Q, cfix = cfix, verbose = TRUE,
-    n_it = 200L, lr = .01))
-
-logLik(pf_out <- ll_func$pf_filter(cfix = cfix, F. = F., Q = Q, disp = numeric()))
-
-o <- plot(pf_out)
-
-matplot(cbind(o$means[2, ], o$lbs[2, ], o$ubs[2, ], betas[,2]), type = "l", lty = c(1, 2, 2, 3), col = "black")
+    ll_func, F. = lap$F., Q = lap$Q, cfix = lap$cfix, verbose = TRUE,
+    n_it = 50L, lr = .01))
 
 plot(res$logLik)
-plot(tail(res$logLik, 50))
+print(lap$logLik, digits = 6)
+print(res$logLik, 6)
+
+res$F.
+lap$F.
+
+res$Q
+lap$Q
+
+res$cfix
+lap$cfix
+
+o <- ll_func$pf_filter(
+  cfix = res$cfix, disp = numeric(), Q = res$Q, F. = res$F, what = "Hessian",
+  N_part = 10000L)
+out <- get_grad_n_obs_info(o)
+sqrt(diag(solve(-out$hess)))
 
 #####
 # gamma w/ log link
@@ -484,72 +519,66 @@ dat <- .get_dat(
 ll_func <- mssm(
   fixed = y ~ x + Z, family = Gamma("log"), data = dat,
   random = ~ Z, ti = time_idx, control = mssm_control(
-    n_threads = 5L, N_part = 500L, what = "gradient",
+    n_threads = 5L, N_part = 1000L, what = "gradient",
     which_ll_cp = "KD", aprx_eps = .1, covar_fac = 2))
 
 (sta <- coef(glm_fit <- glm(y ~ x  + Z, Gamma("log"), dat)))
+lpa <- ll_func$Laplace(
+  cfix = sta, disp = disp, F. = diag(.5, 2), Q = diag(1, 2), trace = 1L)
 logLik(glm_fit)
+
 system.time(
   res <- adam(
-    ll_func, F. = diag(.5, 2), Q = diag(1, 2), cfix = sta, verbose = TRUE,
-    n_it = 200L, lr = .11, disp = disp))
+    ll_func, F. = lpa$F., Q = lpa$Q, cfix = lpa$cfix, verbose = TRUE,
+    n_it = 50L, lr = .01, disp = disp))
 plot(res$logLik)
-plot(tail(res$logLik, 100))
-
-res2 <- adam(
-  ll_func, F. = F., Q = Q, cfix = cfix, verbose = TRUE,
-  n_it = 100L, lr = .01, disp = disp)
-
-logLik(ll_func$pf_filter(cfix = cfix, disp = disp, F. = F., Q = Q))
 
 #####
 # Gaussian w/ identity link -- could just use Kalman fitler
-n_periods <- 800L
+n_periods <- 400L
 F. <- matrix(c(.5, .2, -.1, .8), 2L)
 Q <- matrix(c(.5^2, .1, .1, .7^2), 2L)
 Q0 <- mssm:::.get_Q0(Q, F.)
 cfix <- c(-1, .2, .5)
 n_obs <- 100L
+disp <- 3
 
 set.seed(78727273)
 
 betas <- .get_beta(Q, Q0, F., n_periods)
-dat <- .get_dat(cfix, betas, sample_func = function(n, mu) rnorm(n, mu, sqrt(3)),
+dat <- .get_dat(cfix, betas, sample_func = function(n, mu) rnorm(n, mu, sqrt(disp)),
                 trans_func = identity)
 
 ll_func <- mssm(
   fixed = y ~ x + Z, family = gaussian(), data = dat,
   random = ~ Z, ti = time_idx, control = mssm_control(
-    n_threads = 5L, N_part = 200L, what = "gradient"))
+    n_threads = 5L, N_part = 200L, what = "gradient",
+    ftol_abs = 1e-6, ftol_abs_inner = 1e-6))
 sta <- coef(glm_fit <- glm(y ~ x  + Z, gaussian(), dat))
-
+lpa <- ll_func$Laplace(
+  cfix = sta, disp = disp, F. = diag(.5, 2), Q = diag(1, 2), trace = 1L)
 logLik(glm_fit)
-disp <- summary(glm_fit)$dispersion
-logLik(ll_func$pf_filter(cfix = sta, disp = disp, F. = diag(.001, 2),
-                         Q = diag(1e-8, 2)))
+
 system.time(
   res <- adam(
-    ll_func, F. = F., Q = Q, cfix = cfix, verbose = TRUE,
-    n_it = 100L, lr = .01, disp = 3))
+    ll_func, cfix = lpa$cfix, disp = disp, F. = lpa$F., Q = lpa$Q,
+    verbose = TRUE, n_it = 100L, lr = .01))
 
 plot(res$logLik)
-plot(tail(res$logLik, 150))
+mean(res$logLik)
+lpa$logLik
 
-ll_func <- mssm(
-  fixed = y ~ x + Z, family = gaussian(), data = dat,
-  random = ~ Z, ti = time_idx, control = mssm_control(
-    n_threads = 5L, N_part = 2000L, what = "Hessian",
-    which_ll_cp = "KD", aprx_eps = .01))
-o <- ll_func$pf_filter(
-  cfix = res$cfix, F. = res$F., Q = res$Q, disp = 3, seed = NULL)
+F.
+res$F.
+lpa$F.
 
-he <- get_grad_n_obs_info(o)
+Q
+res$Q
+lpa$Q
+
+cfix
 res$cfix
-sqrt(diag(solve(-he$ddg)))
-c(res$F., res$Q)
-sqrt(diag(solve(-he$ddf)))
-
-plot(o)
+lpa$cfix
 
 #####
 # Gaussian w/ log link

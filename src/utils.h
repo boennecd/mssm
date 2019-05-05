@@ -293,4 +293,7 @@ public:
   arma::mat get_dense() const;
 };
 
+/* computes the stationary covariance matrix */
+arma::mat get_Q0(const arma::mat&, const arma::mat&);
+
 #endif
