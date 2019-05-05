@@ -2,6 +2,7 @@
 #include "utils.h"
 #include "dists.h"
 #include "PF.h"
+#include "laplace.h"
 
 #ifdef MSSM_PROF
 #include "profile.h"
@@ -158,18 +159,15 @@ arma::mat sample_mv_tdist
   return out;
 }
 
-// [[Rcpp::export]]
-Rcpp::List pf_filter
+inline std::unique_ptr<problem_data> get_problem_data
   (const arma::vec &Y, const arma::vec &cfix, const arma::vec &ws,
-   const arma::vec &offsets, const arma::vec &disp, const arma::mat &X, const arma::mat &Z,
-   const arma::uvec &time_indices_elems, const arma::uvec &time_indices_len,
-   const arma::mat &F, const arma::mat &Q, const arma::mat &Q0,
-   const std::string &fam, const arma::vec &mu0, const arma::uword n_threads,
-   const double nu, const double covar_fac, const double ftol_rel,
-   const arma::uword N_part, const std::string &what,
-   const std::string &which_sampler, const std::string &which_ll_cp,
-   const unsigned int trace, const arma::uword KD_N_max, const double aprx_eps)
-{
+   const arma::vec &offsets, const arma::vec &disp, const arma::mat &X,
+   const arma::mat &Z, const arma::uvec &time_indices_elems,
+   const arma::uvec &time_indices_len, const arma::mat &F, const arma::mat &Q,
+   const arma::mat &Q0, const std::string &fam, const arma::vec &mu0,
+   const arma::uword n_threads, const double nu, const double covar_fac,
+   const double ftol_rel, const arma::uword N_part, const std::string &what,
+   const unsigned int trace, const arma::uword KD_N_max, const double aprx_eps){
   /* create vector with time indices */
   const std::vector<arma::uvec> time_indices = ([&]{
     std::vector<arma::uvec> indices;
@@ -192,9 +190,29 @@ Rcpp::List pf_filter
   /* setup problem data object */
   control_obj ctrl(n_threads, nu, covar_fac, ftol_rel, N_part, what, trace,
                    KD_N_max, aprx_eps);
-  problem_data dat(
-    Y, cfix, ws, offsets, disp, X, Z, time_indices, F, Q, Q0, fam, mu0,
-    std::move(ctrl));
+  std::unique_ptr<problem_data> out(new problem_data(
+      Y, cfix, ws, offsets, disp, X, Z, std::move(time_indices), F, Q, Q0,
+      fam, mu0, std::move(ctrl)));
+
+  return out;
+}
+
+// [[Rcpp::export]]
+Rcpp::List pf_filter
+  (const arma::vec &Y, const arma::vec &cfix, const arma::vec &ws,
+   const arma::vec &offsets, const arma::vec &disp, const arma::mat &X,
+   const arma::mat &Z, const arma::uvec &time_indices_elems,
+   const arma::uvec &time_indices_len, const arma::mat &F, const arma::mat &Q,
+   const arma::mat &Q0, const std::string &fam, const arma::vec &mu0,
+   const arma::uword n_threads, const double nu, const double covar_fac,
+   const double ftol_rel, const arma::uword N_part, const std::string &what,
+   const std::string &which_sampler, const std::string &which_ll_cp,
+   const unsigned int trace, const arma::uword KD_N_max, const double aprx_eps)
+{
+  std::unique_ptr<problem_data> dat = get_problem_data(
+    Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len,
+    F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part,
+    what, trace, KD_N_max, aprx_eps);
 
   /* setup sampler */
   const std::unique_ptr<sampler> sampler_ = ([&]{
@@ -219,7 +237,7 @@ Rcpp::List pf_filter
   })();
 
   /* run particle filter */
-  auto comp_res = PF(dat, *sampler_, *stats_cp);
+  auto comp_res = PF(*dat, *sampler_, *stats_cp);
 
   /* make list and return */
   Rcpp::List out(comp_res.size());
@@ -238,4 +256,30 @@ Rcpp::List pf_filter
     ele = add_res(*(p_cloud++));
 
   return out;
+}
+
+// [[Rcpp::export]]
+Rcpp::List run_Laplace_aprx
+  (const arma::vec &Y, const arma::vec &cfix, const arma::vec &ws,
+   const arma::vec &offsets, const arma::vec &disp, const arma::mat &X,
+   const arma::mat &Z, const arma::uvec &time_indices_elems,
+   const arma::uvec &time_indices_len, const arma::mat &F, const arma::mat &Q,
+   const arma::mat &Q0, const std::string &fam, const arma::vec &mu0,
+   const arma::uword n_threads, const double nu, const double covar_fac,
+   const double ftol_rel, const arma::uword N_part, const std::string &what,
+   const unsigned int trace, const arma::uword KD_N_max, const double aprx_eps){
+  std::unique_ptr<problem_data> dat = get_problem_data(
+    Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len,
+    F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what,
+    trace, KD_N_max, aprx_eps);
+
+  auto result = Laplace_aprx(*dat);
+
+  return Rcpp::List::create(
+    Named("F.") = std::move(result.F),
+    Named("Q") = std::move(result.Q),
+    Named("cfix") = std::move(result.cfix),
+    Named("logLik") = result.logLik,
+    Named("n_it") = result.n_it,
+    Named("code") = result.code);
 }

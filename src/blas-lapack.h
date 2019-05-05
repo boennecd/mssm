@@ -47,6 +47,14 @@ extern "C" {
       const double *x, const int *incx,
       const double *y, const int *incy,
       double *a, const int *lda);
+  void F77_NAME(dsbmv)(
+      const char *uplo, const int *n, const int *k,
+      const double *alpha, const double *a, const int *lda,
+      const double *x, const int *incx,
+      const double *beta, double *y, const int *incy);
+  void F77_NAME(dpbtrf)(
+      const char* uplo, const int* n, const int* kd,
+      double* ab, const int* ldab, int* info);
 }
 
 /* avoid warnings due to different definitions of function */

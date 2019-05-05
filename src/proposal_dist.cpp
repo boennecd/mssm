@@ -1,5 +1,5 @@
 #include "proposal_dist.h"
-#include <nloptrAPI.h>
+#include "nloptrAPI.h"
 
 using cdist_vec = std::initializer_list<const cdist*>;
 
@@ -64,8 +64,8 @@ mode_approximation_output mode_approximation
     nlopt_set_ftol_rel(opt, ftol_rel);
     nlopt_set_maxeval(opt, 10000L);
 
-    double minf;
-    int nlopt_result_code = nlopt_optimize(opt, val.memptr(), &minf);
+    double maxf;
+    int nlopt_result_code = nlopt_optimize(opt, val.memptr(), &maxf);
     nlopt_destroy(opt);
     out.any_errors = nlopt_result_code < 1L or nlopt_result_code > 4L;
   }

@@ -34,12 +34,14 @@ class problem_data {
   using cmat = const arma::mat;
 
   /* objects related to observed outcomes */
-  cvec &Y, &cfix, &ws, &offsets, &disp;
+  cvec &Y;
+  arma::vec cfix;
+  cvec &ws, &offsets, &disp;
   cmat &X, &Z;
-  const std::vector<arma::uvec> &time_indices;
+  const std::vector<arma::uvec> time_indices;
 
   /* objects related to state-space model */
-  cmat F, Q, Q0;
+  arma::mat F, Q, Q0;
 
   const std::string fam;
 
@@ -65,6 +67,55 @@ public:
    * at a given time given a state vector at the previous time point */
   template<typename T>
   std::unique_ptr<T> get_sta_dist(const arma::uword) const;
+
+
+  void set_cfix(const arma::vec &cnew){
+#ifdef MSSM_DEBUG
+    if(arma::size(cnew) != arma::size(cfix))
+      throw std::invalid_argument("Invalid new value");
+#endif
+    cfix = cnew;
+  }
+
+  arma::vec get_cfix() const {
+    return cfix;
+  }
+
+  void set_F(const arma::mat &Fnew){
+#ifdef MSSM_DEBUG
+    if(arma::size(Fnew) != arma::size(F))
+      throw std::invalid_argument("Invalid new value");
+#endif
+    F = Fnew;
+  }
+
+  arma::mat get_F() const {
+    return F;
+  }
+
+  void set_Q(const arma::mat &Qnew){
+#ifdef MSSM_DEBUG
+    if(arma::size(Qnew) != arma::size(Q))
+      throw std::invalid_argument("Invalid new value");
+#endif
+    Q = Qnew;
+  }
+
+  arma::mat get_Q() const {
+    return Q;
+  }
+
+  void set_Q0(const arma::mat &Q0new){
+#ifdef MSSM_DEBUG
+    if(arma::size(Q0new) != arma::size(Q0))
+      throw std::invalid_argument("Invalid new value");
+#endif
+    Q0 = Q0new;
+  }
+
+  arma::mat get_Q0() const {
+    return Q0;
+  }
 };
 
 #endif

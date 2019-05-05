@@ -234,4 +234,63 @@ public:
   }
 };
 
+/* class to store a symmetric band matrix of the form
+ *   Q_1  G_1  0    0    0  ...
+ *   G_1' Q_2  G_2' 0    0  ...
+ *   0    G_2' Q_3  G_3' 0  ...
+ *   |     \    \    \    \
+ *
+ * where each Q is p x p and each G is p x q where q is a multiple of p. Only
+ * the upper part is stored */
+class sym_band_mat {
+public:
+  const int dim_dia, dim_off, n_bands, dim = dim_dia * n_bands,
+    ku = dim_dia + dim_off - 1L, ku1 = ku + 1L;
+
+private:
+  const int mem_size = ku1 * dim;
+  std::unique_ptr<double[]> mem =
+    std::unique_ptr<double[]>(new double[mem_size]);
+
+public:
+  sym_band_mat(const int dim_dia, const int dim_off, const int n_bands):
+    dim_dia(dim_dia), dim_off(dim_off), n_bands(n_bands){
+#ifdef MSSM_DEBUG
+      if(dim_dia <= 0L or dim_off <= 0L or n_bands < 2L)
+        throw std::invalid_argument("not implemented for empty matrix");
+      if(dim_off % dim_dia != 0L)
+        throw std::invalid_argument("invalid 'q'");
+#endif
+    }
+
+  /* returns pointer to memory */
+  double * get_mem() const {
+    return mem.get();
+  }
+
+  /* set all elements to zero */
+  void zeros() {
+    std::fill(mem.get(), mem.get() + mem_size, 0.);
+  }
+
+  /* sets one of the G matrices */
+  void set_upper_block(const unsigned int, const arma::mat&);
+
+  /* sets one of the diagonal matrices */
+  void set_diag_block
+    (const unsigned int, const arma::mat&, const double alpha = 0.);
+
+  /* perform matrix multiplication */
+  arma::vec mult(const arma::vec&) const ;
+  arma::vec mult(const double*) const;
+
+  /* compputes the log determinant */
+  double ldeterminant() const;
+  /* same as above but does not throw but sets info */
+  double ldeterminant(int&) const;
+
+  /* get dense version */
+  arma::mat get_dense() const;
+};
+
 #endif

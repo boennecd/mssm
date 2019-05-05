@@ -217,7 +217,8 @@ I will provide an example below. The `sgd` function is not a part of the
 package. Instead the package provides a way to approximate the gradient and 
 allows the user to perform subsequent maximization (e.g., with constraints or 
 penalties). The definition of the 
-`sgd` is given at the end of this file as it is somewhat long. 
+`sgd` is given at the end of this file as it is somewhat long. We start 
+by using a Laplace approximation to get the starting values.
 
 ```{r mc_grad_est, echo = FALSE}
 # Stochastic gradient descent for mssm object. The function assumes that the 
@@ -250,11 +251,12 @@ sgd <- function(
   n_fix <- nrow(object$X)
   n_rng <- nrow(object$Z)
   
-  # objects for estimates at each iteration and log-likelihood approximations
+  # objects for estimates at each iteration, gradient norms, and 
+  # log-likelihood approximations
   ests <- matrix(
     NA_real_, n_it + 1L, n_fix + n_rng * n_rng + n_rng * (n_rng  + 1L) / 2L)
   ests[1L, ] <- c(cfix, F., Q[lower.tri(Q, diag = TRUE)])
-  lls <- rep(NA_real_, n_it)
+  grad_norm <- lls <- rep(NA_real_, n_it)
   
   # indices of the different components
   idx_fix <- 1:n_fix
@@ -291,6 +293,8 @@ sgd <- function(
     
     # compute the gradient and take a small step
     grad <- colSums(t(grads) * drop(exp(ws)))
+    grad_norm[i - 1L] <- norm(t(grad))
+    
     lr_i <- lrs[i - 1L]
     k <- 0L
     while(k < max_half){
@@ -324,13 +328,14 @@ sgd <- function(
       print(F.)
       cat("Q\n")
       print(Q)
-      cat(sprintf("Gradient norm: %10.4f\n", norm(t(grad))))
+      cat(sprintf("Gradient norm: %10.4f\n", grad_norm[i - 1L]))
       print(get_ess(filter_out))
       
     }
   } 
   
-  list(estimates = ests, logLik = lls, F. = F., Q = Q, cfix = cfix)
+  list(estimates = ests, logLik = lls, F. = F., Q = Q, cfix = cfix, 
+       grad_norm = grad_norm)
 }
 
 # Stochastic gradient descent for mssm object using the Adam algorithm. The  
@@ -362,11 +367,12 @@ adam <- function(
   n_fix <- nrow(object$X)
   n_rng <- nrow(object$Z)
 
-  # objects for estimates at each iteration and log-likelihood approximations
+  # objects for estimates at each iteration, gradient norms, and 
+  # log-likelihood approximations
   ests <- matrix(
     NA_real_, n_it + 1L, n_fix + n_rng * n_rng + n_rng * (n_rng  + 1L) / 2L)
   ests[1L, ] <- c(cfix, F., Q[lower.tri(Q, diag = TRUE)])
-  lls <- rep(NA_real_, n_it)
+  grad_norm <- lls <- rep(NA_real_, n_it)
 
   # indices of the different components
   idx_fix <- 1:n_fix
@@ -401,6 +407,7 @@ adam <- function(
 
     # compute the gradient and take a small step
     grad <- colSums(t(grads) * drop(exp(ws)))
+    grad_norm[i - 1L] <- norm(t(grad))
 
     m <- if(is.null(m)) (1 - mp) * grad   else mp * m + (1 - mp) * grad
     v <- if(is.null(v)) (1 - vp) * grad^2 else vp * v + (1 - vp) * grad^2
@@ -444,14 +451,14 @@ adam <- function(
       print(F.)
       cat("Q\n")
       print(Q)
-      cat(sprintf("Gradient norm: %10.4f\n", norm(t(grad))))
+      cat(sprintf("Gradient norm: %10.4f\n", grad_norm[i - 1L]))
       print(get_ess(filter_out))
 
     }
   }
 
   list(estimates = ests, logLik = lls, F. = F., Q = Q, cfix = cfix,
-       failed = failed)
+       failed = failed, grad_norm = grad_norm)
 }
 ```
 
@@ -462,19 +469,30 @@ ll_func <- mssm(
   random = ~ Z, ti = time_idx, control = mssm_control(
     n_threads = 5L, N_part = 200L, what = "gradient"))
 
+# use Laplace approximatio
+system.time(
+  sta <- ll_func$Laplace(
+    F. = diag(.5, 2), Q = diag(1, 2), cfix = coef(glm_fit), disp = numeric()))
+
+# it return an object with the estimated parameters and log-likelihood
+sta$Laplace$F.
+sta$Laplace$Q
+sta$Laplace$cfix
+print(sta$Laplace$logLik, digits = 6) # log-likelihood approximation
+
 # use stochastic gradient descent with averaging
 set.seed(25164416)
 system.time( 
   res <- sgd(
-    ll_func, F. = diag(.5, 2), Q = diag(1, 2), cfix = coef(glm_fit), 
-    lrs = .001 * (1:150L)^(-1/2)))
+    ll_func, F. = sta$Laplace$F., Q = sta$Laplace$Q, cfix = sta$Laplace$cfix, 
+    lrs = .001 * (1:50)^(-1/2), n_it = 50L, avg_start = 30L))
 
 # use Adam algorithm instead
 set.seed(25164416)
 system.time( 
   resa <- adam(
-    ll_func, F. = diag(.5, 2), Q = diag(2, 2), cfix = coef(glm_fit), 
-    lr = .1))
+    ll_func, F. = sta$Laplace$F., Q = sta$Laplace$Q, cfix = sta$Laplace$cfix, 
+    lr = .01, n_it = 50L))
 ```
 
 A plot of the approximate log-likelihoods at each iteration is shown below 
@@ -483,8 +501,8 @@ along with the final estimates.
 ```{r show_use_sgd, fig.height = .fig_height_small}
 print(tail(res$logLik), digits = 6) # final log-likelihood approximations
 par(mar = c(5, 4, 1, 1))
-plot(     res$logLik       , type = "l")
-plot(tail(res$logLik, 100L), type = "l") # only the final iterations
+plot(res$logLik, type = "l", ylab = "log-likelihood approximation")
+plot(res$grad_norm, type = "l", ylab = "approximate gradient norm")
 
 # final estimates
 res$F. 
@@ -493,7 +511,8 @@ res$cfix
 
 # compare with output from Adam algorithm
 print(tail(resa$logLik), digits = 6) # final log-likelihood approximations
-plot(resa$logLik       , type = "l")
+plot(resa$logLik, type = "l", ylab = "log-likelihood approximation")
+plot(resa$grad_norm, type = "l", ylab = "approximate gradient norm")
 resa$F. 
 resa$Q
 resa$cfix
@@ -512,13 +531,14 @@ ll_func <- mssm(
 
 set.seed(25164416)
 system.time( 
-  res_final <- sgd(
+  res_final <- adam(
     ll_func, F. = resa$F., Q = resa$Q, cfix = resa$cfix, 
-    lrs = rep(.0001, 25L), n_it = 25L))
+    lr = .001, n_it = 25L))
 ```
 
 ```{r show_cont_est}
-plot(res_final$logLik, type = "l")
+plot(res_final$logLik, type = "l", ylab = "log-likelihood approximation")
+plot(res_final$grad_norm, type = "l", ylab = "approximate gradient norm")
 res_final$F. 
 res_final$Q
 res_final$cfix
@@ -778,16 +798,23 @@ out$grad
 sqrt(diag(vcov(glm_fit)))
 
 # and relative to true parameters vs. estimated
-rbind(true = cfix, glm = coef(glm_fit), mssm = res_final$cfix, se = ses[1:4])
+rbind(
+  true             = cfix, 
+  glm              = coef(glm_fit), 
+  mssm             = res_final$cfix, 
+  `standard error` = ses[1:4])
 
 # next look at parameters in state equation. First four are for F.
-rbind(true = c(F.), mssm = c(res_final$F.), se = ses[5:8])
+rbind(
+  true             = c(F.), 
+  mssm             = c(res_final$F.), 
+  `standard error` = ses[5:8])
 
 # next three are w.r.t. the lower diagonal part of Q
 rbind(
-  true =           Q[lower.tri(Q, diag = TRUE)], 
-  mssm = res_final$Q[lower.tri(Q, diag = TRUE)], 
-  se = ses[9:11])
+  true             =           Q[lower.tri(Q, diag = TRUE)], 
+  mssm             = res_final$Q[lower.tri(Q, diag = TRUE)], 
+  `standard error` = ses[9:11])
 ```
 
 ## Supported Families

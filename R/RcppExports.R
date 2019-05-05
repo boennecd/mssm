@@ -25,3 +25,7 @@ pf_filter <- function(Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time
     .Call(`_mssm_pf_filter`, Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, which_sampler, which_ll_cp, trace, KD_N_max, aprx_eps)
 }
 
+run_Laplace_aprx <- function(Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, trace, KD_N_max, aprx_eps) {
+    .Call(`_mssm_run_Laplace_aprx`, Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, trace, KD_N_max, aprx_eps)
+}
+

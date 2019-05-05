@@ -101,28 +101,33 @@ mssm <- function(
     y = y, X = X, Z = Z, ti = ti, weights = weights, offsets = offsets,
     call = match.call(), control = control, family = fam)
 
-  # assign function to compute the requested objects
-  out_func <- function(cfix, disp, F., Q, Q0, mu0, trace = 0L, seed, what,
-                       N_part){
+  # assign function to validate input
+  chech_input <- function(cfix, disp, F., Q, Q0, mu0, trace = 0L, seed, what,
+                          N_part){
     p <- nrow(Z)
     stopifnot(
       is.numeric(cfix), length(cfix) == nrow(X),
       is.numeric(disp),
       is.numeric(F.), is.matrix(F.), nrow(F.) == p, ncol(F.) == p,
       is.numeric(Q ), is.matrix(Q ), nrow(Q ) == p, ncol(Q ) == p,
+      is.numeric(Q0), is.matrix(Q0), nrow(Q0) == p, ncol(Q0) == p,
+      is.numeric(mu0), length(mu0) == p,
       is.integer(trace),
       is.null(seed) || is.numeric(seed))
     .is_valid_N_part(N_part)
     .is_valid_what(what)
+  }
 
+  # assign function to run the particle filter
+  out_func <- function(cfix, disp, F., Q, Q0, mu0, trace = 0L, seed, what,
+                       N_part){
+    p <- nrow(Z)
     if(missing(Q0))
       Q0 <- .get_Q0(Q, F.)
     if(missing(mu0))
       mu0 <- numeric(nrow(Q0))
 
-    stopifnot(
-      is.numeric(Q0 ), is.matrix(Q0), nrow(Q0) == p, ncol(Q0) == p,
-      is.numeric(mu0), length(mu0) == p)
+    chech_input(cfix, disp, F., Q, Q0, mu0, trace, seed, what, N_part)
 
     if(!is.null(seed))
       set.seed(seed)
@@ -140,12 +145,41 @@ mssm <- function(
     structure(c(list(pf_output = out), output_list), class = "mssm")
   }
 
+  # assign function to use Laplace approximation to estimate parameters
+  Laplace <- function(cfix, disp, F., Q, Q0, mu0, trace = 0L){
+    p <- nrow(Z)
+    if(missing(Q0))
+      Q0 <- .get_Q0(Q, F.)
+    if(missing(mu0))
+      mu0 <- numeric(nrow(Q0))
+
+    what <- "log_density"
+    N_part <- 2L
+    seed <- NULL
+
+    chech_input(cfix, disp, F., Q, Q0, mu0, trace, seed, what, N_part)
+
+    out <- run_Laplace_aprx(
+      Y = y, cfix = cfix, ws = weights, offsets = offsets, disp = disp, X = X,
+      Z = Z,
+      time_indices_elems = time_indices_elems - 1L, # zero index
+      time_indices_len = time_indices_len, F = F., Q = Q, Q0 = Q0,
+      fam = fam, mu0 = mu0, n_threads = control$n_threads, nu = control$nu,
+      covar_fac = control$covar_fac, ftol_rel = control$ftol_rel,
+      N_part = N_part, what = what, trace, KD_N_max = control$KD_N_max,
+      aprx_eps = control$aprx_eps)
+    out$cfix <- drop(out$cfix)
+
+    structure(c(list(Laplace = out), output_list), class = "mssmLaplace")
+  }
+
   # set defaults
   idx_set <- c("seed", "what", "N_part")
   formals(out_func)[idx_set] <- control[idx_set]
 
   structure(
-    c(list(pf_filter = out_func), output_list), class = "mssmFunc")
+    c(list(pf_filter = out_func, Laplace = Laplace),
+      output_list), class = "mssmFunc")
 }
 
 #' @title Particle Filter Function for Multivariate State Space Model

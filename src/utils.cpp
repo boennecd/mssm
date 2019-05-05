@@ -12,7 +12,7 @@ chol_decomp::chol_decomp(const arma::mat &X):
   X(X), chol_(set_chol_(X)) { }
 
 static constexpr char C_U = 'U', C_N = 'N', C_L = 'L';
-static constexpr double D_one = 1.;
+static constexpr double D_one = 1., D_zero = 0.;
 static constexpr int I_one = 1L;
 
 inline void solve_half_(const arma::mat &chol_, arma::mat &X,
@@ -210,4 +210,121 @@ void LU_fact::solve(arma::vec &z) const {
       &n, &info);
 
   check_dgetrs_info(info);
+}
+
+template<bool add>
+inline void sym_band_mat_set
+  (double *mem, const int dim, const int ku, const arma::mat &x,
+   const int istart, const int jstart, const double alpha){
+  for(unsigned xj = 0; xj < x.n_cols; ++xj){
+    const int j = xj + jstart;
+    if(j >= dim)
+      break;
+    const int m = ku - j, col_skip = j * (ku + 1L);
+    for(unsigned int xi = 0; xi < x.n_rows; ++xi){
+      const int i = xi + istart;
+      if(i < std::max(0L, (long)(j - ku)))
+        continue;
+      if(i > j)
+        break;
+
+      if(add)
+        *(mem + m + i + col_skip) += alpha * x(xi, xj);
+      else
+        *(mem + m + i + col_skip)  = x(xi, xj);
+    }
+  }
+}
+
+void sym_band_mat::set_diag_block
+  (const unsigned int number, const arma::mat &new_mat, const double alpha){
+#ifdef MSSM_DEBUG
+  if((int)number >= n_bands)
+    throw std::invalid_argument("number out-of-bounds");
+  if((int)new_mat.n_rows != dim_dia or (int)new_mat.n_cols != dim_dia)
+    throw std::invalid_argument("incorrect dimension of new_mat");
+#endif
+  const int start = number * dim_dia;
+  if(alpha == 0.)
+    sym_band_mat_set<false>(mem.get(), dim, ku, new_mat, start, start, alpha);
+  else
+    sym_band_mat_set<true>(mem.get(), dim, ku, new_mat, start, start, alpha);
+}
+
+void sym_band_mat::set_upper_block
+  (const unsigned int number, const arma::mat &new_mat){
+#ifdef MSSM_DEBUG
+  if((int)number >= n_bands - 1L)
+    throw std::invalid_argument("number out-of-bounds");
+  if((int)new_mat.n_rows != dim_dia or (int)new_mat.n_cols != dim_off)
+    throw std::invalid_argument(
+        "incorrect dimension of new_mat (" + std::to_string(new_mat.n_rows) +
+          ", " + std::to_string(new_mat.n_cols) + ", " +
+          std::to_string(dim_dia) + ", " + std::to_string(dim_off) + ")");
+#endif
+  const int i_start = number * dim_dia, j_start = (number + 1L) * dim_dia;
+  sym_band_mat_set<false>(mem.get(), dim, ku, new_mat, i_start, j_start, 0.);
+}
+
+arma::vec sym_band_mat::mult(const double *x) const {
+  arma::vec out(dim, arma::fill::zeros);
+  F77_CALL(dsbmv)(
+      &C_U, &dim, &ku, &D_one, mem.get(), &ku1, x, &I_one,
+      &D_zero, out.memptr(), &I_one);
+
+      return out;
+}
+
+arma::vec sym_band_mat::mult(const arma::vec &x) const{
+#ifdef MSSM_DEBUG
+  if((int)x.n_elem != dim)
+    throw std::invalid_argument(
+        "invalid dimension in 'sym_band_mat::mult' (" +
+          std::to_string(x.n_elem) + ", " + std::to_string(dim) + ")");
+#endif
+  return mult(x.memptr());
+}
+
+double sym_band_mat::ldeterminant(int &info) const {
+  /* copy matrix */
+  std::unique_ptr<double[]> cp(new double[mem_size]);
+  std::copy(mem.get(), mem.get() + mem_size, cp.get());
+
+  /* compute cholesky decomposition */
+  F77_CALL(dpbtrf)(
+      &C_U, &dim, &ku, cp.get(), &ku1, &info);
+
+  if(info != 0L)
+    return 0.;
+
+  double dia_sum = 0.;
+  double *x = cp.get() + ku;
+  for(int i = 0; i < dim; ++i, x += ku1)
+    dia_sum += std::log(*x);
+
+  return 2 * dia_sum;
+}
+
+double sym_band_mat::ldeterminant() const {
+  int info;
+  const double out = ldeterminant(info);
+
+  if(info != 0)
+    throw std::runtime_error(
+        "'dpbtrf' failed with code " + std::to_string(info));
+
+  return out;
+}
+
+arma::mat sym_band_mat::get_dense() const  {
+  arma::mat out(dim, dim, arma::fill::zeros);
+  for(int j = 0; j < dim; ++j){
+    const int m = ku - j, col_skip = j * (ku + 1L);
+    for(int i = std::max(0, j - ku); i <= j; ++i)
+      out(i, j) = *(mem.get() + m + i + col_skip);
+  }
+
+  out = arma::symmatu(out);
+
+  return out;
 }

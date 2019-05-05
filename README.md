@@ -204,7 +204,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   1.955   0.027   0.500
+    ##   1.898   0.037   0.484
 
 ``` r
 # returns the log-likelihood approximation
@@ -274,7 +274,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   1.945   0.017   0.480
+    ##   1.818   0.014   0.463
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -291,7 +291,7 @@ logLik(mssm_glm)
 
 ### Parameter Estimation
 
-We will need to estimate the parameters for real applications. We could do this e.g., with a Monte Carlo expectation-maximization algorithm or by using a Monte Carlo approximation of the gradient. Currently, the latter is only available and the user will have to write a custom function to perform the estimation. I will provide an example below. The `sgd` function is not a part of the package. Instead the package provides a way to approximate the gradient and allows the user to perform subsequent maximization (e.g., with constraints or penalties). The definition of the `sgd` is given at the end of this file as it is somewhat long.
+We will need to estimate the parameters for real applications. We could do this e.g., with a Monte Carlo expectation-maximization algorithm or by using a Monte Carlo approximation of the gradient. Currently, the latter is only available and the user will have to write a custom function to perform the estimation. I will provide an example below. The `sgd` function is not a part of the package. Instead the package provides a way to approximate the gradient and allows the user to perform subsequent maximization (e.g., with constraints or penalties). The definition of the `sgd` is given at the end of this file as it is somewhat long. We start by using a Laplace approximation to get the starting values.
 
 ``` r
 # setup mssmFunc object to use
@@ -300,28 +300,67 @@ ll_func <- mssm(
   random = ~ Z, ti = time_idx, control = mssm_control(
     n_threads = 5L, N_part = 200L, what = "gradient"))
 
+# use Laplace approximatio
+system.time(
+  sta <- ll_func$Laplace(
+    F. = diag(.5, 2), Q = diag(1, 2), cfix = coef(glm_fit), disp = numeric()))
+```
+
+    ##    user  system elapsed 
+    ##   27.12    0.00   27.12
+
+``` r
+# it return an object with the estimated parameters and log-likelihood
+sta$Laplace$F.
+```
+
+    ##           [,1]      [,2]
+    ## [1,]  0.496878 -0.004209
+    ## [2,] -0.004219  0.796688
+
+``` r
+sta$Laplace$Q
+```
+
+    ##        [,1]   [,2]
+    ## [1,] 0.3087 0.1307
+    ## [2,] 0.1307 0.5123
+
+``` r
+sta$Laplace$cfix
+```
+
+    ## [1] -0.9114  0.2133  0.5234 -0.8941
+
+``` r
+print(sta$Laplace$logLik, digits = 6) # log-likelihood approximation
+```
+
+    ## [1] -5863.53
+
+``` r
 # use stochastic gradient descent with averaging
 set.seed(25164416)
 system.time( 
   res <- sgd(
-    ll_func, F. = diag(.5, 2), Q = diag(1, 2), cfix = coef(glm_fit), 
-    lrs = .001 * (1:150L)^(-1/2)))
+    ll_func, F. = sta$Laplace$F., Q = sta$Laplace$Q, cfix = sta$Laplace$cfix, 
+    lrs = .001 * (1:50)^(-1/2), n_it = 50L, avg_start = 30L))
 ```
 
     ##    user  system elapsed 
-    ## 638.295   3.821 147.706
+    ## 196.094   1.121  45.363
 
 ``` r
 # use Adam algorithm instead
 set.seed(25164416)
 system.time( 
   resa <- adam(
-    ll_func, F. = diag(.5, 2), Q = diag(2, 2), cfix = coef(glm_fit), 
-    lr = .1))
+    ll_func, F. = sta$Laplace$F., Q = sta$Laplace$Q, cfix = sta$Laplace$cfix, 
+    lr = .01, n_it = 50L))
 ```
 
     ##    user  system elapsed 
-    ## 642.249   3.801 148.648
+    ## 216.571   1.389  50.041
 
 A plot of the approximate log-likelihoods at each iteration is shown below along with the final estimates.
 
@@ -329,17 +368,17 @@ A plot of the approximate log-likelihoods at each iteration is shown below along
 print(tail(res$logLik), digits = 6) # final log-likelihood approximations
 ```
 
-    ## [1] -5863.35 -5862.56 -5862.44 -5862.15 -5862.63 -5861.82
+    ## [1] -5862.03 -5861.98 -5861.54 -5862.09 -5862.73 -5860.91
 
 ``` r
 par(mar = c(5, 4, 1, 1))
-plot(     res$logLik       , type = "l")
+plot(res$logLik, type = "l", ylab = "log-likelihood approximation")
 ```
 
 ![](./README-fig/show_use_sgd-1.png)
 
 ``` r
-plot(tail(res$logLik, 100L), type = "l") # only the final iterations
+plot(res$grad_norm, type = "l", ylab = "approximate gradient norm")
 ```
 
 ![](./README-fig/show_use_sgd-2.png)
@@ -349,58 +388,64 @@ plot(tail(res$logLik, 100L), type = "l") # only the final iterations
 res$F. 
 ```
 
-    ##          [,1]      [,2]
-    ## [1,]  0.49526 -0.006995
-    ## [2,] -0.01311  0.784075
+    ##            [,1]      [,2]
+    ## [1,]  0.4967123 -0.002564
+    ## [2,] -0.0007448  0.798247
 
 ``` r
 res$Q
 ```
 
     ##        [,1]   [,2]
-    ## [1,] 0.3131 0.1474
-    ## [2,] 0.1474 0.5575
+    ## [1,] 0.3045 0.1256
+    ## [2,] 0.1256 0.5003
 
 ``` r
 res$cfix
 ```
 
-    ## [1] -0.9840  0.2137  0.5243 -0.8962
+    ## [1] -0.9801  0.2139  0.5242 -0.8902
 
 ``` r
 # compare with output from Adam algorithm
 print(tail(resa$logLik), digits = 6) # final log-likelihood approximations
 ```
 
-    ## [1] -5863.45 -5862.35 -5862.27 -5861.88 -5862.50 -5861.70
+    ## [1] -5862.03 -5862.01 -5861.57 -5862.10 -5862.77 -5860.94
 
 ``` r
-plot(resa$logLik       , type = "l")
+plot(resa$logLik, type = "l", ylab = "log-likelihood approximation")
 ```
 
 ![](./README-fig/show_use_sgd-3.png)
 
 ``` r
+plot(resa$grad_norm, type = "l", ylab = "approximate gradient norm")
+```
+
+![](./README-fig/show_use_sgd-4.png)
+
+``` r
 resa$F. 
 ```
 
-    ##          [,1]     [,2]
-    ## [1,] 0.499976 -0.00433
-    ## [2,] 0.004879  0.79736
+    ##          [,1]      [,2]
+    ## [1,] 0.500561 -0.001723
+    ## [2,] 0.003755  0.795002
 
 ``` r
 resa$Q
 ```
 
-    ##       [,1]   [,2]
-    ## [1,] 0.306 0.1350
-    ## [2,] 0.135 0.5029
+    ##        [,1]   [,2]
+    ## [1,] 0.3067 0.1277
+    ## [2,] 0.1277 0.4960
 
 ``` r
 resa$cfix
 ```
 
-    ## [1] -0.9837  0.2110  0.5205 -1.0333
+    ## [1] -0.9779  0.2142  0.5217 -0.8866
 
 We may want to use more particles towards the end when we estimate the parameters. To do, we use the approximation described in the next section at the final estimates that we arrived at before.
 
@@ -413,41 +458,47 @@ ll_func <- mssm(
 
 set.seed(25164416)
 system.time( 
-  res_final <- sgd(
+  res_final <- adam(
     ll_func, F. = resa$F., Q = resa$Q, cfix = resa$cfix, 
-    lrs = rep(.0001, 25L), n_it = 25L))
+    lr = .001, n_it = 25L))
 ```
 
     ##    user  system elapsed 
-    ## 3049.97   27.44  676.39
+    ## 2994.60   27.99  663.30
 
 ``` r
-plot(res_final$logLik, type = "l")
+plot(res_final$logLik, type = "l", ylab = "log-likelihood approximation")
 ```
 
 ![](./README-fig/show_cont_est-1.png)
+
+``` r
+plot(res_final$grad_norm, type = "l", ylab = "approximate gradient norm")
+```
+
+![](./README-fig/show_cont_est-2.png)
 
 ``` r
 res_final$F. 
 ```
 
     ##          [,1]      [,2]
-    ## [1,] 0.500744 -0.002725
-    ## [2,] 0.003564  0.799376
+    ## [1,] 0.501296 -0.002836
+    ## [2,] 0.004041  0.799911
 
 ``` r
 res_final$Q
 ```
 
     ##        [,1]   [,2]
-    ## [1,] 0.3064 0.1282
-    ## [2,] 0.1282 0.5030
+    ## [1,] 0.3040 0.1243
+    ## [2,] 0.1243 0.4960
 
 ``` r
 res_final$cfix
 ```
 
-    ## [1] -0.9864  0.2135  0.5241 -1.0262
+    ## [1] -0.9765  0.2140  0.5249 -0.9029
 
 ### Faster Approximation
 
@@ -483,12 +534,12 @@ local({
 ```
 
     ## Unit: milliseconds
-    ##  expr    min      lq    mean  median      uq     max neval
-    ##   100   61.1   61.33   62.67   61.56   63.46   65.35     3
-    ##   200  127.0  128.83  131.17  130.68  133.26  135.83     3
-    ##   400  350.9  351.96  355.86  353.04  358.35  363.65     3
-    ##   800 1010.6 1039.94 1054.21 1069.23 1075.99 1082.76     3
-    ##  1600 3370.2 3379.06 3398.45 3387.90 3412.56 3437.22     3
+    ##  expr     min     lq    mean  median      uq     max neval
+    ##   100   72.21   73.4   74.29   74.59   75.33   76.06     3
+    ##   200  139.55  150.9  155.76  162.17  163.86  165.55     3
+    ##   400  398.95  401.2  411.31  403.44  417.48  431.52     3
+    ##   800 1062.96 1066.9 1068.35 1070.74 1071.05 1071.35     3
+    ##  1600 3488.96 3530.6 3766.62 3572.33 3905.45 4238.57     3
 
 A solution is to use the dual k-d tree method I cover later. The computational complexity is ![\\mathcal{O}(N \\log N)](https://chart.googleapis.com/chart?cht=tx&chl=%5Cmathcal%7BO%7D%28N%20%5Clog%20N%29 "\mathcal{O}(N \log N)") for this method which is somewhat indicated by the run times shown below.
 
@@ -525,12 +576,12 @@ local({
 
     ## Unit: milliseconds
     ##   expr    min     lq   mean median     uq    max neval
-    ##    100  106.6  106.7  108.7  106.9  109.8  112.7     3
-    ##    200  192.0  199.8  207.6  207.6  215.3  223.1     3
-    ##    400  410.1  415.4  418.0  420.7  422.0  423.4     3
-    ##    800  841.6  841.7  843.4  841.8  844.3  846.9     3
-    ##   1600 1506.0 1532.5 1549.5 1559.1 1571.3 1583.4     3
-    ##  12800 8831.0 8853.0 8886.2 8875.1 8913.8 8952.6     3
+    ##    100  125.0  125.4  125.7  125.9  126.1  126.3     3
+    ##    200  210.1  218.8  223.5  227.6  230.2  232.9     3
+    ##    400  393.2  402.2  412.9  411.1  422.8  434.4     3
+    ##    800  813.0  831.3  867.8  849.5  895.2  940.9     3
+    ##   1600 1587.6 1630.5 1671.7 1673.3 1713.8 1754.2     3
+    ##  12800 8389.8 8456.7 8519.3 8523.5 8584.1 8644.6     3
 
 The `aprx_eps` controls the size of the error. To be precise about what this value does then we need to some notation for the complete likelihood (the likelihood where we observe ![\\vec\\beta\_1,\\dots,\\vec\\beta\_T](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_1%2C%5Cdots%2C%5Cvec%5Cbeta_T "\vec\beta_1,\dots,\vec\beta_T")s). This is
 
@@ -670,7 +721,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 371.914   2.944  82.075
+    ## 348.366   1.599  75.905
 
 We define a function below to get the approximate gradient and approximate observed information matrix from the returned object. Then we compare the output to the GLM we estimated and to the true parameters.
 
@@ -726,9 +777,9 @@ out$grad
 ```
 
     ## (Intercept)          X1          X2           Z        F1.1        F2.1 
-    ##     -0.6439      0.1699      0.4309      2.8808      0.2519     -0.4234 
+    ##      0.2716     -0.3367     -0.3669     -0.4103      0.1362     -0.1689 
     ##        F1.2        F2.2        Q1.1        Q2.1        Q2.2 
-    ##      0.6508      0.2961     -0.4528     -1.1871     -0.4186
+    ##      0.6834     -0.1429      0.3366     -1.2571      0.6762
 
 ``` r
 # approximate standard errors
@@ -736,9 +787,9 @@ out$grad
 ```
 
     ## (Intercept)          X1          X2           Z        F1.1        F2.1 
-    ##     0.04335     0.02815     0.02920     0.08740     0.06752     0.09102 
+    ##     0.04327     0.02815     0.02920     0.08716     0.06737     0.09062 
     ##        F1.2        F2.2        Q1.1        Q2.1        Q2.2 
-    ##     0.03284     0.04195     0.03661     0.04021     0.07133
+    ##     0.03283     0.04166     0.03622     0.03951     0.06991
 
 ``` r
 # look at output for parameters in the observational equation. First, compare 
@@ -751,37 +802,44 @@ sqrt(diag(vcov(glm_fit)))
 
 ``` r
 # and relative to true parameters vs. estimated
-rbind(true = cfix, glm = coef(glm_fit), mssm = res_final$cfix, se = ses[1:4])
+rbind(
+  true             = cfix, 
+  glm              = coef(glm_fit), 
+  mssm             = res_final$cfix, 
+  `standard error` = ses[1:4])
 ```
 
-    ##      (Intercept)      X1     X2       Z
-    ## true    -1.00000 0.20000 0.5000 -1.0000
-    ## glm     -0.55576 0.20237 0.5160 -0.9122
-    ## mssm    -0.98639 0.21349 0.5241 -1.0262
-    ## se       0.04335 0.02815 0.0292  0.0874
+    ##                (Intercept)      X1     X2        Z
+    ## true              -1.00000 0.20000 0.5000 -1.00000
+    ## glm               -0.55576 0.20237 0.5160 -0.91216
+    ## mssm              -0.97648 0.21400 0.5249 -0.90288
+    ## standard error     0.04327 0.02815 0.0292  0.08716
 
 ``` r
 # next look at parameters in state equation. First four are for F.
-rbind(true = c(F.), mssm = c(res_final$F.), se = ses[5:8])
+rbind(
+  true             = c(F.), 
+  mssm             = c(res_final$F.), 
+  `standard error` = ses[5:8])
 ```
 
-    ##         F1.1     F2.1      F1.2    F2.2
-    ## true 0.50000 0.100000  0.000000 0.80000
-    ## mssm 0.50074 0.003564 -0.002725 0.79938
-    ## se   0.06752 0.091016  0.032839 0.04195
+    ##                   F1.1     F2.1      F1.2    F2.2
+    ## true           0.50000 0.100000  0.000000 0.80000
+    ## mssm           0.50130 0.004041 -0.002836 0.79991
+    ## standard error 0.06737 0.090620  0.032833 0.04166
 
 ``` r
 # next three are w.r.t. the lower diagonal part of Q
 rbind(
-  true =           Q[lower.tri(Q, diag = TRUE)], 
-  mssm = res_final$Q[lower.tri(Q, diag = TRUE)], 
-  se = ses[9:11])
+  true             =           Q[lower.tri(Q, diag = TRUE)], 
+  mssm             = res_final$Q[lower.tri(Q, diag = TRUE)], 
+  `standard error` = ses[9:11])
 ```
 
-    ##         Q1.1    Q2.1    Q2.2
-    ## true 0.25000 0.10000 0.49000
-    ## mssm 0.30645 0.12821 0.50302
-    ## se   0.03661 0.04021 0.07133
+    ##                   Q1.1    Q2.1    Q2.2
+    ## true           0.25000 0.10000 0.49000
+    ## mssm           0.30401 0.12432 0.49596
+    ## standard error 0.03622 0.03951 0.06991
 
 Supported Families
 ------------------
@@ -878,10 +936,10 @@ microbenchmark::microbenchmark(
 
     ## Unit: milliseconds
     ##         expr     min      lq    mean  median      uq     max neval
-    ##  dual tree 1  103.52  105.13  111.10  110.86  115.91  121.33    10
-    ##  dual tree 4   40.01   40.21   42.98   42.51   45.42   46.77    10
-    ##      naive 1 3315.93 3345.30 3483.81 3378.50 3470.81 4273.35    10
-    ##      naive 4  937.60 1030.78 1098.48 1045.87 1157.48 1313.02    10
+    ##  dual tree 1  106.60  108.44  134.62  114.67  145.78  200.44    10
+    ##  dual tree 4   40.26   41.68   45.08   44.25   47.31   52.24    10
+    ##      naive 1 3308.34 3462.42 3654.09 3548.56 3755.78 4642.53    10
+    ##      naive 4  912.60  978.30 1073.96 1009.96 1198.66 1428.55    10
 
 ``` r
 # The functions return the un-normalized log weights. We first compare
@@ -963,19 +1021,19 @@ meds
 
     ##          method
     ## N         Dual-tree      Naive Dual-tree 1
-    ##   384      0.001307  0.0007127    0.003247
-    ##   768      0.002572  0.0025440    0.006550
-    ##   1536     0.004832  0.0094395    0.012611
-    ##   3072     0.009252  0.0440001    0.024702
-    ##   6144     0.019060  0.1718900    0.047890
-    ##   12288    0.041501  0.6534322    0.091706
-    ##   24576    0.059958  2.5300058    0.163021
-    ##   49152    0.112644 10.6032526    0.312012
-    ##   98304    0.219456         NA          NA
-    ##   196608   0.462263         NA          NA
-    ##   393216   0.877304         NA          NA
-    ##   786432   1.849081         NA          NA
-    ##   1572864  3.893610         NA          NA
+    ##   384      0.001125  0.0006528    0.003347
+    ##   768      0.002736  0.0025257    0.006608
+    ##   1536     0.004484  0.0097430    0.011878
+    ##   3072     0.008958  0.0385479    0.023843
+    ##   6144     0.018360  0.1719540    0.048113
+    ##   12288    0.048490  0.8637983    0.127301
+    ##   24576    0.061650  3.1667281    0.179856
+    ##   49152    0.114618 11.3005119    0.322729
+    ##   98304    0.226459         NA          NA
+    ##   196608   0.442890         NA          NA
+    ##   393216   0.897032         NA          NA
+    ##   786432   1.935013         NA          NA
+    ##   1572864  4.603182         NA          NA
 
 ``` r
 par(mar = c(5, 4, 1, 1))
@@ -1019,11 +1077,12 @@ sgd <- function(
   n_fix <- nrow(object$X)
   n_rng <- nrow(object$Z)
   
-  # objects for estimates at each iteration and log-likelihood approximations
+  # objects for estimates at each iteration, gradient norms, and 
+  # log-likelihood approximations
   ests <- matrix(
     NA_real_, n_it + 1L, n_fix + n_rng * n_rng + n_rng * (n_rng  + 1L) / 2L)
   ests[1L, ] <- c(cfix, F., Q[lower.tri(Q, diag = TRUE)])
-  lls <- rep(NA_real_, n_it)
+  grad_norm <- lls <- rep(NA_real_, n_it)
   
   # indices of the different components
   idx_fix <- 1:n_fix
@@ -1060,6 +1119,8 @@ sgd <- function(
     
     # compute the gradient and take a small step
     grad <- colSums(t(grads) * drop(exp(ws)))
+    grad_norm[i - 1L] <- norm(t(grad))
+    
     lr_i <- lrs[i - 1L]
     k <- 0L
     while(k < max_half){
@@ -1093,13 +1154,14 @@ sgd <- function(
       print(F.)
       cat("Q\n")
       print(Q)
-      cat(sprintf("Gradient norm: %10.4f\n", norm(t(grad))))
+      cat(sprintf("Gradient norm: %10.4f\n", grad_norm[i - 1L]))
       print(get_ess(filter_out))
       
     }
   } 
   
-  list(estimates = ests, logLik = lls, F. = F., Q = Q, cfix = cfix)
+  list(estimates = ests, logLik = lls, F. = F., Q = Q, cfix = cfix, 
+       grad_norm = grad_norm)
 }
 
 # Stochastic gradient descent for mssm object using the Adam algorithm. The  
@@ -1131,11 +1193,12 @@ adam <- function(
   n_fix <- nrow(object$X)
   n_rng <- nrow(object$Z)
 
-  # objects for estimates at each iteration and log-likelihood approximations
+  # objects for estimates at each iteration, gradient norms, and 
+  # log-likelihood approximations
   ests <- matrix(
     NA_real_, n_it + 1L, n_fix + n_rng * n_rng + n_rng * (n_rng  + 1L) / 2L)
   ests[1L, ] <- c(cfix, F., Q[lower.tri(Q, diag = TRUE)])
-  lls <- rep(NA_real_, n_it)
+  grad_norm <- lls <- rep(NA_real_, n_it)
 
   # indices of the different components
   idx_fix <- 1:n_fix
@@ -1170,6 +1233,7 @@ adam <- function(
 
     # compute the gradient and take a small step
     grad <- colSums(t(grads) * drop(exp(ws)))
+    grad_norm[i - 1L] <- norm(t(grad))
 
     m <- if(is.null(m)) (1 - mp) * grad   else mp * m + (1 - mp) * grad
     v <- if(is.null(v)) (1 - vp) * grad^2 else vp * v + (1 - vp) * grad^2
@@ -1213,14 +1277,14 @@ adam <- function(
       print(F.)
       cat("Q\n")
       print(Q)
-      cat(sprintf("Gradient norm: %10.4f\n", norm(t(grad))))
+      cat(sprintf("Gradient norm: %10.4f\n", grad_norm[i - 1L]))
       print(get_ess(filter_out))
 
     }
   }
 
   list(estimates = ests, logLik = lls, F. = F., Q = Q, cfix = cfix,
-       failed = failed)
+       failed = failed, grad_norm = grad_norm)
 }
 ```
 
