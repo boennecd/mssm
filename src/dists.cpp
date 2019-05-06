@@ -4,9 +4,6 @@
 #include "blas-lapack.h"
 #include "dup-mult.h"
 
-#define MIN(a,b) (((a)<(b))?(a):(b))
-#define MAX(a,b) (((a)>(b))?(a):(b))
-
 static constexpr int I_ONE = 1L;
 static constexpr double D_M_ONE = -1.;
 
@@ -222,7 +219,7 @@ std::array<double, 3> binomial_logit::log_density_state_inner
   gaurd_new_comp_out(what);
 
   std::array<double, 3> out;
-  const double eta_use = MAX(MIN(eta, 20.), -20.);
+  const double eta_use = std::max(std::min(eta, 20.), -20.);
   const double eta_exp = exp(eta_use);
   const double expp1 = eta_exp + 1;
   const double mu = eta_exp / expp1;
@@ -250,7 +247,7 @@ std::array<double, 3> binomial_cloglog::log_density_state_inner
     /* log(-log  (.Machine$double.eps)) */
     eta_upper =
       log(-log  (std::numeric_limits<double>::epsilon()));
-  const double eta_use = MAX(MIN(eta, eta_upper), eta_lower);
+  const double eta_use = std::max(std::min(eta, eta_upper), eta_lower);
   const double eta_exp = exp(eta_use);
   const double mu = -std::expm1(-eta_exp);
 
@@ -279,7 +276,7 @@ std::array<double, 3> binomial_probit::log_density_state_inner
      * differnt epsilon */
     eta_lower = -8.12589066470191,
     eta_upper = -eta_lower;
-  const double eta_use = MAX(MIN(eta, eta_upper), eta_lower);
+  const double eta_use = std::max(std::min(eta, eta_upper), eta_lower);
   const double mu = R::pnorm5(eta_use, 0, 1, 1, 0);
 
   out[0L] = binom_pdf(y, w, mu);
@@ -304,14 +301,20 @@ std::array<double, 3> poisson_log::log_density_state_inner
 {
   gaurd_new_comp_out(what);
 
-  const double lambda = MAX(exp(eta), std::numeric_limits<double>::epsilon());
+  constexpr double
+    lambda_min = std::numeric_limits<double>::epsilon(),
+    eta_min = std::log(lambda_min);
+  const bool is_small = eta < eta_min;
+  const double
+    eta_use = is_small ? eta_min    : eta,
+    lambda  = is_small ? lambda_min : std::exp(eta);
   std::array<double, 3> out;
   out[0] = ([&]{
     if(y <= lambda * std::numeric_limits<double>::min())
       return -lambda;
 
     /* TODO: maybe look at aproximation used in r-source/src/nmath/dpois.c */
-      return y * eta - lambda - std::lgamma(y + 1.);
+      return y * eta_use - lambda - std::lgamma(y + 1.);
   })();
   out[0] *= w;
 
@@ -369,7 +372,13 @@ std::array<double, 3> Gamma_log::log_density_state_inner
 {
   gaurd_new_comp_out(what);
 
-  const double mu = MAX(exp(eta), std::numeric_limits<double>::epsilon()),
+  constexpr double
+    exp_eat_min = std::numeric_limits<double>::epsilon(),
+        eta_min = std::log(exp_eat_min);
+
+  const bool is_small = eta < eta_min;
+
+  const double mu = is_small ? exp_eat_min : std::exp(eta),
     phi       = disp->operator()(0L),
     log_scale = eta - disp->operator()(1L);
   const double shape = 1. / phi,

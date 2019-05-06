@@ -3,6 +3,10 @@
 #include "nlopt.h"
 #include <math.h>
 
+#ifdef MSSM_PROF
+#include "profile.h"
+#endif
+
 using namespace std::placeholders;
 
 sym_band_mat get_concentration
@@ -75,12 +79,60 @@ namespace {
     const double ftol_abs, ftol_rel, ftol_abs_inner, ftol_rel_inner;
     const unsigned maxeval, maxeval_inner;
 
+    /* stores objects to evaluate conditional densities */
+    const std::vector<std::unique_ptr<cdist> > obs_dists = ([&]{
+      std::vector<std::unique_ptr<cdist> > out;
+      out.reserve(data.n_periods);
+      for(unsigned i = 0; i < data.n_periods; ++i)
+        out.push_back(data.get_obs_dist(i));
+
+      return out;
+    })();
+
     /* matrix that contains random effect modes */
     arma::mat random_effects =
       arma::mat(state_dim, data.n_periods, arma::fill::zeros);
 
     /* pointer to concentraiton matrix */
     std::unique_ptr<sym_band_mat> concentration_mat;
+
+    /* funciton used in mode approximation for multithreading. It writes to
+     * the part of the gradient for the state and returns a vector with the
+     * gradient term related to fixed coefficients. */
+    struct mode_objective_inner_output {
+      arma::vec obs_coef_grad_terms;
+      double ll_terms;
+    };
+    mode_objective_inner_output mode_objective_inner
+      (const unsigned start, const unsigned end,
+       const double * const state_mode_start, const bool do_grad,
+       const comp_out what, double * const grad){
+      mode_objective_inner_output out;
+      out.ll_terms = 0.;
+      if(do_grad)
+        out.obs_coef_grad_terms = arma::vec(cfix_dim, arma::fill::zeros);
+
+      for(unsigned i = start; i < end; ++i){
+        const unsigned inc = i * state_dim;
+        arma::vec state(state_mode_start + inc, state_dim);
+
+        const std::unique_ptr<arma::vec> gr_ptr =
+          do_grad ?
+          std::unique_ptr<arma::vec>(
+            new arma::vec(grad + cfix_dim + inc, state_dim, false)) :
+          std::unique_ptr<arma::vec>();
+
+        auto &obs_dist = obs_dists.at(i);
+        out.ll_terms +=
+          obs_dist->log_density_state(state, gr_ptr.get(), nullptr, what);
+
+        if(do_grad)
+          obs_dist->comp_stats_state_only(
+              state, out.obs_coef_grad_terms.memptr(), what);
+      }
+
+      return out;
+    }
 
     /* Evaluates the log-likelihood and gradient w.r.t. the fixed coefficients
      * and random effects for given state space parameters. Used for mode
@@ -113,32 +165,26 @@ namespace {
       /* handle terms from observation equation */
       double ll = 0.;
       const double * const state_mode_start = x + cfix_dim;
-      for(unsigned i = 0; i < n_periods; ++i){
-        const unsigned inc = i * state_dim;
-        arma::vec state(state_mode_start + inc, state_dim);
+      std::vector<std::future<mode_objective_inner_output> > futures;
+      const unsigned n_tasks = obs_dists.size();
+      futures.reserve(n_tasks);
+      thread_pool &pool = data.ctrl.get_pool();
 
-        const std::unique_ptr<arma::vec> gr_ptr =
-          do_grad ?
-          std::unique_ptr<arma::vec>(
-            new arma::vec(grad + cfix_dim + inc, state_dim, false)) :
-          std::unique_ptr<arma::vec>();
-
-        auto obs_dist = data.get_obs_dist(i);
-        ll += obs_dist->log_density_state(state, gr_ptr.get(), nullptr, what);
-
-        if(!do_grad)
-          continue;
-
-        obs_dist->comp_stats_state_only(state, grad, what);
-
+      const unsigned inc = n_tasks / (5L * pool.thread_count) + 1L;
+      unsigned start = 0L, end = 0L;
+      for(; start < n_tasks; start = end){
+        end = std::min(end + inc, n_tasks);
+        auto task = std::bind(
+          &Laplace_util::mode_objective_inner, this, start, end,
+          state_mode_start, do_grad, what, grad);
+        futures.push_back(pool.submit(std::move(task)));
       }
 
-      /* handle terms from state equation */
+      /* handle log-likelihood terms from state equation */
 #ifdef MSSM_DEBUG
       if(!concentration_mat)
         throw std::runtime_error("'concentration_mat' not set");
 #endif
-
       arma::vec con_state = concentration_mat->mult(x + cfix_dim);
       {
         const double *xi = state_mode_start;
@@ -146,6 +192,20 @@ namespace {
           ll -= z * *xi++ * .5;
       }
 
+      /* get results from other threads */
+      {
+        arma::vec obs_grad =
+          do_grad ? arma::vec(grad, cfix_dim, false) : arma::vec();
+        for(auto &fu : futures){
+          auto out = fu.get();
+          if(do_grad)
+            obs_grad += out.obs_coef_grad_terms;
+          ll += out.ll_terms;
+
+        }
+      }
+
+      /* compute gradient terms from state equation */
       if(do_grad){
         double *gr = grad + cfix_dim;
         for(auto z : con_state)
@@ -230,6 +290,32 @@ namespace {
       }
 
       return -minx + std::pow(std::numeric_limits<double>::epsilon(), .25);
+    }
+
+    /* function used for multithreading in Laplace approximation. Writes to
+     * the i'th block of the concentration matrix and returns the
+     * log-likelihood terms. */
+    double laplace_approx_inner
+      (const unsigned start, const unsigned end,
+       double * const state_mode_start){
+      double out = 0.;
+
+      arma::mat work_mem(state_dim, state_dim);
+      arma::vec dummy(state_dim);
+      for(unsigned i = start; i < end; ++i){
+        const unsigned inc = i * state_dim;
+        arma::vec state(state_mode_start + inc, state_dim, false);
+
+        work_mem.zeros();
+        dummy.zeros(); /* TODO: needed? */
+
+        out += obs_dists.at(i)->log_density_state(
+          state, &dummy, &work_mem, Hessian);
+
+        concentration_mat->set_diag_block(i, work_mem, -1.);
+      }
+
+      return out;
     }
 
     /* This function computes the approximate log-likelihood given fixed
@@ -366,19 +452,26 @@ namespace {
 
       /* compute terms from observations conditional density and update the
        * Hessian */
-      arma::mat work_mem(state_dim, state_dim);
-      arma::vec dummy(state_dim);
-      for(unsigned i = 0; i < n_periods; ++i){
-        const unsigned inc = i * state_dim;
-        arma::vec state(state_mode_start + inc, state_dim, false);
+      {
+        thread_pool &pool = data.ctrl.get_pool();
+        std::vector<std::future<double> > futures;
 
-        dummy.zeros();
-        work_mem.zeros();
-        auto obs_dist = data.get_obs_dist(i);
-        ll += obs_dist->log_density_state(
-          state, &dummy, &work_mem, Hessian);
+        const unsigned n_tasks = obs_dists.size();
+        futures.reserve(n_tasks);
+        const unsigned inc = n_tasks / (5L * pool.thread_count) + 1L;
+        unsigned start = 0L, end = 0L;
+        for(; start < n_tasks; start = end){
+          end = std::min(end + inc, n_tasks);
+          auto task = std::bind(
+            &Laplace_util::laplace_approx_inner, this, start, end,
+            state_mode_start);
 
-        concentration_mat->set_diag_block(i, work_mem, -1.);
+          futures.push_back(pool.submit(std::move(task)));
+
+        }
+
+        for(auto &fu: futures)
+          ll += fu.get();
       }
 
       /* add the final term from the Hessian */
@@ -522,6 +615,10 @@ Laplace_aprx_output Laplace_aprx
   (problem_data &data, const double ftol_abs, const double ftol_rel,
    const double ftol_abs_inner, const double ftol_rel_inner,
    const unsigned maxeval, const unsigned maxeval_inner){
+#ifdef MSSM_PROF
+  profiler prof("Laplace");
+#endif
+
   return Laplace_util(data, ftol_abs, ftol_rel, ftol_abs_inner, ftol_rel_inner,
                       maxeval, maxeval_inner)();
 }

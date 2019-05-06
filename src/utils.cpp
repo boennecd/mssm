@@ -285,18 +285,19 @@ arma::vec sym_band_mat::mult(const arma::vec &x) const{
   return mult(x.memptr());
 }
 
+/* TODO: replace by method that uses LU decomposition */
 double sym_band_mat::ldeterminant(int &info) const {
   /* copy matrix */
   std::unique_ptr<double[]> cp(new double[mem_size]);
   std::copy(mem.get(), mem.get() + mem_size, cp.get());
 
   /* compute cholesky decomposition */
-  F77_CALL(dpbtrf)(
-      &C_U, &dim, &ku, cp.get(), &ku1, &info);
+  lapack::dpbtrf(&C_U, &dim, &ku, cp.get(), &ku1, &info);
 
   if(info != 0L)
     return 0.;
 
+  /* TODO: more stable way to do this? */
   double dia_sum = 0.;
   double *x = cp.get() + ku;
   for(int i = 0; i < dim; ++i, x += ku1)

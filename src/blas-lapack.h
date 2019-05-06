@@ -52,15 +52,14 @@ extern "C" {
       const double *alpha, const double *a, const int *lda,
       const double *x, const int *incx,
       const double *beta, double *y, const int *incy);
-  void F77_NAME(dpbtrf)(
-      const char* uplo, const int* n, const int* kd,
-      double* ab, const int* ldab, int* info);
 }
 
 /* avoid warnings due to different definitions of function */
 namespace lapack {
-  void dgetrf(
-      const int*, const int*, double*, const int*, int*, int*);
+  void dgetrf
+    (const int*, const int*, double*, const int*, int*, int*);
+  void dpbtrf
+    (const char*, const int*, const int*, double*, const int*, int*);
 }
 
 #endif

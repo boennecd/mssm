@@ -204,7 +204,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   2.091   0.011   0.525
+    ##   2.025   0.004   0.499
 
 ``` r
 # returns the log-likelihood approximation
@@ -274,7 +274,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   1.997   0.026   0.502
+    ##   1.814   0.014   0.475
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -294,7 +294,7 @@ logLik(mssm_glm)
 We will need to estimate the parameters for real applications. We could do this e.g., with a Monte Carlo expectation-maximization algorithm or by using a Monte Carlo approximation of the gradient. Currently, the latter is only available and the user will have to write a custom function to perform the estimation. I will provide an example below. The `sgd` function is not a part of the package. Instead the package provides a way to approximate the gradient and allows the user to perform subsequent maximization (e.g., with constraints or penalties). The definition of the `sgd` is given at the end of this file as it is somewhat long. We start by using a Laplace approximation to get the starting values.
 
 ``` r
-# setup mssmFunc object to use
+# setup mssmFunc object to use 
 ll_func <- mssm(  
   fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
   random = ~ Z, ti = time_idx, control = mssm_control(
@@ -307,7 +307,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##  78.935   0.008  78.943
+    ##  71.310   2.632  15.840
 
 ``` r
 # the function returns an object with the estimated parameters and log-likelihood
@@ -315,28 +315,28 @@ sta$F.
 ```
 
     ##           [,1]      [,2]
-    ## [1,]  0.496015 -0.004019
-    ## [2,] -0.000765  0.794224
+    ## [1,] 0.4988631 -0.003391
+    ## [2,] 0.0004558  0.796224
 
 ``` r
 sta$Q
 ```
 
     ##        [,1]   [,2]
-    ## [1,] 0.3028 0.1300
-    ## [2,] 0.1300 0.5004
+    ## [1,] 0.3024 0.1252
+    ## [2,] 0.1252 0.5001
 
 ``` r
 sta$cfix
 ```
 
-    ## [1] -0.9107  0.2134  0.5234 -0.8938
+    ## [1] -0.9108  0.2134  0.5234 -0.8923
 
 ``` r
 print(sta$logLik, digits = 6) # log-likelihood approximation
 ```
 
-    ## [1] -5863.03
+    ## [1] -5863.01
 
 ``` r
 # use stochastic gradient descent with averaging
@@ -348,7 +348,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 222.544   1.309  51.425
+    ## 211.536   1.308  48.993
 
 ``` r
 # use Adam algorithm instead
@@ -360,7 +360,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 229.085   1.371  52.865
+    ## 213.635   1.421  49.533
 
 A plot of the approximate log-likelihoods at each iteration is shown below along with the final estimates.
 
@@ -388,30 +388,30 @@ plot(res$grad_norm, type = "l", ylab = "approximate gradient norm")
 res$F. 
 ```
 
-    ##          [,1]    [,2]
-    ## [1,] 0.497161 -0.0025
-    ## [2,] 0.000742  0.7985
+    ##          [,1]      [,2]
+    ## [1,] 0.497548 -0.002534
+    ## [2,] 0.001475  0.798505
 
 ``` r
 res$Q
 ```
 
     ##        [,1]   [,2]
-    ## [1,] 0.3041 0.1249
-    ## [2,] 0.1249 0.4986
+    ## [1,] 0.3039 0.1247
+    ## [2,] 0.1247 0.4982
 
 ``` r
 res$cfix
 ```
 
-    ## [1] -0.9798  0.2139  0.5242 -0.8897
+    ## [1] -0.9796  0.2139  0.5242 -0.8886
 
 ``` r
 # compare with output from Adam algorithm
 print(tail(resa$logLik), digits = 6) # final log-likelihood approximations
 ```
 
-    ## [1] -5862.03 -5862.00 -5861.56 -5862.11 -5862.76 -5860.94
+    ## [1] -5862.04 -5862.01 -5861.57 -5862.11 -5862.78 -5860.94
 
 ``` r
 plot(resa$logLik, type = "l", ylab = "log-likelihood approximation")
@@ -430,22 +430,22 @@ resa$F.
 ```
 
     ##          [,1]      [,2]
-    ## [1,] 0.499402 -0.003126
-    ## [2,] 0.006664  0.796937
+    ## [1,] 0.500776 -0.001617
+    ## [2,] 0.005663  0.795618
 
 ``` r
 resa$Q
 ```
 
     ##        [,1]   [,2]
-    ## [1,] 0.3058 0.1278
-    ## [2,] 0.1278 0.4964
+    ## [1,] 0.3046 0.1281
+    ## [2,] 0.1281 0.4971
 
 ``` r
 resa$cfix
 ```
 
-    ## [1] -0.9782  0.2143  0.5221 -0.8866
+    ## [1] -0.9782  0.2141  0.5218 -0.8868
 
 We may want to use more particles towards the end when we estimate the parameters. To do, we use the approximation described in the next section at the final estimates that we arrived at before.
 

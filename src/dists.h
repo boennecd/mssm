@@ -597,8 +597,9 @@ protected:
   const arma::vec Y;
   /* design matrix for fixed effects */
   const arma::mat X;
-  /* coefficients for fixed effects */
-  const arma::vec cfix;
+  /* coefficients for fixed effects. Notice the reference */
+  const arma::vec &cfix;
+  mutable arma::vec cfix_cache = cfix;
   /* design matrix for random effects */
   const arma::mat Z;
   /* case weights */
@@ -608,12 +609,33 @@ protected:
   std::unique_ptr<arma::vec> disp;
 
   /* offset from fixed effects and offsets */
-  const arma::vec offset;
+  const arma::vec offs;
+  mutable arma::vec lp = offs + X.t() * cfix;
 
   /* Given a linear predictor, computes the log density and potentially
    * the derivatives. */
   virtual std::array<double, 3> log_density_state_inner
     (const double, const double, const comp_out, const double) const = 0;
+
+  /* returns the non-random part of the linear predictor */
+  mutable std::mutex get_lp_mutex;
+  arma::vec &get_lp() const {
+    /* check whether the coefficients have changed. If so then update the
+     * linear predictor */
+    auto has_changed = [&]{
+      return !std::equal(cfix.begin(), cfix.end(), cfix_cache.begin());
+    };
+
+    if(has_changed()){
+      std::lock_guard<std::mutex> lc(get_lp_mutex);
+      if(has_changed()){
+        lp = offs + X.t() * cfix;
+        cfix_cache = cfix;
+      }
+    }
+
+    return lp;
+  }
 
 public:
   virtual ~exp_family() = default;
@@ -624,7 +646,7 @@ public:
    const arma::vec &offset):
   Y(Y), X(X), cfix(cfix), Z(Z),
   ws(ws ? arma::vec(*ws) : arma::vec(X.n_cols, arma::fill::ones)),
-  offset(offset + X.t() * cfix)
+  offs(offset)
   {
 #ifdef MSSM_DEBUG
     if(X.n_cols != Y.n_elem)
@@ -662,7 +684,7 @@ public:
                         H->n_cols != H->n_rows))
       throw invalid_argument("invalid 'H'");
 #endif
-    const arma::vec &eta = offset + Z.t() * x;
+    const arma::vec eta = get_lp() + Z.t() * x;
     const double *e, *w, *y;
     double out = 0.;
     arma::uword i;
@@ -715,7 +737,7 @@ public:
     if(x.n_elem != state_dim())
       throw invalid_argument("invalid 'x'");
 #endif
-    const arma::vec &eta = offset + Z.t() * x;
+    const arma::vec eta = get_lp() + Z.t() * x;
     const double *e, *w, *y;
     const arma::uword p = X.n_rows;
     arma::vec gr(out, p, false);

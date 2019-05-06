@@ -463,7 +463,7 @@ adam <- function(
 ```
 
 ```{r laplace, cache = 1}
-# setup mssmFunc object to use
+# setup mssmFunc object to use 
 ll_func <- mssm(  
   fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
   random = ~ Z, ti = time_idx, control = mssm_control(
@@ -482,7 +482,6 @@ sta$Q
 sta$cfix
 print(sta$logLik, digits = 6) # log-likelihood approximation
 ```
-
 
 ```{r sgd, cache = 1, dependson = "laplace"}
 # use stochastic gradient descent with averaging
