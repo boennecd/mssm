@@ -16,9 +16,9 @@ vector.}
 \item{Q}{starting values for covariance matrix in the transition density
 of the state vector.}
 
-\item{Q0}{unused.}
+\item{Q0}{un-used.}
 
-\item{mu0}{unused.}
+\item{mu0}{un-used.}
 
 \item{trace}{integer controlling whether information should be printed
 during parameter estimation. Zero yields no information.}

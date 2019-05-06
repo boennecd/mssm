@@ -144,6 +144,14 @@ mssm <- function(
       which_sampler = control$which_sampler, which_ll_cp = control$which_ll_cp,
       trace, KD_N_max = control$KD_N_max, aprx_eps = control$aprx_eps)
 
+    # set dimension names
+    di <- .get_dimnames(output_list)
+    if(what == "gradient")
+      rownames(out[[length(out)]]$stats) <- di$grad
+    else if(what == "Hessian")
+      rownames(out[[length(out)]]$stats) <- c(
+        di$grad, c(outer(di$grad, di$grad, paste, sep = "*")))
+
     structure(c(list(pf_output = out), output_list), class = "mssm")
   }
 
@@ -177,6 +185,11 @@ mssm <- function(
       maxeval = control$maxeval, maxeval_inner = control$maxeval_inner)
     out$cfix <- drop(out$cfix)
 
+    # set dimension names
+    di <- .get_dimnames(output_list)
+    dimnames(out$F.) <- dimnames(out$Q) <- di$QF
+    names(out$cfix) <- di$cfix
+
     structure(c(out, output_list), class = "mssmLaplace")
   }
 
@@ -194,6 +207,20 @@ mssm <- function(
 
 .is.int.le1 <- function(x)
   is.integer(x) && length(x) == 1L
+
+# returns list with dimension names for various objects
+.get_dimnames <- function(output_list){
+  fix_names <- rownames(output_list$X)
+  rng_names <- rownames(output_list$Z)
+  ma_ele <- outer(rng_names, rng_names, paste, sep = ".")
+  grad <- c(
+    paste0(fix_names),
+    paste0("F:", c(ma_ele)),
+    paste0("Q:", ma_ele[lower.tri(ma_ele, diag = TRUE)]))
+
+  list(
+    cfix = fix_names, QF = list(rng_names, rng_names), grad = grad)
+}
 
 #' @title Particle Filter Function for Multivariate State Space Model
 #' @name mssm-pf
@@ -260,8 +287,8 @@ NULL
 #' vector.
 #' @param Q starting values for covariance matrix in the transition density
 #' of the state vector.
-#' @param Q0 unused.
-#' @param mu0 unused.
+#' @param Q0 un-used.
+#' @param mu0 un-used.
 #' @param trace integer controlling whether information should be printed
 #' during parameter estimation. Zero yields no information.
 #'
@@ -374,14 +401,19 @@ mssm_control <- function(
 
 #' @title Approximate Log-likelihood for a mssm Object
 #' @description
-#' Function to extract the log-likelihood from a \code{mssm} object.
+#' Function to extract the log-likelihood from a \code{mssm} or
+#' \code{mssmLaplace} object.
 #'
-#' @param object an object of class \code{mssm}.
+#' @param object an object of class \code{mssm} or \code{mssmLaplace}.
 #' @param ... un-used.
 #'
 #' @return
 #' A \code{logLik} object. The \code{log_lik_terms} attribute contains
 #' the log-likelihood contributions from each time point.
+#'
+#' The degrees of freedom assumes that all parameters are free. The number of
+#' observations may be invalid for some models (e.g., discrete survival
+#' analysis).
 #'
 #' @method logLik mssm
 #' @export
@@ -392,12 +424,41 @@ logLik.mssm <- function(object, ...){
     ma <- max(x)
     log(sum(exp(x - ma))) + ma - log(length(x))
   }))
-  # TODO: set nobs and df
+  df <- .get_df(object)
+  nobs <- .get_nobs(object)
   # TODO: test output
-  structure(ll, nobs = NA_integer_, df = NA_integer_, class = "logLik",
+  structure(ll, nobs = nobs, df = df, class = "logLik",
             log_lik_terms = log_lik_terms)
 }
 
+.get_df <- function(object){
+  stopifnot(inherits(object, c("mssm", "mssmLaplace")))
+  # assumes that all parameters are free
+  n_rng <- nrow(object$Z)
+  n_fix <- nrow(object$X)
+
+  out <- n_fix + n_rng * n_rng + (n_rng * (n_rng + 1L)) / 2L
+  if(any(sapply(c("^Gamma", "^gaussian"), grepl, x = object$family)))
+    out <- out + 1L
+  out
+}
+
+.get_nobs <- function(object){
+  stopifnot(inherits(object, c("mssm", "mssmLaplace")))
+  ncol(object$X)
+}
+
+#' @rdname logLik.mssm
+#' @method logLik mssmLaplace
+#' @export
+logLik.mssmLaplace <- function(object, ...){
+  stopifnot(inherits(object, "mssmLaplace"))
+  df <- .get_df(object)
+  nobs <- .get_nobs(object)
+  # TODO: test output
+  structure(object$logLik, nobs = nobs, df = df,
+            class = "logLik")
+}
 
 #' @title Plot Predicted State Variables for mssm Object.
 #' @description
@@ -428,6 +489,8 @@ plot.mssm <- function(x, y, qs = c(.05, .95), do_plot = TRUE, ...){
   filter_ests <- mapply(function(ws, ps){
     colSums(t(ps) * drop(exp(ws)))
   }, ws = ws, ps = particles)
+  if(!is.matrix(filter_ests))
+    filter_ests <- t(filter_ests)
 
   # get quantiles
   quants <- mapply(function(ws, ps){

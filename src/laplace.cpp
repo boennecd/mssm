@@ -446,7 +446,7 @@ namespace {
         for(auto c : con_state)
           ll -= c * *s++ * .5;
         ll += get_abs_ldeter() * .5;
-        if(isinf(ll))
+        if(std::isinf(ll))
           return -std::numeric_limits<double>::infinity();
       }
 

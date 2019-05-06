@@ -204,7 +204,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   2.025   0.004   0.499
+    ##   1.823   0.048   0.479
 
 ``` r
 # returns the log-likelihood approximation
@@ -274,7 +274,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   1.814   0.014   0.475
+    ##   1.893   0.044   0.484
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -307,30 +307,31 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##  71.310   2.632  15.840
+    ##  70.348   2.592  15.736
 
 ``` r
 # the function returns an object with the estimated parameters and log-likelihood
 sta$F.
 ```
 
-    ##           [,1]      [,2]
-    ## [1,] 0.4988631 -0.003391
-    ## [2,] 0.0004558  0.796224
+    ##             (Intercept)         Z
+    ## (Intercept)   0.4988631 -0.003391
+    ## Z             0.0004558  0.796224
 
 ``` r
 sta$Q
 ```
 
-    ##        [,1]   [,2]
-    ## [1,] 0.3024 0.1252
-    ## [2,] 0.1252 0.5001
+    ##             (Intercept)      Z
+    ## (Intercept)      0.3024 0.1252
+    ## Z                0.1252 0.5001
 
 ``` r
 sta$cfix
 ```
 
-    ## [1] -0.9108  0.2134  0.5234 -0.8923
+    ## (Intercept)          X1          X2           Z 
+    ##     -0.9108      0.2134      0.5234     -0.8923
 
 ``` r
 print(sta$logLik, digits = 6) # log-likelihood approximation
@@ -348,7 +349,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 211.536   1.308  48.993
+    ## 204.735   1.184  47.392
 
 ``` r
 # use Adam algorithm instead
@@ -360,7 +361,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 213.635   1.421  49.533
+    ## 211.198   1.319  48.927
 
 A plot of the approximate log-likelihoods at each iteration is shown below along with the final estimates.
 
@@ -388,17 +389,17 @@ plot(res$grad_norm, type = "l", ylab = "approximate gradient norm")
 res$F. 
 ```
 
-    ##          [,1]      [,2]
-    ## [1,] 0.497548 -0.002534
-    ## [2,] 0.001475  0.798505
+    ##             (Intercept)         Z
+    ## (Intercept)    0.497548 -0.002534
+    ## Z              0.001475  0.798505
 
 ``` r
 res$Q
 ```
 
-    ##        [,1]   [,2]
-    ## [1,] 0.3039 0.1247
-    ## [2,] 0.1247 0.4982
+    ##             (Intercept)      Z
+    ## (Intercept)      0.3039 0.1247
+    ## Z                0.1247 0.4982
 
 ``` r
 res$cfix
@@ -429,17 +430,17 @@ plot(resa$grad_norm, type = "l", ylab = "approximate gradient norm")
 resa$F. 
 ```
 
-    ##          [,1]      [,2]
-    ## [1,] 0.500776 -0.001617
-    ## [2,] 0.005663  0.795618
+    ##             (Intercept)         Z
+    ## (Intercept)    0.500776 -0.001617
+    ## Z              0.005663  0.795618
 
 ``` r
 resa$Q
 ```
 
-    ##        [,1]   [,2]
-    ## [1,] 0.3046 0.1281
-    ## [2,] 0.1281 0.4971
+    ##             (Intercept)      Z
+    ## (Intercept)      0.3046 0.1281
+    ## Z                0.1281 0.4971
 
 ``` r
 resa$cfix
@@ -464,7 +465,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 3060.49   26.95  678.25
+    ## 2874.53   24.27  636.34
 
 ``` r
 plot(res_final$logLik, type = "l", ylab = "log-likelihood approximation")
@@ -482,23 +483,23 @@ plot(res_final$grad_norm, type = "l", ylab = "approximate gradient norm")
 res_final$F. 
 ```
 
-    ##         [,1]      [,2]
-    ## [1,] 0.50185 -0.001779
-    ## [2,] 0.00544  0.800565
+    ##             (Intercept)         Z
+    ## (Intercept)    0.501085 -0.002807
+    ## Z              0.005801  0.800062
 
 ``` r
 res_final$Q
 ```
 
-    ##        [,1]   [,2]
-    ## [1,] 0.3042 0.1243
-    ## [2,] 0.1243 0.4964
+    ##             (Intercept)      Z
+    ## (Intercept)      0.3042 0.1236
+    ## Z                0.1236 0.4956
 
 ``` r
 res_final$cfix
 ```
 
-    ## [1] -0.9762  0.2139  0.5248 -0.9029
+    ## [1] -0.9762  0.2139  0.5249 -0.9031
 
 ### Faster Approximation
 
@@ -534,12 +535,12 @@ local({
 ```
 
     ## Unit: milliseconds
-    ##  expr     min      lq    mean  median      uq     max neval
-    ##   100   62.43   64.13   65.84   65.83   67.54   69.26     3
-    ##   200  117.53  135.55  147.73  153.56  162.83  172.11     3
-    ##   400  359.75  360.54  369.40  361.33  374.22  387.11     3
-    ##   800 1005.52 1006.00 1008.86 1006.48 1010.54 1014.60     3
-    ##  1600 3331.77 3442.43 3514.68 3553.10 3606.14 3659.18     3
+    ##  expr     min      lq   mean  median     uq     max neval
+    ##   100   59.81   63.82   65.4   67.82   68.2   68.58     3
+    ##   200  123.87  138.08  145.1  152.29  155.7  159.10     3
+    ##   400  360.28  367.79  372.4  375.30  378.5  381.72     3
+    ##   800 1024.07 1044.55 1072.3 1065.02 1096.4 1127.75     3
+    ##  1600 3473.67 3476.31 3512.2 3478.95 3531.5 3583.98     3
 
 A solution is to use the dual k-d tree method I cover later. The computational complexity is ![\\mathcal{O}(N \\log N)](https://chart.googleapis.com/chart?cht=tx&chl=%5Cmathcal%7BO%7D%28N%20%5Clog%20N%29 "\mathcal{O}(N \log N)") for this method which is somewhat indicated by the run times shown below.
 
@@ -576,12 +577,12 @@ local({
 
     ## Unit: milliseconds
     ##   expr    min     lq   mean median     uq    max neval
-    ##    100  109.0  109.5  109.9  110.0  110.4  110.7     3
-    ##    200  194.6  195.2  201.5  195.9  204.9  214.0     3
-    ##    400  406.6  434.9  445.6  463.1  465.1  467.2     3
-    ##    800  780.7  795.0  818.3  809.4  837.1  864.7     3
-    ##   1600 1498.8 1500.3 1515.2 1501.8 1523.4 1544.9     3
-    ##  12800 8036.3 8146.8 8393.7 8257.2 8572.4 8887.6     3
+    ##    100  124.1  124.8  125.4  125.5  126.0  126.5     3
+    ##    200  202.1  209.7  218.5  217.3  226.7  236.0     3
+    ##    400  427.8  438.0  442.1  448.2  449.2  450.3     3
+    ##    800  807.1  847.1  868.4  887.0  899.1  911.1     3
+    ##   1600 1453.4 1502.5 1536.0 1551.6 1577.3 1602.9     3
+    ##  12800 8226.9 8230.9 8256.1 8234.9 8270.7 8306.6     3
 
 The `aprx_eps` controls the size of the error. To be precise about what this value does then we need to some notation for the complete likelihood (the likelihood where we observe ![\\vec\\beta\_1,\\dots,\\vec\\beta\_T](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_1%2C%5Cdots%2C%5Cvec%5Cbeta_T "\vec\beta_1,\dots,\vec\beta_T")s). This is
 
@@ -721,7 +722,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##  340.12    1.45   73.91
+    ## 336.975   1.243  73.061
 
 We define a function below to get the approximate gradient and approximate observed information matrix from the returned object. Then we compare the output to the GLM we estimated and to the true parameters.
 
@@ -745,11 +746,12 @@ get_grad_n_obs_info <- function(object){
   
   # create vector with dimension names
   di_names <- row.names(object$X)
+  z_nam <- row.names(object$Z)
   di_names <- c(
-    di_names, paste0("F", outer(1:n_rng, 1:n_rng, paste, sep = ".")))
-  Q_names  <- outer(1:n_rng, 1:n_rng, paste, sep = ".")
+    di_names, paste0("F:", outer(z_nam, z_nam, paste, sep = ".")))
+  Q_names  <- outer(z_nam, z_nam, paste, sep = ".")
   di_names <- c(
-    di_names, paste0("Q", Q_names[lower.tri(Q_names, diag = TRUE)]))
+    di_names, paste0("Q:", Q_names[lower.tri(Q_names, diag = TRUE)]))
   
   # get quantities for each particle
   quants <- tail(object$pf_output, 1L)[[1L]]$stats
@@ -776,20 +778,36 @@ out <- get_grad_n_obs_info(mssm_obs_info)
 out$grad
 ```
 
-    ## (Intercept)          X1          X2           Z        F1.1        F2.1 
-    ##     0.17061    -0.26956    -0.29013    -0.40579    -0.07911    -0.40506 
-    ##        F1.2        F2.2        Q1.1        Q2.1        Q2.2 
-    ##    -0.34742    -0.53514     0.13023    -1.35226     0.46095
+    ##               (Intercept)                        X1 
+    ##                    0.1936                   -0.2370 
+    ##                        X2                         Z 
+    ##                   -0.3557                   -0.3838 
+    ## F:(Intercept).(Intercept)           F:Z.(Intercept) 
+    ##                    0.2591                   -0.3950 
+    ##           F:(Intercept).Z                     F:Z.Z 
+    ##                    0.9044                   -0.4166 
+    ## Q:(Intercept).(Intercept)           Q:Z.(Intercept) 
+    ##                   -0.1026                   -0.6147 
+    ##                     Q:Z.Z 
+    ##                    0.5177
 
 ``` r
 # approximate standard errors
 (ses <- sqrt(diag(solve(-out$hess))))
 ```
 
-    ## (Intercept)          X1          X2           Z        F1.1        F2.1 
-    ##     0.04336     0.02815     0.02920     0.08729     0.06735     0.09061 
-    ##        F1.2        F2.2        Q1.1        Q2.1        Q2.2 
-    ##     0.03282     0.04164     0.03627     0.03959     0.07004
+    ##               (Intercept)                        X1 
+    ##                   0.04328                   0.02815 
+    ##                        X2                         Z 
+    ##                   0.02920                   0.08717 
+    ## F:(Intercept).(Intercept)           F:Z.(Intercept) 
+    ##                   0.06737                   0.09058 
+    ##           F:(Intercept).Z                     F:Z.Z 
+    ##                   0.03283                   0.04163 
+    ## Q:(Intercept).(Intercept)           Q:Z.(Intercept) 
+    ##                   0.03624                   0.03950 
+    ##                     Q:Z.Z 
+    ##                   0.06988
 
 ``` r
 # look at output for parameters in the observational equation. First, compare 
@@ -812,8 +830,8 @@ rbind(
     ##                (Intercept)      X1     X2        Z
     ## true              -1.00000 0.20000 0.5000 -1.00000
     ## glm               -0.55576 0.20237 0.5160 -0.91216
-    ## mssm              -0.97621 0.21394 0.5248 -0.90293
-    ## standard error     0.04336 0.02815 0.0292  0.08729
+    ## mssm              -0.97618 0.21392 0.5249 -0.90313
+    ## standard error     0.04328 0.02815 0.0292  0.08717
 
 ``` r
 # next look at parameters in state equation. First four are for F.
@@ -823,10 +841,14 @@ rbind(
   `standard error` = ses[5:8])
 ```
 
-    ##                   F1.1    F2.1      F1.2    F2.2
-    ## true           0.50000 0.10000  0.000000 0.80000
-    ## mssm           0.50185 0.00544 -0.001779 0.80057
-    ## standard error 0.06735 0.09061  0.032824 0.04164
+    ##                F:(Intercept).(Intercept) F:Z.(Intercept) F:(Intercept).Z
+    ## true                             0.50000        0.100000        0.000000
+    ## mssm                             0.50109        0.005801       -0.002807
+    ## standard error                   0.06737        0.090585        0.032830
+    ##                  F:Z.Z
+    ## true           0.80000
+    ## mssm           0.80006
+    ## standard error 0.04163
 
 ``` r
 # next three are w.r.t. the lower diagonal part of Q
@@ -836,10 +858,10 @@ rbind(
   `standard error` = ses[9:11])
 ```
 
-    ##                   Q1.1    Q2.1    Q2.2
-    ## true           0.25000 0.10000 0.49000
-    ## mssm           0.30418 0.12432 0.49644
-    ## standard error 0.03627 0.03959 0.07004
+    ##                Q:(Intercept).(Intercept) Q:Z.(Intercept)   Q:Z.Z
+    ## true                             0.25000          0.1000 0.49000
+    ## mssm                             0.30416          0.1236 0.49564
+    ## standard error                   0.03624          0.0395 0.06988
 
 Supported Families
 ------------------
@@ -935,11 +957,11 @@ microbenchmark::microbenchmark(
 ```
 
     ## Unit: milliseconds
-    ##         expr     min     lq    mean median      uq    max neval
-    ##  dual tree 1  104.68  105.5  109.16  107.1  112.81  118.7    10
-    ##  dual tree 4   39.41   40.2   41.05   40.5   40.76   44.4    10
-    ##      naive 1 3280.74 3290.3 3631.72 3326.7 3401.35 6087.5    10
-    ##      naive 4  895.74  943.1 1123.25 1017.5 1198.44 1550.8    10
+    ##         expr     min      lq    mean  median      uq    max neval
+    ##  dual tree 1  104.07  108.87  114.95  110.82  121.80  139.0    10
+    ##  dual tree 4   39.41   40.21   43.63   43.29   45.95   50.4    10
+    ##      naive 1 3341.81 3387.66 3477.79 3463.81 3498.04 3701.1    10
+    ##      naive 4  947.49 1025.98 1074.16 1064.36 1135.19 1178.7    10
 
 ``` r
 # The functions return the un-normalized log weights. We first compare
@@ -1021,19 +1043,19 @@ meds
 
     ##          method
     ## N         Dual-tree      Naive Dual-tree 1
-    ##   384      0.001143  0.0006584    0.003290
-    ##   768      0.002757  0.0026205    0.006547
-    ##   1536     0.004561  0.0093183    0.011340
-    ##   3072     0.008752  0.0375584    0.023462
-    ##   6144     0.018092  0.1516395    0.045827
-    ##   12288    0.036123  0.6122928    0.091905
-    ##   24576    0.065504  2.6268240    0.168002
-    ##   49152    0.113696 10.5855059    0.317121
-    ##   98304    0.224181         NA          NA
-    ##   196608   0.440844         NA          NA
-    ##   393216   0.889934         NA          NA
-    ##   786432   1.831174         NA          NA
-    ##   1572864  3.865648         NA          NA
+    ##   384      0.001325  0.0006594    0.003274
+    ##   768      0.002565  0.0025308    0.006595
+    ##   1536     0.004620  0.0093476    0.011586
+    ##   3072     0.010261  0.0441262    0.026274
+    ##   6144     0.018293  0.1677352    0.046029
+    ##   12288    0.039546  0.6433576    0.092678
+    ##   24576    0.067846  2.6034155    0.165144
+    ##   49152    0.120392 10.8037124    0.316710
+    ##   98304    0.220809         NA          NA
+    ##   196608   0.445539         NA          NA
+    ##   393216   0.915410         NA          NA
+    ##   786432   1.849613         NA          NA
+    ##   1572864  4.049782         NA          NA
 
 ``` r
 par(mar = c(5, 4, 1, 1))

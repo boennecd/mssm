@@ -379,16 +379,12 @@ std::array<double, 3> Gamma_log::log_density_state_inner
   const bool is_small = eta < eta_min;
 
   const double mu = is_small ? exp_eat_min : std::exp(eta),
-    phi       = disp->operator()(0L),
-    log_scale = eta - disp->operator()(1L);
+    phi       = disp->operator()(0L);
   const double shape = 1. / phi,
-    scale = mu * phi,
-    log_y = std::log(y);
+    scale = mu * phi;
 
   std::array<double, 3> out;
-  out[0] =
-   - std::lgamma(shape) - shape * log_scale  + (shape - 1) * log_y -
-   y / scale;
+  out[0] = R::dgamma(y, shape, scale, 1L);
   out[0] *= w;
 
   if(what == gradient or what == Hessian)

@@ -2,19 +2,27 @@
 % Please edit documentation in R/mssm.R
 \name{logLik.mssm}
 \alias{logLik.mssm}
+\alias{logLik.mssmLaplace}
 \title{Approximate Log-likelihood for a mssm Object}
 \usage{
 \method{logLik}{mssm}(object, ...)
+
+\method{logLik}{mssmLaplace}(object, ...)
 }
 \arguments{
-\item{object}{an object of class \code{mssm}.}
+\item{object}{an object of class \code{mssm} or \code{mssmLaplace}.}
 
 \item{...}{un-used.}
 }
 \value{
 A \code{logLik} object. The \code{log_lik_terms} attribute contains
 the log-likelihood contributions from each time point.
+
+The degrees of freedom assumes that all parameters are free. The number of
+observations may be invalid for some models (e.g., discrete survival
+analysis).
 }
 \description{
-Function to extract the log-likelihood from a \code{mssm} object.
+Function to extract the log-likelihood from a \code{mssm} or
+\code{mssmLaplace} object.
 }

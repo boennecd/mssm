@@ -55,7 +55,7 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE){
   expect_known_value(
     lpa[mssmLaplace_to_check],
     paste0("mssmLaplace-", label, ".RDS"),
-    label = label)
+    label = label, tolerance = .Machine$double.eps^(1/3))
 
   # make gradient approximation
   ctrl$what <- "gradient"

@@ -764,11 +764,12 @@ get_grad_n_obs_info <- function(object){
   
   # create vector with dimension names
   di_names <- row.names(object$X)
+  z_nam <- row.names(object$Z)
   di_names <- c(
-    di_names, paste0("F", outer(1:n_rng, 1:n_rng, paste, sep = ".")))
-  Q_names  <- outer(1:n_rng, 1:n_rng, paste, sep = ".")
+    di_names, paste0("F:", outer(z_nam, z_nam, paste, sep = ".")))
+  Q_names  <- outer(z_nam, z_nam, paste, sep = ".")
   di_names <- c(
-    di_names, paste0("Q", Q_names[lower.tri(Q_names, diag = TRUE)]))
+    di_names, paste0("Q:", Q_names[lower.tri(Q_names, diag = TRUE)]))
   
   # get quantities for each particle
   quants <- tail(object$pf_output, 1L)[[1L]]$stats
