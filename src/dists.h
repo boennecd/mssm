@@ -591,139 +591,152 @@ public:
   }
 };
 
-class exp_family : public cdist {
-protected:
-  /* outcome */
-  const arma::vec Y;
-  /* design matrix for fixed effects */
-  const arma::mat X;
-  /* coefficients for fixed effects. Notice the reference */
-  const arma::vec &cfix;
-  mutable arma::vec cfix_cache = cfix;
-  /* design matrix for random effects */
-  const arma::mat Z;
-  /* case weights */
-  const arma::vec ws;
-  /* dispersion parameter */
-  virtual std::unique_ptr<arma::vec> set_disp(const arma::vec&) = 0; /* reminder to implement this */
-  std::unique_ptr<arma::vec> disp;
+#ifdef MSSM_DEBUG
+constexpr bool exp_family_do_check () { return true; }
+#else
+constexpr bool exp_family_do_check () { return false; }
+#endif
 
-  /* offset from fixed effects and offsets */
-  const arma::vec offs;
-  mutable arma::vec lp = offs + X.t() * cfix;
 
-  /* Given a linear predictor, computes the log density and potentially
-   * the derivatives. */
-  virtual std::array<double, 3> log_density_state_inner
+/* Likely overkill with macro and multiple inheritance would be simpler */
+#define EXP_BASE_PROTECTED(fname)                                         \
+  /* outcome */                                                           \
+  const arma::vec Y;                                                      \
+  /* design matrix for fixed effects */                                   \
+  const arma::mat X;                                                      \
+  /* coefficients for fixed effects. Notice the reference */              \
+  const arma::vec &cfix;                                                  \
+  mutable arma::vec cfix_cache = cfix;                                    \
+  /* design matrix for random effects */                                  \
+  const arma::mat Z;                                                      \
+  /* case weights */                                                      \
+  const arma::vec ws;                                                     \
+                                                                          \
+  /* offset from fixed effects and offsets */                             \
+  const arma::vec offs;                                                   \
+  mutable arma::vec lp = offs + X.t() * cfix;                             \
+                                                                          \
+  /* returns the non-random part of the linear predictor */               \
+  mutable std::mutex get_lp_mutex;                                        \
+  arma::vec &get_lp() const {                                             \
+    /* check whether the coefficients have changed. If so then update the \
+     * linear predictor */                                                \
+    auto has_changed = [&]{                                               \
+      return !std::equal(cfix.begin(), cfix.end(), cfix_cache.begin());   \
+    };                                                                    \
+                                                                          \
+    if(has_changed()){                                                    \
+      std::lock_guard<std::mutex> lc(get_lp_mutex);                       \
+      if(has_changed()){                                                  \
+        lp = offs + X.t() * cfix;                                         \
+        cfix_cache = cfix;                                                \
+      }                                                                   \
+    }                                                                     \
+                                                                          \
+    return lp;                                                            \
+  }                                                                       \
+                                                                          \
+  /* Given a linear predictor, computes the log density and potentially   \
+   * the derivatives. */                                                  \
+  virtual std::array<double, 3> log_density_state_inner                   \
     (const double, const double, const comp_out, const double) const = 0;
 
-  /* returns the non-random part of the linear predictor */
-  mutable std::mutex get_lp_mutex;
-  arma::vec &get_lp() const {
-    /* check whether the coefficients have changed. If so then update the
-     * linear predictor */
-    auto has_changed = [&]{
-      return !std::equal(cfix.begin(), cfix.end(), cfix_cache.begin());
-    };
-
-    if(has_changed()){
-      std::lock_guard<std::mutex> lc(get_lp_mutex);
-      if(has_changed()){
-        lp = offs + X.t() * cfix;
-        cfix_cache = cfix;
-      }
+#define EXP_BASE_PUBLIC(fname)                                            \
+  virtual ~fname() = default;                                             \
+                                                                          \
+  arma::uword state_dim() const override final {                          \
+    return Z.n_rows;                                                      \
+  }                                                                       \
+                                                                          \
+  arma::uword state_stat_dim(const comp_out) const override {             \
+    return 0L;                                                            \
+  }                                                                       \
+                                                                          \
+  void check_param_udpate() const;                                        \
+                                                                          \
+  double log_density_state                                                \
+    (const arma::vec &x, arma::vec *gr, arma::mat *H,                     \
+     const comp_out what) const override final                            \
+    {                                                                     \
+      if(Y.n_elem < 1L)                                                   \
+        return 0.;                                                        \
+      check_param_udpate();                                               \
+                                                                          \
+      gaurd_new_comp_out(what);                                           \
+      const bool compute_gr = what == gradient or what == Hessian,        \
+        compute_H = what == Hessian;                                      \
+                                                                          \
+      if(exp_family_do_check()){                                          \
+        if(x.n_elem != state_dim())                                       \
+          throw invalid_argument("invalid 'x'");                          \
+        if(compute_gr and (!gr or gr->n_elem != state_dim()))             \
+          throw invalid_argument("invalid 'gr'");                         \
+        if(compute_H and (!H or H->n_cols != state_dim() or               \
+                            H->n_cols != H->n_rows))                      \
+          throw invalid_argument("invalid 'H'");                          \
+      }                                                                   \
+      const arma::vec eta = get_lp() + Z.t() * x;                         \
+      const double *e, *w, *y;                                            \
+      double out = 0.;                                                    \
+      arma::uword i;                                                      \
+      for(i = 0, e = eta.begin(), w = ws.begin(), y = Y.begin();          \
+          i < eta.n_elem; ++i, ++e, ++w, ++y)                             \
+      {                                                                   \
+        const std::array<double, 3> log_den_eval =                        \
+          log_density_state_inner(*y, *e, what, *w);                      \
+                                                                          \
+        out += log_den_eval[0];                                           \
+        if(compute_gr)                                                    \
+          *gr += log_den_eval[1] * Z.col(i);                              \
+        if(compute_H)                                                     \
+          arma_dsyr(*H, Z.unsafe_col(i), log_den_eval[2]);                \
+      }                                                                   \
+                                                                          \
+      if(compute_H)                                                       \
+        *H = arma::symmatu(*H);                                           \
+                                                                          \
+      return out;                                                         \
     }
 
-    return lp;
-  }
+/* exponential family w/o dispersion parameter */
+class exp_family_wo_disp : public cdist {
+protected:
+  EXP_BASE_PROTECTED(exp_family_wo_disp)
 
 public:
-  virtual ~exp_family() = default;
-
-  exp_family
+  exp_family_wo_disp
   (const arma::vec &Y, const arma::mat &X, const arma::vec &cfix,
-   const arma::mat &Z, const arma::vec *ws, const arma::vec&,
-   const arma::vec &offset):
+   const arma::mat &Z, const arma::vec *ws, const arma::vec &offset):
   Y(Y), X(X), cfix(cfix), Z(Z),
   ws(ws ? arma::vec(*ws) : arma::vec(X.n_cols, arma::fill::ones)),
   offs(offset)
   {
-#ifdef MSSM_DEBUG
-    if(X.n_cols != Y.n_elem)
-      throw invalid_argument("invalid 'X'");
-    if(X.n_rows != cfix.n_elem)
-      throw invalid_argument("invalid 'cfix'");
-    if(X.n_cols != Z.n_cols)
-      throw invalid_argument("invalid 'Z'");
-    if(X.n_cols != ws->n_elem)
-      throw invalid_argument("invalid 'ws'");
-#endif
-  }
-
-  arma::uword state_dim() const override final {
-    return Z.n_rows;
-  }
-
-  double log_density_state
-    (const arma::vec &x, arma::vec *gr, arma::mat *H, const comp_out what)
-    const override final
-  {
-    if(Y.n_elem < 1L)
-      return 0.;
-
-    gaurd_new_comp_out(what);
-    const bool compute_gr = what == gradient or what == Hessian,
-      compute_H = what == Hessian;
-
-#ifdef MSSM_DEBUG
-    if(x.n_elem != state_dim())
-      throw invalid_argument("invalid 'x'");
-    if(compute_gr and (!gr or gr->n_elem != state_dim()))
-      throw invalid_argument("invalid 'gr'");
-    if(compute_H and (!H or H->n_cols != state_dim() or
-                        H->n_cols != H->n_rows))
-      throw invalid_argument("invalid 'H'");
-#endif
-    const arma::vec eta = get_lp() + Z.t() * x;
-    const double *e, *w, *y;
-    double out = 0.;
-    arma::uword i;
-    for(i = 0, e = eta.begin(), w = ws.begin(), y = Y.begin();
-        i < eta.n_elem; ++i, ++e, ++w, ++y)
-    {
-      const std::array<double, 3> log_den_eval =
-        log_density_state_inner(*y, *e, what, *w);
-
-      out += log_den_eval[0];
-      if(compute_gr)
-        *gr += log_den_eval[1] * Z.col(i);
-      if(compute_H)
-        arma_dsyr(*H, Z.unsafe_col(i), log_den_eval[2]);
+    if(exp_family_do_check()){
+      if(X.n_cols != Y.n_elem)
+        throw invalid_argument("invalid 'X'");
+      if(X.n_rows != cfix.n_elem)
+        throw invalid_argument("invalid 'cfix'");
+      if(X.n_cols != Z.n_cols)
+        throw invalid_argument("invalid 'Z'");
+      if(X.n_cols != ws->n_elem)
+        throw invalid_argument("invalid 'ws'");
     }
-
-    if(compute_H)
-      *H = arma::symmatu(*H);
-
-    return out;
   }
 
-  arma::uword state_stat_dim(const comp_out) const override {
-    return 0L;
-  }
-  arma::uword obs_stat_dim(const comp_out what) const override {
+  EXP_BASE_PUBLIC(exp_family_wo_disp)
+
+  arma::uword obs_stat_dim(const comp_out what) const override final {
     gaurd_new_comp_out(what);
     arma::uword out = 0L, n_fixed = X.n_rows;
     if(what == gradient or what == Hessian)
       out += n_fixed;
     if(what == Hessian)
-      out += n_fixed * n_fixed;
+      out += out * out;
     return out;
   }
 
   void comp_stats_state_only
-    (const arma::vec &x, double *out, const comp_out what)
-    const override final
-  {
+  (const arma::vec &x, double *out, const comp_out what) const override final {
     if(Y.n_elem < 1L)
       return;
 
@@ -732,6 +745,8 @@ public:
       compute_H = what == Hessian;
     if(!compute_gr and !compute_H)
       return;
+
+    check_param_udpate();
 
 #ifdef MSSM_DEBUG
     if(x.n_elem != state_dim())
@@ -765,11 +780,83 @@ public:
   }
 };
 
+/* exponential family w/ dispersion parameter */
+class exp_family_w_disp : public cdist {
+protected:
+  EXP_BASE_PROTECTED(exp_family_w_disp)
+
+  /* additional dispersion parameter the `_` version also contains some
+   * e.g., traditional transform */
+  mutable arma::vec disp;
+  const arma::vec &disp_in;
+  mutable arma::vec disp_cache;
+
+  /* sets the disperions parameter */
+  virtual void set_disp() const = 0;
+
+  /* should be called in methods before using disperion parameter */
+  mutable std::mutex disp_mutex;
+  void update_disp() const {
+    auto has_changed = [&]{
+      return arma::size(disp_in) != arma::size(disp_cache) or
+        !std::equal(disp_in.begin(), disp_in.end(), disp_cache.begin());
+    };
+
+    if(has_changed()){
+      std::lock_guard<std::mutex> lc(disp_mutex);
+      if(has_changed()){
+        set_disp();
+        disp_cache = disp_in;
+      }
+    }
+  }
+
+  /* Given a linear predictor, computes the log density and potentially
+   * the derivatives. The derivatives are also w.r.t. the dispersion
+   * parameter */
+  virtual std::array<double, 6> log_density_state_inner_w_disp
+    (const double, const double, const comp_out, const double) const = 0;
+
+public:
+  exp_family_w_disp
+  (const arma::vec &Y, const arma::mat &X, const arma::vec &cfix,
+   const arma::mat &Z, const arma::vec *ws, const arma::vec &di,
+   const arma::vec &offset):
+  Y(Y), X(X), cfix(cfix), Z(Z),
+  ws(ws ? arma::vec(*ws) : arma::vec(X.n_cols, arma::fill::ones)),
+  offs(offset), disp_in(di)
+  {
+    if(exp_family_do_check()){
+      if(X.n_cols != Y.n_elem)
+        throw invalid_argument("invalid 'X'");
+      if(X.n_rows != cfix.n_elem)
+        throw invalid_argument("invalid 'cfix'");
+      if(X.n_cols != Z.n_cols)
+        throw invalid_argument("invalid 'Z'");
+      if(X.n_cols != ws->n_elem)
+        throw invalid_argument("invalid 'ws'");
+    }
+  }
+
+  EXP_BASE_PUBLIC(exp_family_w_disp)
+
+  arma::uword obs_stat_dim(const comp_out what) const override {
+    gaurd_new_comp_out(what);
+    arma::uword out = 0L, n_fixed = X.n_rows;
+    if(what == gradient or what == Hessian)
+      out += n_fixed + 1L;
+    if(what == Hessian)
+      out += out * out;
+    return out;
+  }
+
+  void comp_stats_state_only
+  (const arma::vec&, double*, const comp_out)
+  const override final;
+};
+
 #define EXP_CLASS(fname)                                            \
-class fname final : public exp_family {                             \
-  std::unique_ptr<arma::vec> set_disp(const arma::vec&) final {     \
-    return std::unique_ptr<arma::vec>();                            \
-  }                                                                 \
+class fname final : public exp_family_wo_disp {                     \
   std::array<double, 3> log_density_state_inner                     \
   (const double, const double, const comp_out, const double)        \
   const override final;                                             \
@@ -778,28 +865,20 @@ public:                                                             \
   (const arma::vec &Y, const arma::mat &X, const arma::vec &cfix,   \
    const arma::mat &Z, const arma::vec *ws, const arma::vec &di,    \
    const arma::vec &offset):                                        \
-  exp_family(Y, X, cfix, Z, ws, di, offset)                         \
-  {                                                                 \
-    disp = set_disp(di);                                            \
-  }                                                                 \
+  exp_family_wo_disp(Y, X, cfix, Z, ws, offset) { }                 \
 }
 
 #define EXP_CLASS_W_DISP(fname)                                       \
-class fname final : public exp_family {                               \
-  std::unique_ptr<arma::vec> set_disp(const arma::vec&)               \
-  override final;                                                     \
+class fname final : public exp_family_w_disp {                        \
   std::array<double, 3> log_density_state_inner                       \
-  (const double, const double, const comp_out, const double)          \
-  const override final;                                               \
+    (const double, const double, const comp_out, const double)        \
+    const override final;                                             \
+  std::array<double, 6> log_density_state_inner_w_disp                \
+    (const double, const double, const comp_out, const double)        \
+    const override final;                                             \
 public:                                                               \
-  fname                                                               \
-  (const arma::vec &Y, const arma::mat &X, const arma::vec &cfix,     \
-   const arma::mat &Z, const arma::vec *ws, const arma::vec &di,      \
-   const arma::vec &offset):                                          \
-  exp_family(Y, X, cfix, Z, ws, di, offset)                           \
-  {                                                                   \
-    disp = set_disp(di);                                              \
-  }                                                                   \
+  using exp_family_w_disp::exp_family_w_disp;                         \
+  void set_disp() const override final;                               \
 }
 
 EXP_CLASS(binomial_logit);
@@ -812,10 +891,12 @@ EXP_CLASS_W_DISP(gaussian_identity);
 EXP_CLASS_W_DISP(gaussian_log);
 EXP_CLASS_W_DISP(gaussian_inverse);
 
-std::unique_ptr<exp_family> get_family
-  (const std::string&,  const arma::vec&, const arma::mat&, const arma::vec&,
+std::unique_ptr<cdist> get_family
+  (const std::string&, const arma::vec&, const arma::mat&, const arma::vec&,
    const arma::mat&, const arma::vec*, const arma::vec&,const arma::vec&);
 
+#undef EXP_BASE_PROTECTED
+#undef EXP_BASE_PUBLIC
 #undef EXP_CLASS
 #undef EXP_CLASS_W_DISP
 #endif

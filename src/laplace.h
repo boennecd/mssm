@@ -15,6 +15,7 @@ struct Laplace_aprx_output {
   arma::mat Q;
   double logLik;
   unsigned n_it;
+  arma::vec disp;
   int code;
 };
 Laplace_aprx_output Laplace_aprx

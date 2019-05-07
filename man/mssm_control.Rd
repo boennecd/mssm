@@ -5,10 +5,10 @@
 \title{Auxiliary for Controlling Multivariate State Space Model Fitting}
 \usage{
 mssm_control(N_part = 1000L, n_threads = 1L, covar_fac = 1.2,
-  ftol_rel = 0.000001, nu = 8, what = "log_density",
+  ftol_rel = 1e-06, nu = 8, what = "log_density",
   which_sampler = "mode_aprx", which_ll_cp = "no_aprx", seed = 1L,
-  KD_N_max = 10L, aprx_eps = 0.001, ftol_abs = 0.0001,
-  ftol_abs_inner = 0.0001, la_ftol_rel = -1, la_ftol_rel_inner = -1,
+  KD_N_max = 10L, aprx_eps = 0.001, ftol_abs = 1e-04,
+  ftol_abs_inner = 1e-04, la_ftol_rel = -1, la_ftol_rel_inner = -1,
   maxeval = 10000L, maxeval_inner = 10000L)
 }
 \arguments{

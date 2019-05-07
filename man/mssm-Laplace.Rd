@@ -7,8 +7,8 @@ State Space Model}
 \arguments{
 \item{cfix}{starting values for coefficient for fixed effects.}
 
-\item{disp}{additional parameters for the family (e.g., a dispersion
-parameter).}
+\item{disp}{starting value for additional parameters for the family
+(e.g., a dispersion parameter).}
 
 \item{F.}{starting values for matrix in the transition density of the state
 vector.}
@@ -31,6 +31,7 @@ An object of class \code{mssmLaplace} with the following elements
 \item{logLik}{approximate log-likelihood at estimates.}
 \item{n_it}{number of Laplace approximations.}
 \item{code}{returned code from \code{nlopt}.}
+\item{dispersion}{estimated dispersion parameter \code{nlopt}.}
 
 Remaining elements are the same as returned by \code{\link{mssm}}.
 }

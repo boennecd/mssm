@@ -66,11 +66,13 @@ namespace {
     problem_data &data;
     const arma::SizeMat Q_size = arma::size(data.get_Q()),
       F_size = arma::size(data.get_F());
+    const bool has_disp = data.get_disp().n_elem > 0;
     const unsigned state_dim = data.get_sta_dist<cdist>(0L)->state_dim(),
       n_periods = data.n_periods,
       cfix_dim = data.get_cfix().n_elem,
       Q_dim = (Q_size.n_cols * (Q_size.n_cols + 1L)) / 2L,
-      outer_dim = Q_dim + F_size.n_cols * F_size.n_rows;
+      outer_dim = Q_dim + F_size.n_cols * F_size.n_rows + has_disp,
+      cfix_n_disp = cfix_dim + has_disp;
     /* current maximum log-likelihood value */
     double max_ll = -std::numeric_limits<double>::infinity();
     /* counters for number of outer and inner evaluations */
@@ -110,7 +112,7 @@ namespace {
       mode_objective_inner_output out;
       out.ll_terms = 0.;
       if(do_grad)
-        out.obs_coef_grad_terms = arma::vec(cfix_dim, arma::fill::zeros);
+        out.obs_coef_grad_terms = arma::vec(cfix_n_disp, arma::fill::zeros);
 
       for(unsigned i = start; i < end; ++i){
         const unsigned inc = i * state_dim;
@@ -130,6 +132,9 @@ namespace {
           obs_dist->comp_stats_state_only(
               state, out.obs_coef_grad_terms.memptr(), what);
       }
+
+      out.obs_coef_grad_terms = out.obs_coef_grad_terms.subvec(
+        0L, cfix_dim - 1L);
 
       return out;
     }
@@ -253,15 +258,15 @@ namespace {
     Q_constraint_util Q_constraint_u;
 
     /* method for NLOPT to call */
-    double Q_constraint(
-        unsigned int n, const double *x, double *grad, void *data_in)
+    double Q_constraint
+      (unsigned int n, const double *x, double *grad, void *data_in)
     {
       return Q_constraint_u(x + F_size.n_cols * F_size.n_rows, Q_size);
     }
 
     /* constraint F such that the system is stationary */
-    double F_constraint1(
-        unsigned int n, const double *x, double *grad, void *data_in) const
+    double F_constraint1
+      (unsigned int n, const double *x, double *grad, void *data_in) const
     {
       arma::mat F(x, F_size.n_rows, F_size.n_cols);
       arma::cx_vec eigs_vals = arma::eig_gen(F);
@@ -277,8 +282,8 @@ namespace {
 
     /* constraint F such that it is not too close to being singular (required
      * for some computation but could be avoided). TODO: avoid this... */
-    double F_constraint2(
-        unsigned int n, const double *x, double *grad, void *data_in) const
+    double F_constraint2
+      (unsigned int n, const double *x, double *grad, void *data_in) const
     {
       arma::mat F(x, F_size.n_rows, F_size.n_cols);
       arma::vec eigs_vals = arma::real(arma::eig_gen(F));
@@ -352,6 +357,11 @@ namespace {
         arma::mat Q0_new = get_Q0(Q_new, F_new);
         data.set_Q0(Q0_new);
 
+        if(has_disp){
+          arma::vec dum(x + n - 1L, 1L);
+          data.set_disp(dum);
+        }
+
         if(arma::rank(Q0_new) < Q0_new.n_cols)
           return -std::numeric_limits<double>::infinity();
       }
@@ -370,8 +380,12 @@ namespace {
       })();
       if(verbose){
         Rprintf("It: %5d: Making Laplace approximation at Q\n", it_outer);
-        Rcpp::Rcout << data.get_Q()
-                    << ", F\n"
+        Rcpp::Rcout << data.get_Q();
+
+        if(has_disp)
+          Rprintf(", dispersion %16.6f\n", data.get_disp()(0L));
+
+        Rcpp::Rcout << ", F\n"
                     << data.get_F()
                     << ", and Q0\n"
                     << data.get_Q0();
@@ -517,7 +531,6 @@ namespace {
                 ftol_abs_inner, maxeval, maxeval_inner);
       }
 
-
       /* setup parameters */
       std::unique_ptr<double[]> vals =
         std::unique_ptr<double[]>(new double[outer_dim]);
@@ -529,6 +542,9 @@ namespace {
         for(unsigned j = 0; j < Q.n_cols; ++j)
           for(unsigned i = 0; i <= j; ++i)
             *d++ = Q(i, j);
+
+        if(has_disp)
+          *d = data.get_disp()(0L);
 
       }
 
@@ -554,6 +570,16 @@ namespace {
       nlopt_add_inequality_constraint(
         opt, call_F_constraint2, this, 0);
 
+      std::unique_ptr<double[]> lbs(new double[outer_dim]);
+      if(has_disp){
+        /* add positivity constraint to dispersion parameter */
+        lbs.reset(new double[outer_dim]);
+        std::fill(lbs.get(), lbs.get() + outer_dim - 1L, -HUGE_VAL);
+        lbs[outer_dim - 1L] = std::numeric_limits<double>::epsilon();
+        nlopt_set_lower_bounds(opt, lbs.get());
+
+      }
+
       /* solve problem */
       double maxf;
       int nlopt_result_code = nlopt_optimize(opt, vals.get(), &maxf);
@@ -568,6 +594,8 @@ namespace {
       out.logLik = maxf;
       out.n_it = it_outer;
       out.code = nlopt_result_code;
+      if(has_disp)
+        out.disp = data.get_disp();
 
       return out;
     }

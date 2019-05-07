@@ -12,7 +12,7 @@ This package provides methods to estimate models of the form
 
 ![\\vec\\beta\_t = F\\vec\\beta\_{t-1}+\\vec\\epsilon\_t, \\qquad \\vec\\epsilon\_t\\sim N(\\vec 0, Q)](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_t%20%3D%20F%5Cvec%5Cbeta_%7Bt-1%7D%2B%5Cvec%5Cepsilon_t%2C%20%5Cqquad%20%5Cvec%5Cepsilon_t%5Csim%20N%28%5Cvec%200%2C%20Q%29 "\vec\beta_t = F\vec\beta_{t-1}+\vec\epsilon_t, \qquad \vec\epsilon_t\sim N(\vec 0, Q)")
 
-where ![g](https://chart.googleapis.com/chart?cht=tx&chl=g "g") is simple distribution, we observe ![t=1,\\dots,T](https://chart.googleapis.com/chart?cht=tx&chl=t%3D1%2C%5Cdots%2CT "t=1,\dots,T") periods, and ![I\_t](https://chart.googleapis.com/chart?cht=tx&chl=I_t "I_t"), ![y\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=y_%7Bit%7D "y_{it}"), ![\\vec x\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20x_%7Bit%7D "\vec x_{it}"), and ![\\vec z\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20z_%7Bit%7D "\vec z_{it}") are known. What is multivariate is ![\\vec y\_t = \\{y\_{it}\\}\_{i\\in I\_t}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20y_t%20%3D%20%5C%7By_%7Bit%7D%5C%7D_%7Bi%5Cin%20I_t%7D "\vec y_t = \{y_{it}\}_{i\in I_t}") (though, ![\\vec \\beta\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20%5Cbeta_t "\vec \beta_t") can also be multivariate) and this package is written to scale well in the dimension of ![| I\_t |](https://chart.googleapis.com/chart?cht=tx&chl=%7C%20I_t%20%7C "| I_t |"). The package uses independent particle filters as suggested by Lin et al. (2005). This particular type of filter can be used in the method suggested by Poyiadjis, Doucet, and Singh (2011). I will show an example of how to use the package through the rest of the document and highlight some implementation details.
+where ![g](https://chart.googleapis.com/chart?cht=tx&chl=g "g") is simple distribution, we observe ![t=1,\\dots,T](https://chart.googleapis.com/chart?cht=tx&chl=t%3D1%2C%5Cdots%2CT "t=1,\dots,T") periods, and ![I\_t](https://chart.googleapis.com/chart?cht=tx&chl=I_t "I_t"), ![y\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=y_%7Bit%7D "y_{it}"), ![\\vec x\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20x_%7Bit%7D "\vec x_{it}"), and ![\\vec z\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20z_%7Bit%7D "\vec z_{it}") are known. What is multivariate is ![\\vec y\_t = \\{y\_{it}\\}\_{i\\in I\_t}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20y_t%20%3D%20%5C%7By_%7Bit%7D%5C%7D_%7Bi%5Cin%20I_t%7D "\vec y_t = \{y_{it}\}_{i\in I_t}") (though, ![\\vec \\beta\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20%5Cbeta_t "\vec \beta_t") can also be multivariate) and this package is written to scale well in the cardinatly of ![I\_t](https://chart.googleapis.com/chart?cht=tx&chl=I_t "I_t"). The package uses independent particle filters as suggested by Lin et al. (2005). This particular type of filter can be used in the method suggested by Poyiadjis, Doucet, and Singh (2011). I will show an example of how to use the package through the rest of the document and highlight some implementation details.
 
 The package is not on CRAN but it can be installed from Github e.g., by calling
 
@@ -204,14 +204,14 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   1.823   0.048   0.479
+    ##   1.720   0.052   0.453
 
 ``` r
 # returns the log-likelihood approximation
 logLik(mssm_obj)
 ```
 
-    ## 'log Lik.' -5865 (df=NA)
+    ## 'log Lik.' -5865 (df=11)
 
 We get a much larger log-likelihood as expected. We can plot the predicted values of state variables from the filter distribution.
 
@@ -274,7 +274,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   1.893   0.044   0.484
+    ##   1.906   0.040   0.480
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -287,7 +287,7 @@ mssm_glm <- ll_func$pf_filter(
 logLik(mssm_glm)
 ```
 
-    ## 'log Lik.' -7485 (df=NA)
+    ## 'log Lik.' -7485 (df=11)
 
 ### Parameter Estimation
 
@@ -307,7 +307,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##  70.348   2.592  15.736
+    ##  75.221   2.603  16.680
 
 ``` r
 # the function returns an object with the estimated parameters and log-likelihood
@@ -334,10 +334,10 @@ sta$cfix
     ##     -0.9108      0.2134      0.5234     -0.8923
 
 ``` r
-print(sta$logLik, digits = 6) # log-likelihood approximation
+logLik(sta) # log-likelihood approximation
 ```
 
-    ## [1] -5863.01
+    ## 'log Lik.' -5863 (df=11)
 
 ``` r
 # use stochastic gradient descent with averaging
@@ -349,7 +349,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 204.735   1.184  47.392
+    ## 211.941   1.248  49.042
 
 ``` r
 # use Adam algorithm instead
@@ -361,7 +361,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 211.198   1.319  48.927
+    ## 219.571   1.317  50.747
 
 A plot of the approximate log-likelihoods at each iteration is shown below along with the final estimates.
 
@@ -465,7 +465,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 2874.53   24.27  636.34
+    ## 2901.22   23.83  641.93
 
 ``` r
 plot(res_final$logLik, type = "l", ylab = "log-likelihood approximation")
@@ -535,12 +535,12 @@ local({
 ```
 
     ## Unit: milliseconds
-    ##  expr     min      lq   mean  median     uq     max neval
-    ##   100   59.81   63.82   65.4   67.82   68.2   68.58     3
-    ##   200  123.87  138.08  145.1  152.29  155.7  159.10     3
-    ##   400  360.28  367.79  372.4  375.30  378.5  381.72     3
-    ##   800 1024.07 1044.55 1072.3 1065.02 1096.4 1127.75     3
-    ##  1600 3473.67 3476.31 3512.2 3478.95 3531.5 3583.98     3
+    ##  expr     min     lq    mean  median      uq    max neval
+    ##   100   58.23   60.1   62.03   61.97   63.94   65.9     3
+    ##   200  128.79  131.3  134.00  133.87  136.60  139.3     3
+    ##   400  336.51  346.6  351.59  356.70  359.13  361.6     3
+    ##   800  996.40  999.0 1018.52 1001.67 1029.57 1057.5     3
+    ##  1600 3354.21 3403.4 3438.20 3452.60 3480.19 3507.8     3
 
 A solution is to use the dual k-d tree method I cover later. The computational complexity is ![\\mathcal{O}(N \\log N)](https://chart.googleapis.com/chart?cht=tx&chl=%5Cmathcal%7BO%7D%28N%20%5Clog%20N%29 "\mathcal{O}(N \log N)") for this method which is somewhat indicated by the run times shown below.
 
@@ -577,12 +577,12 @@ local({
 
     ## Unit: milliseconds
     ##   expr    min     lq   mean median     uq    max neval
-    ##    100  124.1  124.8  125.4  125.5  126.0  126.5     3
-    ##    200  202.1  209.7  218.5  217.3  226.7  236.0     3
-    ##    400  427.8  438.0  442.1  448.2  449.2  450.3     3
-    ##    800  807.1  847.1  868.4  887.0  899.1  911.1     3
-    ##   1600 1453.4 1502.5 1536.0 1551.6 1577.3 1602.9     3
-    ##  12800 8226.9 8230.9 8256.1 8234.9 8270.7 8306.6     3
+    ##    100  106.5  107.8  112.4  109.1  115.3  121.6     3
+    ##    200  197.6  198.9  202.3  200.2  204.6  209.1     3
+    ##    400  413.7  418.1  421.2  422.6  424.9  427.3     3
+    ##    800  808.1  808.8  814.6  809.4  817.9  826.3     3
+    ##   1600 1505.2 1517.0 1527.1 1528.8 1538.0 1547.3     3
+    ##  12800 8021.6 8031.6 8065.5 8041.7 8087.5 8133.4     3
 
 The `aprx_eps` controls the size of the error. To be precise about what this value does then we need to some notation for the complete likelihood (the likelihood where we observe ![\\vec\\beta\_1,\\dots,\\vec\\beta\_T](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_1%2C%5Cdots%2C%5Cvec%5Cbeta_T "\vec\beta_1,\dots,\vec\beta_T")s). This is
 
@@ -722,7 +722,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 336.975   1.243  73.061
+    ## 333.623   1.195  72.409
 
 We define a function below to get the approximate gradient and approximate observed information matrix from the returned object. Then we compare the output to the GLM we estimated and to the true parameters.
 
@@ -743,15 +743,8 @@ get_grad_n_obs_info <- function(object){
   n_rng   <- nrow(object$Z)
   dim_fix <- nrow(object$X)
   dim_rng <- n_rng * n_rng + ((n_rng + 1L) * n_rng) / 2L
-  
-  # create vector with dimension names
-  di_names <- row.names(object$X)
-  z_nam <- row.names(object$Z)
-  di_names <- c(
-    di_names, paste0("F:", outer(z_nam, z_nam, paste, sep = ".")))
-  Q_names  <- outer(z_nam, z_nam, paste, sep = ".")
-  di_names <- c(
-    di_names, paste0("Q:", Q_names[lower.tri(Q_names, diag = TRUE)]))
+  has_dispersion <-
+    any(sapply(c("^Gamma", "^gaussian"), grepl, x = object$family))
   
   # get quantities for each particle
   quants <- tail(object$pf_output, 1L)[[1L]]$stats
@@ -761,12 +754,14 @@ get_grad_n_obs_info <- function(object){
   meas <- colSums(t(quants) * drop(exp(ws)))
 
   # separate out the different components. Start with the gradient
-  idx <- dim_fix + dim_rng
-  grad <- structure(meas[1:idx], names = di_names)
+  idx <- dim_fix + dim_rng + has_dispersion
+  grad <- meas[1:idx]
+  dim_names <- names(grad)
 
   # then the observed information matrix
   hess <- matrix(
-    meas[-(1:idx)], dim_fix + dim_rng, dimnames = list(di_names, di_names))
+    meas[-(1:idx)], dim_fix + dim_rng + has_dispersion, 
+    dimnames = list(dim_names, dim_names))
 
   list(grad = grad, hess = hess)
 }
@@ -957,11 +952,11 @@ microbenchmark::microbenchmark(
 ```
 
     ## Unit: milliseconds
-    ##         expr     min      lq    mean  median      uq    max neval
-    ##  dual tree 1  104.07  108.87  114.95  110.82  121.80  139.0    10
-    ##  dual tree 4   39.41   40.21   43.63   43.29   45.95   50.4    10
-    ##      naive 1 3341.81 3387.66 3477.79 3463.81 3498.04 3701.1    10
-    ##      naive 4  947.49 1025.98 1074.16 1064.36 1135.19 1178.7    10
+    ##         expr     min      lq    mean  median      uq     max neval
+    ##  dual tree 1  104.16  105.99  114.76  108.60  112.63  154.23    10
+    ##  dual tree 4   39.17   39.97   41.85   41.39   42.11   49.58    10
+    ##      naive 1 3264.48 3335.19 3634.28 3410.87 3510.42 5631.76    10
+    ##      naive 4  915.44  983.84 1108.99 1018.44 1280.91 1541.58    10
 
 ``` r
 # The functions return the un-normalized log weights. We first compare
@@ -1042,20 +1037,20 @@ meds
 ```
 
     ##          method
-    ## N         Dual-tree      Naive Dual-tree 1
-    ##   384      0.001325  0.0006594    0.003274
-    ##   768      0.002565  0.0025308    0.006595
-    ##   1536     0.004620  0.0093476    0.011586
-    ##   3072     0.010261  0.0441262    0.026274
-    ##   6144     0.018293  0.1677352    0.046029
-    ##   12288    0.039546  0.6433576    0.092678
-    ##   24576    0.067846  2.6034155    0.165144
-    ##   49152    0.120392 10.8037124    0.316710
-    ##   98304    0.220809         NA          NA
-    ##   196608   0.445539         NA          NA
-    ##   393216   0.915410         NA          NA
-    ##   786432   1.849613         NA          NA
-    ##   1572864  4.049782         NA          NA
+    ## N         Dual-tree     Naive Dual-tree 1
+    ##   384      0.001400  0.001237    0.003377
+    ##   768      0.002648  0.002554    0.006466
+    ##   1536     0.004468  0.009398    0.011401
+    ##   3072     0.008605  0.036123    0.021883
+    ##   6144     0.018782  0.157725    0.045535
+    ##   12288    0.038410  0.625686    0.090218
+    ##   24576    0.060695  2.592649    0.165799
+    ##   49152    0.113861 10.530529    0.317075
+    ##   98304    0.222563        NA          NA
+    ##   196608   0.460327        NA          NA
+    ##   393216   0.991877        NA          NA
+    ##   786432   1.855886        NA          NA
+    ##   1572864  3.863262        NA          NA
 
 ``` r
 par(mar = c(5, 4, 1, 1))
@@ -1084,13 +1079,14 @@ Function Definitions
 #   Q: starting value for covariance matrix in conditional distribution of the 
 #      current state given the previous. 
 #   verbose: TRUE if output should be printed during estmation. 
+#   disp: starting value for dispersion parameter.
 # 
 # Returns:
 #   List with estimates and the log-likelihood approximation at each iteration. 
 sgd <- function(
   object, n_it = 150L, 
   lrs = 1e-2 * (1:n_it)^(-1/2), avg_start = max(1L, as.integer(n_it * 4L / 5L)),
-  cfix, F., Q,  verbose = FALSE)
+  cfix, F., Q,  verbose = FALSE, disp = numeric())
 {
   # make checks
   stopifnot(
@@ -1099,18 +1095,25 @@ sgd <- function(
   n_fix <- nrow(object$X)
   n_rng <- nrow(object$Z)
   
-  # objects for estimates at each iteration, gradient norms, and 
+  # objects for estimates at each iteration, gradient norms, and
   # log-likelihood approximations
-  ests <- matrix(
-    NA_real_, n_it + 1L, n_fix + n_rng * n_rng + n_rng * (n_rng  + 1L) / 2L)
-  ests[1L, ] <- c(cfix, F., Q[lower.tri(Q, diag = TRUE)])
+  has_dispersion <-
+    any(sapply(c("^Gamma", "^gaussian"), grepl, x = object$family))
+  n_params <-
+    has_dispersion + n_fix + n_rng * n_rng + n_rng * (n_rng  + 1L) / 2L
+  ests <- matrix(NA_real_, n_it + 1L, n_params)
+  ests[1L, ] <- c(
+    cfix,  if(has_dispersion) disp else NULL, F.,
+    Q[lower.tri(Q, diag = TRUE)])
   grad_norm <- lls <- rep(NA_real_, n_it)
   
   # indices of the different components
-  idx_fix <- 1:n_fix
-  idx_F   <- 1:(n_rng * n_rng) + n_fix
-  idx_Q   <- 1:(n_rng * (n_rng  + 1L) / 2L) + n_fix + n_rng * n_rng
-  
+  idx_fix   <- 1:n_fix
+  if(has_dispersion)
+    idx_dip <- n_fix + 1L
+  idx_F     <- 1:(n_rng * n_rng) + n_fix + has_dispersion
+  idx_Q     <- 1:(n_rng * (n_rng  + 1L) / 2L) + n_fix + n_rng * n_rng +
+    has_dispersion
   
   # function to set the parameters
   library(matrixcalc) # TODO: get rid of this
@@ -1120,9 +1123,11 @@ sgd <- function(
     idx <- if(i > avg_start) avg_start:i else i
     
     # set new parameters
-    cfix <<-             colMeans(ests[idx, idx_fix, drop = FALSE])
-    F.[] <<-             colMeans(ests[idx, idx_F  , drop = FALSE])
-    Q[]  <<- dup_mat %*% colMeans(ests[idx, idx_Q  , drop = FALSE])
+    cfix   <<-             colMeans(ests[idx, idx_fix, drop = FALSE])
+    if(has_dispersion)
+      disp <<-             colMeans(ests[idx, idx_dip, drop = FALSE])
+    F.[]   <<-             colMeans(ests[idx, idx_F  , drop = FALSE])
+    Q[]    <<- dup_mat %*% colMeans(ests[idx, idx_Q  , drop = FALSE])
     
   }
     
@@ -1131,7 +1136,7 @@ sgd <- function(
   for(i in 1:n_it + 1L){
     # get gradient. First, run the particle filter
     filter_out <- object$pf_filter(
-      cfix = cfix, disp = numeric(), F. = F., Q = Q, seed = NULL)
+      cfix = cfix, disp = disp, F. = F., Q = Q, seed = NULL)
     lls[i - 1L] <- c(logLik(filter_out))
     
     # then get the gradient associated with each particle and the log 
@@ -1152,7 +1157,8 @@ sgd <- function(
       # check that Q is positive definite and the system is stationary
       c1 <- all(abs(eigen(F.)$values) < 1)
       c2 <- all(eigen(Q)$values > 0)
-      if(c1 && c2)
+      c3 <- !has_dispersion || disp > 0.
+      if(c1 && c2 && c3)
         break
       
       # decrease learning rate
@@ -1167,23 +1173,25 @@ sgd <- function(
     # print information if requested 
     if(verbose){
       cat(sprintf(
-        "\nIt %5d: log-likelihood (current, max) %12.2f, %12.2f\n", 
-        i - 1L, logLik(filter_out), max(lls, na.rm = TRUE)), 
-          rep("-", 66), "\n", sep = "")
+        "\nIt %5d: log-likelihood (current, max) %12.2f, %12.2f\n",
+        i - 1L, logLik(filter_out), max(lls, na.rm = TRUE)),
+        rep("-", 66), "\n", sep = "")
       cat("cfix\n")
       print(cfix)
+      if(has_dispersion)
+        cat(sprintf("Dispersion: %20.8f\n", disp))
       cat("F\n")
       print(F.)
       cat("Q\n")
       print(Q)
       cat(sprintf("Gradient norm: %10.4f\n", grad_norm[i - 1L]))
       print(get_ess(filter_out))
-      
+
     }
   } 
   
   list(estimates = ests, logLik = lls, F. = F., Q = Q, cfix = cfix, 
-       grad_norm = grad_norm)
+       disp = disp, grad_norm = grad_norm)
 }
 
 # Stochastic gradient descent for mssm object using the Adam algorithm. The  
@@ -1201,12 +1209,13 @@ sgd <- function(
 #   Q: starting value for covariance matrix in conditional distribution of the 
 #      current state given the previous. 
 #   verbose: TRUE if output should be printed during estmation. 
+#   disp: starting value for dispersion parameter.
 # 
 # Returns:
 #   List with estimates and the log-likelihood approximation at each iteration. 
 adam <- function(
-  object, n_it = 150L, mp = .9, vp = .999, lr = .01, cfix, F., Q, 
-  verbose = FALSE)
+  object, n_it = 150L, mp = .9, vp = .999, lr = .01, cfix, F., Q,
+  verbose = FALSE, disp = numeric())
 {
   # make checks
   stopifnot(
@@ -1215,25 +1224,35 @@ adam <- function(
   n_fix <- nrow(object$X)
   n_rng <- nrow(object$Z)
 
-  # objects for estimates at each iteration, gradient norms, and 
+  # objects for estimates at each iteration, gradient norms, and
   # log-likelihood approximations
-  ests <- matrix(
-    NA_real_, n_it + 1L, n_fix + n_rng * n_rng + n_rng * (n_rng  + 1L) / 2L)
-  ests[1L, ] <- c(cfix, F., Q[lower.tri(Q, diag = TRUE)])
+  has_dispersion <-
+    any(sapply(c("^Gamma", "^gaussian"), grepl, x = object$family))
+  n_params <-
+    has_dispersion + n_fix + n_rng * n_rng + n_rng * (n_rng  + 1L) / 2L
+  ests <- matrix(NA_real_, n_it + 1L, n_params)
+  ests[1L, ] <- c(
+    cfix,  if(has_dispersion) disp else NULL, F.,
+    Q[lower.tri(Q, diag = TRUE)])
   grad_norm <- lls <- rep(NA_real_, n_it)
 
   # indices of the different components
-  idx_fix <- 1:n_fix
-  idx_F   <- 1:(n_rng * n_rng) + n_fix
-  idx_Q   <- 1:(n_rng * (n_rng  + 1L) / 2L) + n_fix + n_rng * n_rng
+  idx_fix   <- 1:n_fix
+  if(has_dispersion)
+    idx_dip <- n_fix + 1L
+  idx_F     <- 1:(n_rng * n_rng) + n_fix + has_dispersion
+  idx_Q     <- 1:(n_rng * (n_rng  + 1L) / 2L) + n_fix + n_rng * n_rng +
+    has_dispersion
 
   # function to set the parameters
   library(matrixcalc) # TODO: get rid of this
   dup_mat <- duplication.matrix(ncol(Q))
   set_parems <- function(i){
-    cfix <<-             ests[i, idx_fix]
-    F.[] <<-             ests[i, idx_F  ]
-    Q[]  <<- dup_mat %*% ests[i, idx_Q  ]
+    cfix   <<-             ests[i, idx_fix]
+    if(has_dispersion)
+      disp <<-             ests[i, idx_dip]
+    F.[]   <<-             ests[i, idx_F  ]
+    Q[]    <<- dup_mat %*% ests[i, idx_Q  ]
 
   }
 
@@ -1245,7 +1264,7 @@ adam <- function(
   for(i in 1:n_it + 1L){
     # get gradient. First, run the particle filter
     filter_out <- object$pf_filter(
-      cfix = cfix, disp = numeric(), F. = F., Q = Q, seed = NULL)
+      cfix = cfix, disp = disp, F. = F., Q = Q, seed = NULL)
     lls[i - 1L] <- c(logLik(filter_out))
 
     # then get the gradient associated with each particle and the log
@@ -1269,10 +1288,12 @@ adam <- function(
       ests[i, ] <- ests[i - 1L, ] + lr_i * de
       set_parems(i)
 
-      # check that Q is positive definite and the system is stationary
+      # check that Q is positive definite, the dispersion parameter is
+      # positive, and the system is stationary
       c1 <- all(abs(eigen(F.)$values) < 1)
       c2 <- all(eigen(Q)$values > 0)
-      if(c1 && c2)
+      c3 <- !has_dispersion || disp > 0.
+      if(c1 && c2 && c3)
         break
 
       # decrease learning rate
@@ -1295,6 +1316,8 @@ adam <- function(
         rep("-", 66), "\n", sep = "")
       cat("cfix\n")
       print(cfix)
+      if(has_dispersion)
+        cat(sprintf("Dispersion: %20.8f\n", disp))
       cat("F\n")
       print(F.)
       cat("Q\n")
@@ -1305,8 +1328,8 @@ adam <- function(
     }
   }
 
-  list(estimates = ests, logLik = lls, F. = F., Q = Q, cfix = cfix,
-       failed = failed, grad_norm = grad_norm)
+  list(estimates = ests, logLik = lls, F. = F., Q = Q, cfix = cfix, 
+       disp = disp, failed = failed, grad_norm = grad_norm)
 }
 ```
 

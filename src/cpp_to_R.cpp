@@ -285,5 +285,6 @@ Rcpp::List run_Laplace_aprx
     Named("cfix") = std::move(result.cfix),
     Named("logLik") = result.logLik,
     Named("n_it") = result.n_it,
-    Named("code") = result.code);
+    Named("code") = result.code,
+    Named("dispersion") = result.disp);
 }

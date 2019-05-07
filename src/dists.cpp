@@ -204,6 +204,79 @@ void mv_norm_reg::comp_stats_state_state
   tmp = arma::symmatl(tmp);
 }
 
+
+void exp_family_w_disp::comp_stats_state_only
+  (const arma::vec &x, double *out, const comp_out what)
+  const
+  {
+    if(Y.n_elem < 1L)
+      return;
+
+    check_param_udpate();
+
+    gaurd_new_comp_out(what);
+    const bool compute_gr = what == gradient or what == Hessian,
+      compute_H = what == Hessian;
+    if(!compute_gr and !compute_H)
+      return;
+
+#ifdef MSSM_DEBUG
+    if(x.n_elem != state_dim())
+      throw invalid_argument("invalid 'x'");
+#endif
+    const arma::vec eta = get_lp() + Z.t() * x;
+    const double *e, *w, *y;
+    const int p = X.n_rows;
+    arma::vec gr(out, p, false);
+
+    const unsigned pp1 = p + 1L;
+
+    double
+      /* derivative w.r.t. the dispersion parameter */
+      * const d_disp = out + p,
+      /* twice w.r.t. fixed coef and the dispersion parameter */
+      * const d_X_d_disp = out + p * pp1 + pp1,
+      /* twice derivative w.r.t. the dispersion parameter */
+      * const dd_disp = out + p * (1L + pp1) + pp1;
+
+    const std::unique_ptr<arma::mat> H = ([&]{
+      if(compute_H)
+        return std::unique_ptr<arma::mat>(
+          new arma::mat(out + pp1, pp1, pp1, false));
+      return std::unique_ptr<arma::mat>();
+    })();
+    arma::uword i;
+    for(i = 0, e = eta.begin(), w = ws.begin(), y = Y.begin();
+        i < eta.n_elem; ++i, ++e, ++w, ++y)
+    {
+      const std::array<double, 6> log_den_eval =
+        log_density_state_inner_w_disp(*y, *e, what, *w);
+
+      if(compute_gr){
+        gr += log_den_eval[1] * X.col(i);
+        *d_disp += log_den_eval[3];
+
+      }
+      if(compute_H){
+        arma_dsyr(*H, X.unsafe_col(i), log_den_eval[2], p);
+
+        F77_CALL(daxpy)(
+            &p, &log_den_eval[4], X.colptr(i), &I_ONE, d_X_d_disp, &I_ONE);
+        *dd_disp += log_den_eval[5];
+
+      }
+    }
+
+    if(compute_H)
+      *H = arma::symmatu(*H);
+  }
+
+void exp_family_w_disp::check_param_udpate() const {
+  update_disp();
+}
+
+void exp_family_wo_disp::check_param_udpate() const { }
+
 /* TODO: maybe copy parts of code from r-source/src/nmath/dbinom.c */
 inline double binom_pdf
   (const double y, const double w, const double mu)
@@ -352,19 +425,19 @@ std::array<double, 3> poisson_sqrt::log_density_state_inner
   return out;
 }
 
-inline std::unique_ptr<arma::vec> scalar_pos_dist(const arma::vec &in_vec)
+inline arma::vec scalar_pos_dist(const arma::vec &in_vec)
 {
   if(in_vec.n_elem != 1L or in_vec(0) <= 0.)
     throw std::invalid_argument("Invalid dispersion parameter");
   /* we store the log dispersion parameter as the second element */
-  std::unique_ptr<arma::vec> out(new arma::vec(2L));
-  out->operator()(0L) =          in_vec(0L);
-  out->operator()(1L) = std::log(in_vec(0L));
+  arma::vec out(2L);
+  out(0L) =          in_vec(0L);
+  out(1L) = std::log(in_vec(0L));
   return out;
 }
 
-std::unique_ptr<arma::vec> Gamma_log::set_disp(const arma::vec &in_vec){
-  return scalar_pos_dist(in_vec);
+void Gamma_log::set_disp() const {
+  disp = scalar_pos_dist(disp_in);
 }
 
 std::array<double, 3> Gamma_log::log_density_state_inner
@@ -379,16 +452,16 @@ std::array<double, 3> Gamma_log::log_density_state_inner
   const bool is_small = eta < eta_min;
 
   const double mu = is_small ? exp_eat_min : std::exp(eta),
-    phi       = disp->operator()(0L);
+    phi       = disp(0L);
   const double shape = 1. / phi,
-    scale = mu * phi;
+               scale = mu * phi;
 
   std::array<double, 3> out;
   out[0] = R::dgamma(y, shape, scale, 1L);
   out[0] *= w;
 
   if(what == gradient or what == Hessian)
-    out[1] = - w * (shape - y / scale);
+    out[1] = w * (y / scale - shape);
 
   if(what == Hessian)
     out[2] = - w * y / scale;
@@ -396,8 +469,51 @@ std::array<double, 3> Gamma_log::log_density_state_inner
   return out;
 }
 
-std::unique_ptr<arma::vec> gaussian_identity::set_disp(const arma::vec &in_vec){
-  return scalar_pos_dist(in_vec);
+std::array<double, 6> Gamma_log::log_density_state_inner_w_disp
+  (const double y, const double eta, const comp_out what, const double w) const
+{
+  gaurd_new_comp_out(what);
+
+  constexpr double
+    exp_eat_min = std::numeric_limits<double>::epsilon(),
+      eta_min = std::log(exp_eat_min);
+
+  const bool is_small = eta < eta_min;
+
+  const double mu = is_small ? exp_eat_min : std::exp(eta),
+    phi       = disp(0L);
+  const double shape = 1. / phi,
+    scale = mu * phi;
+
+  std::array<double, 6> out;
+  out[0] = R::dgamma(y, shape, scale, 1L);
+  out[0] *= w;
+
+  if(what == gradient or what == Hessian){
+    const double log_y = std::log(y), log_scale = std::log(scale),
+      dig_shape = R::psigamma(shape, 0L),
+      phscale = scale  * phi;
+    out[1] = w * (y / scale - shape);
+    out[3] =
+      w * (mu * (dig_shape - log_y - 1. + log_scale) + y) / phscale;
+
+    if(what == Hessian){
+      const double scalem2 = 2. * scale, phiphi = phi * phi;
+      out[2] = - w * y / scale;
+      out[4] = w * (1 - y / mu) / phiphi;
+      out[5] = w *
+        (scalem2 * log_y - scalem2 * log_scale + 3 * scale  -
+         2 * y * phi - scalem2 * dig_shape - mu *
+         R::psigamma(shape, 1L)) / phscale / phiphi;
+
+    }
+  }
+
+  return out;
+}
+
+void gaussian_identity::set_disp() const {
+  disp = scalar_pos_dist(disp_in);
 }
 
 std::array<double, 3> gaussian_identity::log_density_state_inner
@@ -406,8 +522,8 @@ std::array<double, 3> gaussian_identity::log_density_state_inner
   gaurd_new_comp_out(what);
 
   static constexpr double norm_term = -.5 * std::log(2. * M_PI);
-  const double var = disp->operator()(0L),
-    log_var = disp->operator()(1L),
+  const double var = disp(0L),
+    log_var = disp(1L),
     diff = y - eta;
   std::array<double, 3> out;
 
@@ -422,8 +538,36 @@ std::array<double, 3> gaussian_identity::log_density_state_inner
   return out;
 }
 
-std::unique_ptr<arma::vec> gaussian_log::set_disp(const arma::vec &in_vec){
-  return scalar_pos_dist(in_vec);
+std::array<double, 6> gaussian_identity::log_density_state_inner_w_disp
+  (const double y, const double eta, const comp_out what, const double w) const
+{
+  gaurd_new_comp_out(what);
+
+  static constexpr double norm_term = -.5 * std::log(2. * M_PI);
+  const double var = disp(0L),
+    log_var = disp(1L),
+    diff = y - eta, diff_sq = diff * diff;
+  std::array<double, 6> out;
+
+  out[0L] = norm_term - .5 * log_var - diff_sq / (2.  * var);
+  out[0L] *= w;
+  if(what == gradient or what == Hessian){
+    out[1L] = w * diff / var;
+    const double vvar = var * var;
+    out[3L] = w * (diff_sq - var) / (vvar * 2.);
+
+    if(what == Hessian){
+      out[2L] = - w / var;
+      out[4L] = - out[1L] * .5;
+      out[5L] = w * (.5 * var - diff_sq) / (var * vvar);
+    }
+  }
+
+  return out;
+}
+
+void gaussian_log::set_disp() const {
+  disp = scalar_pos_dist(disp_in);
 }
 
 std::array<double, 3> gaussian_log::log_density_state_inner
@@ -434,8 +578,8 @@ std::array<double, 3> gaussian_log::log_density_state_inner
   static constexpr double norm_term = -.5 * std::log(2. * M_PI),
     eta_min = log(std::numeric_limits<double>::epsilon());
 
-  const double var = disp->operator()(0L),
-    log_var = disp->operator()(1L),
+  const double var = disp(0L),
+    log_var = disp(1L),
     eta_use = std::max(eta, eta_min),
     mu = std::exp(eta_use),
     diff = y - mu;
@@ -452,8 +596,40 @@ std::array<double, 3> gaussian_log::log_density_state_inner
   return out;
 }
 
-std::unique_ptr<arma::vec> gaussian_inverse::set_disp(const arma::vec &in_vec){
-  return scalar_pos_dist(in_vec);
+std::array<double, 6> gaussian_log::log_density_state_inner_w_disp
+  (const double y, const double eta, const comp_out what, const double w) const
+{
+  gaurd_new_comp_out(what);
+
+  static constexpr double norm_term = -.5 * std::log(2. * M_PI),
+    eta_min = log(std::numeric_limits<double>::epsilon());
+
+  const double var = disp(0L),
+    log_var = disp(1L),
+    eta_use = std::max(eta, eta_min),
+    mu = std::exp(eta_use),
+    diff = y - mu, diff_sq = diff * diff;
+  std::array<double, 6> out;
+
+  out[0L] = norm_term - .5 * log_var - diff_sq / (2.  * var);
+  out[0L] *= w;
+  if(what == gradient or what == Hessian){
+    out[1L] = w * diff / var * mu;
+    const double vvar = var * var;
+    out[3L] = w * (diff_sq - var) / (vvar * 2.);
+
+    if(what == Hessian){
+      out[2L] = w * (y - 2 * mu) * mu / var;
+      out[4L] = - out[1L] * .5;
+      out[5L] = w * (.5 * var - diff_sq) / (var * vvar);
+    }
+  }
+
+  return out;
+}
+
+void gaussian_inverse::set_disp() const {
+  disp = scalar_pos_dist(disp_in);
 }
 
 std::array<double, 3> gaussian_inverse::log_density_state_inner
@@ -463,8 +639,8 @@ std::array<double, 3> gaussian_inverse::log_density_state_inner
 
   static constexpr double norm_term = -.5 * std::log(2. * M_PI);
 
-  const double var = disp->operator()(0L),
-    log_var = disp->operator()(1L),
+  const double var = disp(0L),
+    log_var = disp(1L),
     mu = 1 / eta, diff = y - mu;
   std::array<double, 3> out;
 
@@ -480,12 +656,41 @@ std::array<double, 3> gaussian_inverse::log_density_state_inner
   return out;
 }
 
-#define EXP_CLASS_PTR(fam)                                     \
+std::array<double, 6> gaussian_inverse::log_density_state_inner_w_disp
+  (const double y, const double eta, const comp_out what, const double w) const
+{
+  gaurd_new_comp_out(what);
+
+  static constexpr double norm_term = -.5 * std::log(2. * M_PI);
+
+  const double var = disp(0L),
+    log_var = disp(1L),
+    mu = 1 / eta, diff = y - mu, diff_sq = diff * diff;
+  std::array<double, 6> out;
+
+  out[0L] = w * (norm_term - .5 * log_var - diff_sq / (2.  * var));
+  if(what == gradient or what == Hessian){
+    const double veee = var * eta * eta * eta, ey = eta * y;
+    out[1L] = w * (1. - ey) / veee;
+    const double vvar = var * var;
+    out[3L] = w * (diff_sq - var) / (vvar * 2.);
+
+    if(what == Hessian){
+      out[2L] = w * (2. * ey - 3.) / (veee * eta);
+      out[4L] = - out[1L] / var;
+      out[5L] = w * (.5 * var - diff_sq) / (var * vvar);
+    }
+  }
+
+  return out;
+}
+
+#define EXP_CLASS_PTR(fam)                             \
   if(which == #fam)                                            \
-    return(std::unique_ptr<exp_family>(new fam(                \
+    return(std::unique_ptr<cdist>(new fam(                     \
       Y, X, cfix, Z, ws, di, offset)))
 
-std::unique_ptr<exp_family> get_family
+std::unique_ptr<cdist> get_family
   (const std::string &which, const arma::vec &Y, const arma::mat &X,
    const arma::vec &cfix, const arma::mat &Z, const arma::vec *ws,
    const arma::vec &di, const arma::vec &offset) {
@@ -494,6 +699,7 @@ std::unique_ptr<exp_family> get_family
   EXP_CLASS_PTR(binomial_probit);
   EXP_CLASS_PTR(poisson_log);
   EXP_CLASS_PTR(poisson_sqrt);
+
   EXP_CLASS_PTR(Gamma_log);
   EXP_CLASS_PTR(gaussian_identity);
   EXP_CLASS_PTR(gaussian_log);

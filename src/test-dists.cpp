@@ -347,3 +347,154 @@ context("Test state distribution") {
         x                                     ) - expect) < 1e-8);
   }
 }
+
+template<typename family>
+inline void test_exp_fam_func
+  (const arma::vec co, const arma::mat X, const arma::vec y,
+   const arma::vec w, const arma::vec di, const arma::vec je,
+   const arma::mat H){
+  arma::vec state(1L, arma::fill::zeros);
+  arma::mat Z(1L, X.n_cols, arma::fill::zeros);
+  arma::vec offs(X.n_cols, arma::fill::zeros);
+
+  family obj(y, X, co, Z, &w, di, offs);
+
+  unsigned pp1 = co.n_elem + 1L, mem_size = pp1 * (1L + pp1);
+  std::unique_ptr<double[]> mem(new double[mem_size]);
+  std::fill(mem.get(), mem.get() + mem_size, 0.);
+
+  arma::vec je_out(mem.get(), pp1, false);
+  arma::mat H_out (mem.get() + pp1, pp1, pp1, false);
+
+  obj.comp_stats_state_only(state, mem.get(), Hessian);
+
+  expect_true(is_all_aprx_equal(je_out, je, 1e-5));
+  expect_true(is_all_aprx_equal(H_out, H, 1e-5));
+}
+
+context("testing that derivatives are correct for exponential families with a dispersion paramter") {
+  /* R code to generate test results
+   test_func <- function(co, x, y, disp, ws, dfun, linkinv){
+   gen <- function(dfun, linkinv){
+   function(coefdisp){
+   n <- length(coefdisp)
+   disp <- coefdisp[n]
+   co <- coefdisp[-n]
+   sum(ws * dfun(mu = linkinv(co %*% x), disp = disp, y = y))
+   }
+   }
+
+   obj <- gen(dfun, linkinv)
+
+   library(numDeriv)
+   print(ja <- jacobian(obj, c(co, disp), method.args=list(eps=1e-8)))
+   dput(ja)
+   print(he <- hessian(obj, c(co, disp), method.args=list(eps=1e-8)))
+   dput(he)
+   }
+   */
+
+  test_that("gaussian_identity gives correct derivatives"){
+    /* R code
+     dput(x <- matrix(seq(-2, 2.5, length.out = 10), 2))
+     dput(y <- seq(-1, 1, length.out = 5))
+     ws <- dput(c(0.159, 0.485, 0.083, 0.235, 0.038))
+     disp <- 2
+     test_func(
+     co = c(-1, 1), x = x, y = y, disp = disp, ws = ws,
+     dfun = function(mu, disp, y) dnorm(y, mu, sqrt(disp), log = TRUE),
+     linkinv = identity)
+     */
+
+    test_exp_fam_func<gaussian_identity>(
+      create_vec<2L>({-1, 1}),
+      create_mat<2L, 5L>({-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 2.5}),
+      create_vec<5L>({-1, -0.5, 0, 0.5, 1}),
+      create_vec<5L>({0.159, 0.485, 0.083, 0.235, 0.038}),
+      create_vec<1L>({2}),
+      create_vec<3L>({
+        0.499999999998834, 0.313500000006206, -0.140874999996791}),
+        create_mat<3L, 3L>({
+          -0.754000000002628, -0.630999999997086, -0.249999999998314,
+          -0.630999999997086, -0.63300000000448, -0.156749999997746, -0.249999999998314,
+          -0.156749999997746, 0.0158749999990248 }));
+  }
+
+  test_that("gaussian_log gives correct derivatives"){
+    /* R code
+     dput(x <- matrix(seq(-2, 2.5, length.out = 10), 2))
+     dput(y <- seq(-1, 1, length.out = 5))
+     ws <- dput(c(0.159, 0.485, 0.083, 0.235, 0.038))
+     disp <- 2
+     test_func(
+     co = c(-1, 1), x = x, y = y, disp = disp, ws = ws,
+     dfun = function(mu, disp, y) dnorm(y, mu, sqrt(disp), log = TRUE),
+     linkinv = exp)
+     */
+
+    test_exp_fam_func<gaussian_log>(
+      create_vec<2L>({-1, 1}),
+      create_mat<2L, 5L>({-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 2.5}),
+      create_vec<5L>({-1, -0.5, 0, 0.5, 1}),
+      create_vec<5L>({0.159, 0.485, 0.083, 0.235, 0.038}),
+      create_vec<1L>({2}),
+      create_vec<3L>({
+        1.29026524884408, 0.509298433582429, 0.238306586713173 }),
+      create_mat<3L, 3L>({
+        -4.60120462424153, -3.62172333483588, -0.645132624417262,
+        -3.62172333483588, -3.3725106817756, -0.254649216792272, -0.645132624417262,
+        -0.254649216792272, -0.363306586704076 }));
+  }
+
+  test_that("gaussian_inverse gives correct derivatives"){
+    /* R code
+     dput(x <- matrix(seq(-1, 1.25, length.out = 10), 2))
+     dput(y <- seq(-1, 1, length.out = 5))
+     ws <- dput(c(0.159, 0.485, 0.083, 0.235, 0.038))
+     disp <- 2
+     test_func(
+     co = c(1, 2), x = x, y = y, disp = disp, ws = ws,
+     dfun = function(mu, disp, y) dnorm(y, mu, sqrt(disp), log = TRUE),
+     linkinv = function(x) 1/x)
+     */
+
+    test_exp_fam_func<gaussian_inverse>(
+      create_vec<2L>({1, 2}),
+      create_mat<2L, 5L>({-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1, 1.25}),
+      create_vec<5L>({-1, -0.5, 0, 0.5, 1}),
+      create_vec<5L>({0.159, 0.485, 0.083, 0.235, 0.038}),
+      create_vec<1L>({2}),
+      create_vec<3L>({
+        0.0518851282859568, 0.106203660345803, -0.183765280618064 }),
+        create_mat<3L, 3L>({
+          -0.118509081859038, -0.0596930366931129, -0.0259425641386291,
+          -0.0596930366931129, -0.155862422431851, -0.0531018301711219,
+          -0.0259425641386291, -0.0531018301711219, 0.0587652806109991 }));
+  }
+
+  test_that("Gamma_log gives correct derivatives"){
+    /* R code
+     dput(x <- matrix(seq(-1, 1.25, length.out = 10), 2))
+     dput(y <- seq(1, 2, length.out = 5))
+     ws <- dput(c(0.159, 0.485, 0.083, 0.235, 0.038))
+     disp <- 2
+     test_func(
+     co = c(1, 3), x = x, y = y, disp = disp, ws = ws,
+     dfun = function(mu, disp, y) dgamma(y, 1/disp, scale = mu * disp, log = TRUE),
+     linkinv = exp)
+     */
+
+    test_exp_fam_func<Gamma_log>(
+      create_vec<2L>({1, 3}),
+      create_mat<2L, 5L>({-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1, 1.25}),
+      create_vec<5L>({1, 1.25, 1.5, 1.75, 2}),
+      create_vec<5L>({0.159, 0.485, 0.083, 0.235, 0.038}),
+      create_vec<1L>({2}),
+      create_vec<3L>({
+        -2.44943578027701, -1.78663053495889, 0.874587896858328 }),
+        create_mat<3L, 3L>({
+          -2.31844963169785, -1.67534068663101, 1.22471789012685,
+          -1.67534068663101, -1.2291830528889, 0.893315267479427, 1.22471789012685,
+          0.893315267479427, -1.0580130344079 }));
+  }
+}

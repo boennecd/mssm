@@ -121,7 +121,10 @@ void test_func
   expect_true(family.state_stat_dim_hess(gradient)   == 0L);
   expect_true(family.state_stat_dim_hess(Hessian)    == 0L);
 
-  const arma::uword dim = cfix.n_elem;
+  constexpr bool has_disp =
+    std::is_base_of<exp_family_w_disp, dist_T>::value;
+  const arma::uword dim =
+    has_disp ? cfix.n_elem + 1L : cfix.n_elem;
   expect_true(family.obs_stat_dim(log_densty) == 0L);
   expect_true(family.obs_stat_dim(gradient)   == dim);
   expect_true(family.obs_stat_dim(Hessian)    == dim * (1L + dim));
@@ -133,19 +136,24 @@ void test_func
   expect_true(family.obs_stat_dim_hess(log_densty) == 0L);
   expect_true(family.obs_stat_dim_hess(gradient)   == 0L);
   expect_true(family.obs_stat_dim_hess(Hessian)    == dim * dim);
+
+  const arma::uword cend = has_disp ? dim - 2L : dim - 1L;
+
   {
     /* gradient only */
     arma::vec gr(dim, arma::fill::zeros);
     family.comp_stats_state_only(mu, gr.memptr(), gradient);
 
-    expect_true(is_all_aprx_equal(gr, d_beta, 1e-5));
+    arma::vec tv = gr.subvec(0L, cend);
+    expect_true(is_all_aprx_equal(tv, d_beta, 1e-5));
 
     /* add something to start with */
     gr.fill(1.);
     family.comp_stats_state_only(mu, gr.memptr(), gradient);
 
     arma::vec d_beta_p1 = d_beta + 1;
-    expect_true(is_all_aprx_equal(gr, d_beta_p1, 1e-5));
+    tv = gr.subvec(0L, cend);
+    expect_true(is_all_aprx_equal(tv, d_beta_p1, 1e-5));
   }
 
   {
@@ -155,8 +163,10 @@ void test_func
     arma::mat H (mem.data() + dim, dim, dim, false);
     family.comp_stats_state_only(mu, mem.data(), Hessian);
 
-    expect_true(is_all_aprx_equal(gr, d_beta, 1e-5));
-    expect_true(is_all_aprx_equal(H, dd_beta, 1e-5));
+    arma::vec tv = gr.subvec(0L, cend);
+    expect_true(is_all_aprx_equal(tv, d_beta, 1e-5));
+    arma::mat tmp = H.submat(0L, 0L, cend, cend);
+    expect_true(is_all_aprx_equal(tmp, dd_beta, 1e-5));
 
     /* add something to start with */
     gr.fill(1.);
@@ -165,8 +175,11 @@ void test_func
 
     arma::vec d_beta_p1 = d_beta + 1;
     arma::mat dd_beta_p1 = dd_beta + 1;
-    expect_true(is_all_aprx_equal(gr, d_beta_p1, 1e-5));
-    expect_true(is_all_aprx_equal(H, dd_beta_p1, 1e-5));
+
+    tv = gr.subvec(0L, cend);
+    expect_true(is_all_aprx_equal(tv, d_beta_p1, 1e-5));
+    tmp = H.submat(0L, 0L, cend, cend);
+    expect_true(is_all_aprx_equal(tmp, dd_beta_p1, 1e-5));
   }
 }
 

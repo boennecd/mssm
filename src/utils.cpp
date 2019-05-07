@@ -157,6 +157,23 @@ void arma_dsyr(arma::mat &A, const arma::vec &x, const double alpha)
     &C_U, &n, &alpha, x.memptr(), &I_one, A.memptr(), &n);
 }
 
+void arma_dsyr(arma::mat &A, const arma::vec &x, const double alpha,
+               const int n)
+{
+  const int lda = A.n_rows;
+#ifdef MSSM_DEBUG
+  if(A.n_cols != A.n_rows)
+    throw invalid_argument("arma_dsyr: invalid 'A'");
+  if((int)x.n_elem != n)
+    throw invalid_argument("arma_dsyr: invalid 'x'");
+  if(n > lda)
+    throw invalid_argument("arma_dsyr: invalid 'lda'");
+#endif
+
+  F77_CALL(dsyr)(
+      &C_U, &n, &alpha, x.memptr(), &I_one, A.memptr(), &lda);
+}
+
 const arma::mat& LU_fact::get_LU() const
 {
   /* set LU factorization if needed */

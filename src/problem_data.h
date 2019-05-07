@@ -36,7 +36,8 @@ class problem_data {
   /* objects related to observed outcomes */
   cvec &Y;
   arma::vec cfix;
-  cvec &ws, &offsets, &disp;
+  cvec &ws, &offsets;
+  arma::vec disp;
   cmat &X, &Z;
   const std::vector<arma::uvec> time_indices;
 
@@ -79,6 +80,18 @@ public:
 
   arma::vec get_cfix() const {
     return cfix;
+  }
+
+  void set_disp(const arma::vec &newdisp){
+#ifdef MSSM_DEBUG
+    if(arma::size(newdisp) != arma::size(disp))
+      throw std::invalid_argument("Invalid new value");
+#endif
+    disp = newdisp;
+  }
+
+  arma::vec get_disp() const {
+    return disp;
   }
 
   void set_F(const arma::mat &Fnew){

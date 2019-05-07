@@ -32,7 +32,7 @@ $y_{it}$, $\vec x_{it}$, and
 $\vec z_{it}$ are known. What is multivariate is 
 $\vec y_t = \{y_{it}\}_{i\in I_t}$ (though, $\vec \beta_t$ can also be 
 multivariate) and this package is written to scale well 
-in the dimension of $| I_t |$. The package uses independent 
+in the cardinatly of $I_t$. The package uses independent 
 particle filters as suggested by @Lin05. This particular type of filter 
 can be used in the method suggested by @Poyiadjis11. I will show an example
 of how to use the package through the rest of the document and highlight some 
@@ -236,13 +236,14 @@ by using a Laplace approximation to get the starting values.
 #   Q: starting value for covariance matrix in conditional distribution of the 
 #      current state given the previous. 
 #   verbose: TRUE if output should be printed during estmation. 
+#   disp: starting value for dispersion parameter.
 # 
 # Returns:
 #   List with estimates and the log-likelihood approximation at each iteration. 
 sgd <- function(
   object, n_it = 150L, 
   lrs = 1e-2 * (1:n_it)^(-1/2), avg_start = max(1L, as.integer(n_it * 4L / 5L)),
-  cfix, F., Q,  verbose = FALSE)
+  cfix, F., Q,  verbose = FALSE, disp = numeric())
 {
   # make checks
   stopifnot(
@@ -251,18 +252,25 @@ sgd <- function(
   n_fix <- nrow(object$X)
   n_rng <- nrow(object$Z)
   
-  # objects for estimates at each iteration, gradient norms, and 
+  # objects for estimates at each iteration, gradient norms, and
   # log-likelihood approximations
-  ests <- matrix(
-    NA_real_, n_it + 1L, n_fix + n_rng * n_rng + n_rng * (n_rng  + 1L) / 2L)
-  ests[1L, ] <- c(cfix, F., Q[lower.tri(Q, diag = TRUE)])
+  has_dispersion <-
+    any(sapply(c("^Gamma", "^gaussian"), grepl, x = object$family))
+  n_params <-
+    has_dispersion + n_fix + n_rng * n_rng + n_rng * (n_rng  + 1L) / 2L
+  ests <- matrix(NA_real_, n_it + 1L, n_params)
+  ests[1L, ] <- c(
+    cfix,  if(has_dispersion) disp else NULL, F.,
+    Q[lower.tri(Q, diag = TRUE)])
   grad_norm <- lls <- rep(NA_real_, n_it)
   
   # indices of the different components
-  idx_fix <- 1:n_fix
-  idx_F   <- 1:(n_rng * n_rng) + n_fix
-  idx_Q   <- 1:(n_rng * (n_rng  + 1L) / 2L) + n_fix + n_rng * n_rng
-  
+  idx_fix   <- 1:n_fix
+  if(has_dispersion)
+    idx_dip <- n_fix + 1L
+  idx_F     <- 1:(n_rng * n_rng) + n_fix + has_dispersion
+  idx_Q     <- 1:(n_rng * (n_rng  + 1L) / 2L) + n_fix + n_rng * n_rng +
+    has_dispersion
   
   # function to set the parameters
   library(matrixcalc) # TODO: get rid of this
@@ -272,9 +280,11 @@ sgd <- function(
     idx <- if(i > avg_start) avg_start:i else i
     
     # set new parameters
-    cfix <<-             colMeans(ests[idx, idx_fix, drop = FALSE])
-    F.[] <<-             colMeans(ests[idx, idx_F  , drop = FALSE])
-    Q[]  <<- dup_mat %*% colMeans(ests[idx, idx_Q  , drop = FALSE])
+    cfix   <<-             colMeans(ests[idx, idx_fix, drop = FALSE])
+    if(has_dispersion)
+      disp <<-             colMeans(ests[idx, idx_dip, drop = FALSE])
+    F.[]   <<-             colMeans(ests[idx, idx_F  , drop = FALSE])
+    Q[]    <<- dup_mat %*% colMeans(ests[idx, idx_Q  , drop = FALSE])
     
   }
     
@@ -283,7 +293,7 @@ sgd <- function(
   for(i in 1:n_it + 1L){
     # get gradient. First, run the particle filter
     filter_out <- object$pf_filter(
-      cfix = cfix, disp = numeric(), F. = F., Q = Q, seed = NULL)
+      cfix = cfix, disp = disp, F. = F., Q = Q, seed = NULL)
     lls[i - 1L] <- c(logLik(filter_out))
     
     # then get the gradient associated with each particle and the log 
@@ -304,7 +314,8 @@ sgd <- function(
       # check that Q is positive definite and the system is stationary
       c1 <- all(abs(eigen(F.)$values) < 1)
       c2 <- all(eigen(Q)$values > 0)
-      if(c1 && c2)
+      c3 <- !has_dispersion || disp > 0.
+      if(c1 && c2 && c3)
         break
       
       # decrease learning rate
@@ -319,23 +330,25 @@ sgd <- function(
     # print information if requested 
     if(verbose){
       cat(sprintf(
-        "\nIt %5d: log-likelihood (current, max) %12.2f, %12.2f\n", 
-        i - 1L, logLik(filter_out), max(lls, na.rm = TRUE)), 
-          rep("-", 66), "\n", sep = "")
+        "\nIt %5d: log-likelihood (current, max) %12.2f, %12.2f\n",
+        i - 1L, logLik(filter_out), max(lls, na.rm = TRUE)),
+        rep("-", 66), "\n", sep = "")
       cat("cfix\n")
       print(cfix)
+      if(has_dispersion)
+        cat(sprintf("Dispersion: %20.8f\n", disp))
       cat("F\n")
       print(F.)
       cat("Q\n")
       print(Q)
       cat(sprintf("Gradient norm: %10.4f\n", grad_norm[i - 1L]))
       print(get_ess(filter_out))
-      
+
     }
   } 
   
   list(estimates = ests, logLik = lls, F. = F., Q = Q, cfix = cfix, 
-       grad_norm = grad_norm)
+       disp = disp, grad_norm = grad_norm)
 }
 
 # Stochastic gradient descent for mssm object using the Adam algorithm. The  
@@ -353,12 +366,13 @@ sgd <- function(
 #   Q: starting value for covariance matrix in conditional distribution of the 
 #      current state given the previous. 
 #   verbose: TRUE if output should be printed during estmation. 
+#   disp: starting value for dispersion parameter.
 # 
 # Returns:
 #   List with estimates and the log-likelihood approximation at each iteration. 
 adam <- function(
-  object, n_it = 150L, mp = .9, vp = .999, lr = .01, cfix, F., Q, 
-  verbose = FALSE)
+  object, n_it = 150L, mp = .9, vp = .999, lr = .01, cfix, F., Q,
+  verbose = FALSE, disp = numeric())
 {
   # make checks
   stopifnot(
@@ -367,25 +381,35 @@ adam <- function(
   n_fix <- nrow(object$X)
   n_rng <- nrow(object$Z)
 
-  # objects for estimates at each iteration, gradient norms, and 
+  # objects for estimates at each iteration, gradient norms, and
   # log-likelihood approximations
-  ests <- matrix(
-    NA_real_, n_it + 1L, n_fix + n_rng * n_rng + n_rng * (n_rng  + 1L) / 2L)
-  ests[1L, ] <- c(cfix, F., Q[lower.tri(Q, diag = TRUE)])
+  has_dispersion <-
+    any(sapply(c("^Gamma", "^gaussian"), grepl, x = object$family))
+  n_params <-
+    has_dispersion + n_fix + n_rng * n_rng + n_rng * (n_rng  + 1L) / 2L
+  ests <- matrix(NA_real_, n_it + 1L, n_params)
+  ests[1L, ] <- c(
+    cfix,  if(has_dispersion) disp else NULL, F.,
+    Q[lower.tri(Q, diag = TRUE)])
   grad_norm <- lls <- rep(NA_real_, n_it)
 
   # indices of the different components
-  idx_fix <- 1:n_fix
-  idx_F   <- 1:(n_rng * n_rng) + n_fix
-  idx_Q   <- 1:(n_rng * (n_rng  + 1L) / 2L) + n_fix + n_rng * n_rng
+  idx_fix   <- 1:n_fix
+  if(has_dispersion)
+    idx_dip <- n_fix + 1L
+  idx_F     <- 1:(n_rng * n_rng) + n_fix + has_dispersion
+  idx_Q     <- 1:(n_rng * (n_rng  + 1L) / 2L) + n_fix + n_rng * n_rng +
+    has_dispersion
 
   # function to set the parameters
   library(matrixcalc) # TODO: get rid of this
   dup_mat <- duplication.matrix(ncol(Q))
   set_parems <- function(i){
-    cfix <<-             ests[i, idx_fix]
-    F.[] <<-             ests[i, idx_F  ]
-    Q[]  <<- dup_mat %*% ests[i, idx_Q  ]
+    cfix   <<-             ests[i, idx_fix]
+    if(has_dispersion)
+      disp <<-             ests[i, idx_dip]
+    F.[]   <<-             ests[i, idx_F  ]
+    Q[]    <<- dup_mat %*% ests[i, idx_Q  ]
 
   }
 
@@ -397,7 +421,7 @@ adam <- function(
   for(i in 1:n_it + 1L){
     # get gradient. First, run the particle filter
     filter_out <- object$pf_filter(
-      cfix = cfix, disp = numeric(), F. = F., Q = Q, seed = NULL)
+      cfix = cfix, disp = disp, F. = F., Q = Q, seed = NULL)
     lls[i - 1L] <- c(logLik(filter_out))
 
     # then get the gradient associated with each particle and the log
@@ -421,10 +445,12 @@ adam <- function(
       ests[i, ] <- ests[i - 1L, ] + lr_i * de
       set_parems(i)
 
-      # check that Q is positive definite and the system is stationary
+      # check that Q is positive definite, the dispersion parameter is
+      # positive, and the system is stationary
       c1 <- all(abs(eigen(F.)$values) < 1)
       c2 <- all(eigen(Q)$values > 0)
-      if(c1 && c2)
+      c3 <- !has_dispersion || disp > 0.
+      if(c1 && c2 && c3)
         break
 
       # decrease learning rate
@@ -447,6 +473,8 @@ adam <- function(
         rep("-", 66), "\n", sep = "")
       cat("cfix\n")
       print(cfix)
+      if(has_dispersion)
+        cat(sprintf("Dispersion: %20.8f\n", disp))
       cat("F\n")
       print(F.)
       cat("Q\n")
@@ -457,8 +485,8 @@ adam <- function(
     }
   }
 
-  list(estimates = ests, logLik = lls, F. = F., Q = Q, cfix = cfix,
-       failed = failed, grad_norm = grad_norm)
+  list(estimates = ests, logLik = lls, F. = F., Q = Q, cfix = cfix, 
+       disp = disp, failed = failed, grad_norm = grad_norm)
 }
 ```
 
@@ -480,7 +508,7 @@ system.time(
 sta$F.
 sta$Q
 sta$cfix
-print(sta$logLik, digits = 6) # log-likelihood approximation
+logLik(sta) # log-likelihood approximation
 ```
 
 ```{r sgd, cache = 1, dependson = "laplace"}
@@ -761,15 +789,8 @@ get_grad_n_obs_info <- function(object){
   n_rng   <- nrow(object$Z)
   dim_fix <- nrow(object$X)
   dim_rng <- n_rng * n_rng + ((n_rng + 1L) * n_rng) / 2L
-  
-  # create vector with dimension names
-  di_names <- row.names(object$X)
-  z_nam <- row.names(object$Z)
-  di_names <- c(
-    di_names, paste0("F:", outer(z_nam, z_nam, paste, sep = ".")))
-  Q_names  <- outer(z_nam, z_nam, paste, sep = ".")
-  di_names <- c(
-    di_names, paste0("Q:", Q_names[lower.tri(Q_names, diag = TRUE)]))
+  has_dispersion <-
+    any(sapply(c("^Gamma", "^gaussian"), grepl, x = object$family))
   
   # get quantities for each particle
   quants <- tail(object$pf_output, 1L)[[1L]]$stats
@@ -779,12 +800,14 @@ get_grad_n_obs_info <- function(object){
   meas <- colSums(t(quants) * drop(exp(ws)))
 
   # separate out the different components. Start with the gradient
-  idx <- dim_fix + dim_rng
-  grad <- structure(meas[1:idx], names = di_names)
+  idx <- dim_fix + dim_rng + has_dispersion
+  grad <- meas[1:idx]
+  dim_names <- names(grad)
 
   # then the observed information matrix
   hess <- matrix(
-    meas[-(1:idx)], dim_fix + dim_rng, dimnames = list(di_names, di_names))
+    meas[-(1:idx)], dim_fix + dim_rng + has_dispersion, 
+    dimnames = list(dim_names, dim_names))
 
   list(grad = grad, hess = hess)
 }

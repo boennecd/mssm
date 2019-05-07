@@ -47,7 +47,9 @@ w.r.t. the matrix in the map from the previous state vector to the mean
 of the next, and the last element is w.r.t. the covariance matrix.
 Only the lower triangular matrix is kept for the covariance
 matrix. See the examples in the README at
-\url{https://github.com/boennecd/mssm}.
+\url{https://github.com/boennecd/mssm}. There will be an additional
+element for the dispersion parameter if the family has a dispersion
+parameter.
 
 If an approximation of the observed information matrix is requested then
 it's components are given after the gradient elements in the

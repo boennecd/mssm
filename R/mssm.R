@@ -188,7 +188,7 @@ mssm <- function(
     # set dimension names
     di <- .get_dimnames(output_list)
     dimnames(out$F.) <- dimnames(out$Q) <- di$QF
-    names(out$cfix) <- di$cfix
+    names(out$cfix) <- di$cfix[seq_along(out$cfix)]
 
     structure(c(out, output_list), class = "mssmLaplace")
   }
@@ -211,6 +211,9 @@ mssm <- function(
 # returns list with dimension names for various objects
 .get_dimnames <- function(output_list){
   fix_names <- rownames(output_list$X)
+  if(any(sapply(c("^Gamma", "^gaussian"), grepl, x = output_list$family)))
+    fix_names <- c(fix_names, "dispersion")
+
   rng_names <- rownames(output_list$Z)
   ma_ele <- outer(rng_names, rng_names, paste, sep = ".")
   grad <- c(
@@ -263,7 +266,9 @@ mssm <- function(
 #' of the next, and the last element is w.r.t. the covariance matrix.
 #' Only the lower triangular matrix is kept for the covariance
 #' matrix. See the examples in the README at
-#' \url{https://github.com/boennecd/mssm}.
+#' \url{https://github.com/boennecd/mssm}. There will be an additional
+#' element for the dispersion parameter if the family has a dispersion
+#' parameter.
 #'
 #' If an approximation of the observed information matrix is requested then
 #' it's components are given after the gradient elements in the
@@ -281,8 +286,8 @@ NULL
 #' parameter estimation with a Laplace approximation.
 #'
 #' @param cfix starting values for coefficient for fixed effects.
-#' @param disp additional parameters for the family (e.g., a dispersion
-#' parameter).
+#' @param disp starting value for additional parameters for the family
+#' (e.g., a dispersion parameter).
 #' @param F. starting values for matrix in the transition density of the state
 #' vector.
 #' @param Q starting values for covariance matrix in the transition density
@@ -300,6 +305,7 @@ NULL
 #' \item{logLik}{approximate log-likelihood at estimates.}
 #' \item{n_it}{number of Laplace approximations.}
 #' \item{code}{returned code from \code{nlopt}.}
+#' \item{dispersion}{estimated dispersion parameter \code{nlopt}.}
 #'
 #' Remaining elements are the same as returned by \code{\link{mssm}}.
 #'

@@ -178,8 +178,10 @@ inline double normalize_log_weights(arma::vec &low_ws)
   return 1. / ess_inv;
 }
 
-/* wrapper for dsyr. Only updates the upper half */
+/* wrapper for dsyr. Only updates the upper half. The latter version has an
+ * additional argument for the leading dimension of the matrix */
 void arma_dsyr(arma::mat&, const arma::vec&, const double);
+void arma_dsyr(arma::mat&, const arma::vec&, const double, const int);
 
 template<std::size_t size_outer, std::size_t size_inner>
 class loop_nest_util {
