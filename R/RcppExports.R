@@ -29,6 +29,10 @@ run_Laplace_aprx <- function(Y, cfix, ws, offsets, disp, X, Z, time_indices_elem
     .Call(`_mssm_run_Laplace_aprx`, Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, trace, KD_N_max, aprx_eps, ftol_abs, la_ftol_rel, ftol_abs_inner, la_ftol_rel_inner, maxeval, maxeval_inner)
 }
 
+smoother_cpp <- function(Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, trace, KD_N_max, aprx_eps, which_ll_cp, pf_output) {
+    .Call(`_mssm_smoother_cpp`, Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, trace, KD_N_max, aprx_eps, which_ll_cp, pf_output)
+}
+
 .get_Q0 <- function(Qmat, Fmat) {
     .Call(`_mssm_get_Q0`, Qmat, Fmat)
 }

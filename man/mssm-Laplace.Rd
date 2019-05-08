@@ -5,7 +5,7 @@
 \title{Parameter Estimation with Laplace Approximation for Multivariate
 State Space Model}
 \arguments{
-\item{cfix}{starting values for coefficient for fixed effects.}
+\item{cfix}{starting values for coefficient for the fixed effects.}
 
 \item{disp}{starting value for additional parameters for the family
 (e.g., a dispersion parameter).}

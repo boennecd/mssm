@@ -425,19 +425,14 @@ std::array<double, 3> poisson_sqrt::log_density_state_inner
   return out;
 }
 
-inline arma::vec scalar_pos_dist(const arma::vec &in_vec)
-{
-  if(in_vec.n_elem != 1L or in_vec(0) <= 0.)
-    throw std::invalid_argument("Invalid dispersion parameter");
-  /* we store the log dispersion parameter as the second element */
-  arma::vec out(2L);
-  out(0L) =          in_vec(0L);
-  out(1L) = std::log(in_vec(0L));
-  return out;
-}
-
 void Gamma_log::set_disp() const {
-  disp = scalar_pos_dist(disp_in);
+  if(disp_in.n_elem != 1L or disp_in(0) <= 0.)
+    throw std::invalid_argument("Invalid dispersion parameter");
+  /* we store some psigamma transforms to save some computation */
+  disp.resize(3L);
+  disp(0L) =                 disp_in(0L);
+  disp(1L) = R::psigamma(1 / disp_in(0L), 0L);
+  disp(2L) = R::psigamma(1 / disp_in(0L), 1L);
 }
 
 std::array<double, 3> Gamma_log::log_density_state_inner
@@ -491,7 +486,7 @@ std::array<double, 6> Gamma_log::log_density_state_inner_w_disp
 
   if(what == gradient or what == Hessian){
     const double log_y = std::log(y), log_scale = std::log(scale),
-      dig_shape = R::psigamma(shape, 0L),
+      dig_shape = disp(1L),
       phscale = scale  * phi;
     out[1] = w * (y / scale - shape);
     out[3] =
@@ -504,11 +499,22 @@ std::array<double, 6> Gamma_log::log_density_state_inner_w_disp
       out[5] = w *
         (scalem2 * log_y - scalem2 * log_scale + 3 * scale  -
          2 * y * phi - scalem2 * dig_shape - mu *
-         R::psigamma(shape, 1L)) / phscale / phiphi;
+         disp(2L)) / phscale / phiphi;
 
     }
   }
 
+  return out;
+}
+
+inline arma::vec scalar_pos_dist(const arma::vec &in_vec)
+{
+  if(in_vec.n_elem != 1L or in_vec(0) <= 0.)
+    throw std::invalid_argument("Invalid dispersion parameter");
+  /* we store the log dispersion parameter as the second element */
+  arma::vec out(2L);
+  out(0L) =          in_vec(0L);
+  out(1L) = std::log(in_vec(0L));
   return out;
 }
 

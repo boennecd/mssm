@@ -172,10 +172,10 @@ namespace {
       const double * const state_mode_start = x + cfix_dim;
       std::vector<std::future<mode_objective_inner_output> > futures;
       const unsigned n_tasks = obs_dists.size();
-      futures.reserve(n_tasks);
       thread_pool &pool = data.ctrl.get_pool();
 
       const unsigned inc = n_tasks / (5L * pool.thread_count) + 1L;
+      futures.reserve(n_tasks / inc + 1L);
       unsigned start = 0L, end = 0L;
       for(; start < n_tasks; start = end){
         end = std::min(end + inc, n_tasks);
@@ -471,8 +471,8 @@ namespace {
         std::vector<std::future<double> > futures;
 
         const unsigned n_tasks = obs_dists.size();
-        futures.reserve(n_tasks);
         const unsigned inc = n_tasks / (5L * pool.thread_count) + 1L;
+        futures.reserve(n_tasks / inc + 1L);
         unsigned start = 0L, end = 0L;
         for(; start < n_tasks; start = end){
           end = std::min(end + inc, n_tasks);

@@ -4,7 +4,8 @@
 \alias{plot.mssm}
 \title{Plot Predicted State Variables for mssm Object.}
 \usage{
-\method{plot}{mssm}(x, y, qs = c(0.05, 0.95), do_plot = TRUE, ...)
+\method{plot}{mssm}(x, y, qs = c(0.05, 0.95), do_plot = TRUE,
+  which_weights = c("filter", "smooth"), ...)
 }
 \arguments{
 \item{x}{an object of class \code{mssm}.}
@@ -16,6 +17,11 @@ interval.}
 
 \item{do_plot}{\code{TRUE} to create a plot with the mean and quantiles.}
 
+\item{which_weights}{character of which weights to use. Either
+\code{"filter"} for filter weights or \code{"smooth"} for smooth for
+smooth weights. The latter requires that \code{smooth} element has
+been used.}
+
 \item{...}{un-used.}
 }
 \value{
@@ -23,5 +29,5 @@ List with means and quantiles.
 }
 \description{
 Plots the predicted mean and pointwise prediction interval of the state
-variables for the filtering distribution.
+variables for the filtering distribution or smoothing distribution.
 }

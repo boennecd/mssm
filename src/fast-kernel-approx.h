@@ -54,5 +54,6 @@ template<bool has_extra = false>
 FSKA_cpp_permutation FSKA_cpp(
     arma::vec&, arma::mat&, arma::mat&, arma::vec&, const arma::uword,
     const double, const trans_obj&, thread_pool&,
-    arma::mat *X_extra = nullptr, arma::mat *Y_extra = nullptr,
+    bool has_transformed = false, arma::mat *X_extra = nullptr,
+    arma::mat *Y_extra = nullptr,
     FSKA_cpp_xtra_func extra_func = FSKA_cpp_xtra_func());

@@ -47,6 +47,14 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE){
     func_out[mssm_ele_to_check], paste0("mssm-", label, ".RDS"),
     label = label)
 
+  # test only the first smoothed particle weights
+  smoother_no_approx <- func$smoother(func_out_org)
+  expect_s3_class(smoother_no_approx, "mssm")
+  expect_known_value(
+    sapply(head(smoother_no_approx$pf_output, 1L), "[[",
+           "ws_normalized_smooth"), paste0("mssm-smooth-", label, ".RDS"),
+    label = label)
+
   # take a few iterations of laplace approximation
   lpa <- func$Laplace(
     cfix = dat$cfix, F. = dat$F., Q = dat$Q, disp = disp)
@@ -55,7 +63,7 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE){
   expect_known_value(
     lpa[mssmLaplace_to_check],
     paste0("mssmLaplace-", label, ".RDS"),
-    label = label, tolerance = .Machine$double.eps^(1/3))
+    label = label)
 
   # make gradient approximation
   ctrl$what <- "gradient"
@@ -116,6 +124,12 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE){
     disp = disp)
   expect_s3_class(func_out, "mssm")
 
+  # should be very similar
+  smoother_eps_small <- func$smoother(func_out)
+  expect_s3_class(smoother_eps_small, "mssm")
+  expect_equal(smoother_eps_small$pf_output, smoother_no_approx$pf_output,
+               tolerance = 1e-4)
+
   func_out <- prep_for_test(func_out)
   expect_known_value(
     func_out[mssm_ele_to_check], label = label,
@@ -140,6 +154,14 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE){
   expect_known_value(
     func_out[mssm_ele_to_check], label = label,
     paste0("mssm-", label, "-kd-large-eps.RDS"))
+
+  # test only the first smoothed particle weights
+  smoother_eps_large <- func$smoother(func_out_org)
+  expect_s3_class(smoother_eps_large, "mssm")
+  expect_known_value(
+    sapply(head(smoother_eps_large$pf_output, 1L), "[[",
+           "ws_normalized_smooth"), paste0("mssm-smooth-", label, "-kd-.RDS"),
+    label = label)
 
   if(alway_hess || dir.exists("local-tests-res")){
     f <- paste0("mssm-hess-", label, "-kd-large-eps.RDS")

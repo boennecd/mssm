@@ -4,7 +4,7 @@
 \alias{mssm-pf}
 \title{Particle Filter Function for Multivariate State Space Model}
 \arguments{
-\item{cfix}{coefficient for fixed effects.}
+\item{cfix}{values for for coefficient for the fixed effects.}
 
 \item{disp}{additional parameters for the family (e.g., a dispersion
 parameter).}

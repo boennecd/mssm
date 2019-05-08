@@ -418,8 +418,8 @@ template<bool has_extra>
 FSKA_cpp_permutation FSKA_cpp(
     arma::vec &log_weights, arma::mat &X, arma::mat &Y, arma::vec &ws_log,
     const arma::uword N_min, const double eps, const trans_obj &kernel,
-    thread_pool &pool, arma::mat *X_extra, arma::mat *Y_extra,
-    FSKA_cpp_xtra_func extra_func)
+    thread_pool &pool, const bool has_transformed, arma::mat *X_extra,
+    arma::mat *Y_extra, FSKA_cpp_xtra_func extra_func)
 {
 #ifdef MSSM_DEBUG
   if(log_weights.n_elem != Y.n_cols)
@@ -444,7 +444,7 @@ FSKA_cpp_permutation FSKA_cpp(
 #endif
 
   /* transform X and Y before doing any computation */
-  {
+  if(!has_transformed){
     auto t1 = pool.submit(std::bind(
       &trans_obj::trans_X, &kernel, ref(X)));
     auto t2 = pool.submit(std::bind(
@@ -476,7 +476,7 @@ FSKA_cpp_permutation FSKA_cpp(
   }
 
   /* transform back */
-  {
+  if(!has_transformed){
     auto ta = pool.submit(std::bind(
       &trans_obj::trans_inv_X, &kernel, ref(X)));
     kernel.trans_inv_Y(Y);
@@ -489,12 +489,12 @@ FSKA_cpp_permutation FSKA_cpp(
 
 template FSKA_cpp_permutation FSKA_cpp<true>(
     arma::vec&, arma::mat&, arma::mat&, arma::vec&, const arma::uword,
-    const double, const trans_obj&, thread_pool&, arma::mat*, arma::mat*,
-    FSKA_cpp_xtra_func);
+    const double, const trans_obj&, thread_pool&, const bool,
+    arma::mat*, arma::mat*, FSKA_cpp_xtra_func);
 template FSKA_cpp_permutation FSKA_cpp<false>(
     arma::vec&, arma::mat&, arma::mat&, arma::vec&, const arma::uword,
-    const double, const trans_obj&, thread_pool&, arma::mat*, arma::mat*,
-    FSKA_cpp_xtra_func);
+    const double, const trans_obj&, thread_pool&, const bool,
+    arma::mat*, arma::mat*, FSKA_cpp_xtra_func);
 
 template<bool has_extra>
 std::unique_ptr<const source_node<has_extra> > set_child

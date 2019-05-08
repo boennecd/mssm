@@ -1,6 +1,8 @@
-#' @title Get Multivariate State Space Model Function
+#' @title Get Multivariate State Space Model Functions
 #' @description
-#' Returns an object which can be used to run a particle filter.
+#' Returns an object with a function that can be used to run a particle filter,
+#' a function to perform parameter estimation using a Laplace approximation,
+#' and a function to perform smoothing of particle weights.
 #'
 #' @param fixed \code{\link{formula}} with outcome variable on the left hand
 #' side and covariates with fixed effects on the right hand side.
@@ -22,6 +24,8 @@
 #' \link{mssm-pf}.}
 #' \item{Laplace}{function to perform parameter estimation with a Laplace
 #' approximation. See \link{mssm-Laplace}.}
+#' \item{smoother}{function to compute smoothing weights for an \code{mssm}
+#' object returned by the \code{pf_filter} function. See \link{mssm-smoother}.}
 #' \item{terms_fixed}{\code{\link{terms.object}} for the covariates with
 #' fixed effects.}
 #' \item{terms_random}{\code{\link{terms.object}} for the covariates with
@@ -152,7 +156,15 @@ mssm <- function(
       rownames(out[[length(out)]]$stats) <- c(
         di$grad, c(outer(di$grad, di$grad, paste, sep = "*")))
 
-    structure(c(list(pf_output = out), output_list), class = "mssm")
+    # set dimension names
+    dimnames(F.) <- dimnames(Q) <- di$QF
+    if(length(cfix) > 0)
+      names(cfix) <- di$cfix[seq_along(cfix)]
+
+    structure(c(
+      list(pf_output = out), list(cfix = cfix, disp = disp, F. = F.,
+                                  Q = Q, Q0 = Q0, mu0 = mu0, N_part = N_part),
+      output_list), class = "mssm")
   }
 
   # assign function to use Laplace approximation to estimate parameters
@@ -188,9 +200,34 @@ mssm <- function(
     # set dimension names
     di <- .get_dimnames(output_list)
     dimnames(out$F.) <- dimnames(out$Q) <- di$QF
-    names(out$cfix) <- di$cfix[seq_along(out$cfix)]
+    if(length(out$cfix) > 0)
+      names(out$cfix) <- di$cfix[seq_along(out$cfix)]
 
     structure(c(out, output_list), class = "mssmLaplace")
+  }
+
+  # assign function to perform smoothing
+  smoother <- function(object){
+    stopifnot(inherits(object, "mssm"))
+
+    out <- smoother_cpp(
+      Y = y, cfix = object$cfix, ws = weights, offsets = offsets,
+      disp = object$disp, X = X, Z = Z,
+      time_indices_elems = time_indices_elems - 1L, # zero index
+      time_indices_len = time_indices_len, F = object$F., Q = object$Q,
+      Q0 = object$Q0, fam = fam, mu0 = object$mu0,
+      n_threads = control$n_threads, nu = control$nu,
+      covar_fac = control$covar_fac, ftol_rel = control$ftol_rel,
+      N_part = object$N_part, what = "log_density", trace = 0L,
+      KD_N_max = control$KD_N_max, aprx_eps = control$aprx_eps,
+      which_ll_cp = control$which_ll_cp, pf_output = object$pf_output)
+
+    out <- mapply(
+      function(x, y) c(y, list(ws_normalized_smooth = x)),
+      x = out, y = object$pf_output, SIMPLIFY = FALSE)
+
+    object$pf_output <- out
+    object
   }
 
   # set defaults
@@ -198,7 +235,7 @@ mssm <- function(
   formals(out_func)[idx_set] <- control[idx_set]
 
   structure(
-    c(list(pf_filter = out_func, Laplace = Laplace),
+    c(list(pf_filter = out_func, Laplace = Laplace, smoother = smoother),
       output_list), class = "mssmFunc")
 }
 
@@ -231,7 +268,7 @@ mssm <- function(
 #' Function returned from \code{\link{mssm}} which can be used to perform
 #' particle filtering given values for the parameters in the model.
 #'
-#' @param cfix coefficient for fixed effects.
+#' @param cfix values for for coefficient for the fixed effects.
 #' @param disp additional parameters for the family (e.g., a dispersion
 #' parameter).
 #' @param F. matrix in the transition density of the state vector.
@@ -285,7 +322,7 @@ NULL
 #' Function returned from \code{\link{mssm}} which can be used to perform
 #' parameter estimation with a Laplace approximation.
 #'
-#' @param cfix starting values for coefficient for fixed effects.
+#' @param cfix starting values for coefficient for the fixed effects.
 #' @param disp starting value for additional parameters for the family
 #' (e.g., a dispersion parameter).
 #' @param F. starting values for matrix in the transition density of the state
@@ -311,6 +348,27 @@ NULL
 #'
 #' @seealso
 #' \code{\link{mssm}}.
+NULL
+
+#' @title Computes Smoothed Particle Weights for Multivariate State Space
+#' Model
+#' @name mssm-smoother
+#' @description
+#' Computes smoothed weights using the backward smoothing formula for a
+#' \code{mssm} object. The k-d dual tree approximation is also used if it used
+#' for the \code{mssm} object.
+#'
+#' @param object an object of class \code{mssm} from \link{mssm-pf}.
+#'
+#' @return
+#' Same as \link{mssm-pf} but where the \code{pf_output}'s list elements
+#' has an additional element called \code{ws_normalized_smooth}. This
+#' contains the normalized log smoothing weights.
+#'
+#' @seealso
+#' \code{\link{mssm}}.
+#'
+#' @name mssm-Laplace
 NULL
 
 #' @title Auxiliary for Controlling Multivariate State Space Model Fitting
@@ -346,12 +404,13 @@ NULL
 #' @param aprx_eps positive numeric scalar with the maximum error if the
 #' dual k-d tree method is used.
 #' @param ftol_abs,ftol_abs_inner,la_ftol_rel,la_ftol_rel_inner,maxeval,maxeval_inner
-#' scalars passed to \code{nlopt} when in estimation with Laplace approximation.
-#' The \code{_inner} denotes the value passed in the mode estimation.
-#'
+#' scalars passed to \code{nlopt} when estimating parameters with a Laplace
+#' approximation. The \code{_inner} denotes the value passed in the mode estimation.
 #'
 #' @seealso
-#' See README of the package for details of the dual k-d tree method
+#' \code{\link{mssm}}.
+#'
+#' See the README of the package for details of the dual k-d tree method
 #' at \url{https://github.com/boennecd/mssm}.
 #'
 #' @export
@@ -469,13 +528,17 @@ logLik.mssmLaplace <- function(object, ...){
 #' @title Plot Predicted State Variables for mssm Object.
 #' @description
 #' Plots the predicted mean and pointwise prediction interval of the state
-#' variables for the filtering distribution.
+#' variables for the filtering distribution or smoothing distribution.
 #'
 #' @param x an object of class \code{mssm}.
 #' @param y un-used.
 #' @param qs two-dimensional numeric vector with bounds of the prediction
 #' interval.
 #' @param do_plot \code{TRUE} to create a plot with the mean and quantiles.
+#' @param which_weights character of which weights to use. Either
+#' \code{"filter"} for filter weights or \code{"smooth"} for smooth for
+#' smooth weights. The latter requires that \code{smooth} element has
+#' been used.
 #' @param ... un-used.
 #'
 #' @return
@@ -484,12 +547,19 @@ logLik.mssmLaplace <- function(object, ...){
 #' @importFrom graphics plot lines par
 #' @method plot mssm
 #' @export
-plot.mssm <- function(x, y, qs = c(.05, .95), do_plot = TRUE, ...){
+plot.mssm <- function(x, y, qs = c(.05, .95), do_plot = TRUE,
+                      which_weights = c("filter", "smooth"), ...){
   stopifnot(inherits(x, "mssm"), qs[2] > qs[1], all(qs > 0, qs < 1),
             is.logical(do_plot))
+  which_weights <- which_weights[1L]
+  stopifnot(which_weights %in% c("filter", "smooth"),
+            !which_weights == "smooth" ||
+              !is.null(x$pf_output[[1L]]$ws_normalized_smooth))
 
   particles <- lapply(x$pf_output, "[[", "particles")
-  ws <- lapply(x$pf_output, "[[", "ws_normalized")
+  ws <- lapply(
+    x$pf_output, "[[", if(which_weights == "smooth")
+      "ws_normalized_smooth" else "ws_normalized")
 
   # get means
   filter_ests <- mapply(function(ws, ps){

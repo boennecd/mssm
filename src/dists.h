@@ -123,7 +123,8 @@ public:
   virtual ~trans_obj() = default;
 
   /* functions to be called on matrices of states before calling the other
-   * member functions */
+   * member functions. Some function may be symmetrical in the two random
+   * variable arguments after this is called */
   virtual void trans_X(arma::mat&) const = 0;
   virtual void trans_Y(arma::mat&) const = 0;
   /* functions to be called on matrices to undo the above transformations */

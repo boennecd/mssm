@@ -204,7 +204,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   1.720   0.052   0.453
+    ##   2.118   0.022   0.533
 
 ``` r
 # returns the log-likelihood approximation
@@ -236,6 +236,48 @@ for(i in 1:ncol(betas)){
 ```
 
 ![](./README-fig/plot_filter-1.png)![](./README-fig/plot_filter-2.png)
+
+We can also get predicted values from the smoothing distribution.
+
+``` r
+# get smoothing weights
+mssm_obj <- ll_func$smoother(mssm_obj)
+
+# get predicted mean and prediction interval from smoothing distribution
+smooth_means <- plot(mssm_obj, do_plot = FALSE, which_weights = "smooth")
+
+for(i in 1:ncol(betas)){
+  be  <- betas[, i]
+  me  <- filter_means$means[i, ]
+  lb  <- filter_means$lbs[i, ]
+  ub  <- filter_means$ubs[i, ]
+  mes <- smooth_means$means[i, ]
+  lbs <- smooth_means$lbs[i, ]
+  ubs <- smooth_means$ubs[i, ]
+  
+  #     dashed: true paths
+  # continuous: predicted mean from filter distribution 
+  #     dotted: prediction interval
+  # 
+  # smooth predictions are in a different color
+  par(mar = c(5, 4, 1, 1))
+  matplot(cbind(be, me, lb, ub, mes, lbs, ubs), 
+          lty = c(2, 1, 3, 3, 1, 3, 3), type = "l", 
+          col = c(rep(1, 4), rep(2, 3)), ylab = rownames(filter_means$lbs)[i])
+}
+```
+
+![](./README-fig/show_smooths-1.png)![](./README-fig/show_smooths-2.png)
+
+``` r
+# compare mean square error of the two means
+rbind(filter = colMeans((t(filter_means$means) - betas)^2), 
+      smooth = colMeans((t(smooth_means$means) - betas)^2))
+```
+
+    ##        (Intercept)      Z
+    ## filter      0.1035 0.2127
+    ## smooth      0.1012 0.1906
 
 We can get the effective sample size at each point in time with the `get_ess` function.
 
@@ -274,7 +316,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   1.906   0.040   0.480
+    ##   2.191   0.042   0.551
 
 ![](./README-fig/comp_boot-1.png)
 

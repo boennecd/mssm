@@ -3,6 +3,7 @@
 #include "dists.h"
 #include "PF.h"
 #include "laplace.h"
+#include "smoother.h"
 
 #ifdef MSSM_PROF
 #include "profile.h"
@@ -105,6 +106,7 @@ arma::vec naive(const arma::mat &X, const arma::vec ws, const arma::mat Y,
   arma::vec ws_log = arma::log(ws), out(Y.n_cols);
   std::vector<std::future<void> > futures;
   arma::uword inc = Y.n_cols / n_threads + 1L, start = 0L, end = 0L;
+  futures.reserve(Y.n_cols / inc + 1L);
 
   for(; start < Y.n_cols; start = end){
     end = std::min(end + inc, Y.n_cols);
@@ -287,4 +289,60 @@ Rcpp::List run_Laplace_aprx
     Named("n_it") = result.n_it,
     Named("code") = result.code,
     Named("dispersion") = result.disp);
+}
+
+// [[Rcpp::export]]
+Rcpp::List smoother_cpp
+  (const arma::vec &Y, const arma::vec &cfix, const arma::vec &ws,
+   const arma::vec &offsets, const arma::vec &disp, const arma::mat &X,
+   const arma::mat &Z, const arma::uvec &time_indices_elems,
+   const arma::uvec &time_indices_len, const arma::mat &F, const arma::mat &Q,
+   const arma::mat &Q0, const std::string &fam, const arma::vec &mu0,
+   const arma::uword n_threads, const double nu, const double covar_fac,
+   const double ftol_rel, const arma::uword N_part, const std::string &what,
+   const unsigned int trace, const arma::uword KD_N_max, const double aprx_eps,
+   const std::string &which_ll_cp, const Rcpp::List pf_output){
+  /* setup problem data */
+  std::unique_ptr<problem_data> dat = get_problem_data(
+    Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len,
+    F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what,
+    trace, KD_N_max, aprx_eps);
+
+  /* make list of particles and weights */
+  const unsigned n_periods = pf_output.size();
+  std::vector<arma::mat> particles;
+  particles.reserve(n_periods);
+  std::vector<arma::vec> particle_weights;
+  particle_weights.reserve(n_periods);
+  for(auto &x : pf_output){
+    Rcpp::List z = Rcpp::List(x);
+    particles.push_back(Rcpp::as<arma::mat>(z["particles"]));
+    particle_weights.push_back(Rcpp::as<arma::vec>(z["ws_normalized"]));
+  }
+
+  std::vector<const arma::mat *> particles_ptr;
+  particles_ptr.reserve(n_periods);
+  for(auto &x : particles)
+    particles_ptr.push_back(&x);
+  std::vector<const arma::vec *> particle_weights_ptr;
+  particle_weights_ptr.reserve(n_periods);
+  for(auto &x : particle_weights)
+    particle_weights_ptr.push_back(&x);
+
+  /* compute result and return */
+  auto prep_res = [](const std::vector<arma::vec> &res){
+    Rcpp::List out(res.size());
+    for(unsigned j = 0; j < res.size(); ++j)
+      out[j] = std::move(res.at(j));
+
+    return out;
+  };
+
+  if(which_ll_cp == "no_aprx")
+    return prep_res(smoother     (*dat, particles_ptr, particle_weights_ptr));
+  else if(which_ll_cp == "KD")
+    return prep_res(smoother_aprx(*dat, particles_ptr, particle_weights_ptr));
+
+  throw std::invalid_argument(
+      "'which_ll_cp' '" + which_ll_cp + "' not implemented");
 }

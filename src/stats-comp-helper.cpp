@@ -487,7 +487,7 @@ void stats_comp_helper_aprx_KD::set_ll_state_state
 
         return FSKA_cpp<true>(
           ws, old_particles, new_particles, old_ws, N_min, eps, trans_func,
-          pool, &old_stat, &new_stat, state_state_func);
+          pool, false, &old_stat, &new_stat, state_state_func);
       }
 
       return FSKA_cpp<false>(

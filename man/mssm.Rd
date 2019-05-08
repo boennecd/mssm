@@ -2,7 +2,7 @@
 % Please edit documentation in R/mssm.R
 \name{mssm}
 \alias{mssm}
-\title{Get Multivariate State Space Model Function}
+\title{Get Multivariate State Space Model Functions}
 \usage{
 mssm(fixed, family, data, random, weights, offsets, ti,
   control = mssm_control())
@@ -35,6 +35,8 @@ An object of class \code{mssmFunc} with the following elements
 \link{mssm-pf}.}
 \item{Laplace}{function to perform parameter estimation with a Laplace
 approximation. See \link{mssm-Laplace}.}
+\item{smoother}{function to compute smoothing weights for an \code{mssm}
+object returned by the \code{pf_filter} function. See \link{mssm-smoother}.}
 \item{terms_fixed}{\code{\link{terms.object}} for the covariates with
 fixed effects.}
 \item{terms_random}{\code{\link{terms.object}} for the covariates with
@@ -51,7 +53,9 @@ each observation.}
 outcomes.}
 }
 \description{
-Returns an object which can be used to run a particle filter.
+Returns an object with a function that can be used to run a particle filter,
+a function to perform parameter estimation using a Laplace approximation,
+and a function to perform smoothing of particle weights.
 }
 \seealso{
 The README of the package contains examples of how to use this function.
