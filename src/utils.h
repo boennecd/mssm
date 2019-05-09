@@ -254,6 +254,8 @@ private:
   std::unique_ptr<double[]> mem =
     std::unique_ptr<double[]>(new double[mem_size]);
 
+  std::unique_ptr<double[]> get_chol(int&) const;
+
 public:
   sym_band_mat(const int dim_dia, const int dim_off, const int n_bands):
     dim_dia(dim_dia), dim_off(dim_off), n_bands(n_bands){
@@ -264,6 +266,13 @@ public:
         throw std::invalid_argument("invalid 'q'");
 #endif
     }
+
+  sym_band_mat(const sym_band_mat &other):
+  dim_dia(other.dim_dia), dim_off(other.dim_off), n_bands(other.n_bands),
+  dim(other.dim), ku(other.ku), ku1(other.ku1), mem_size(other.mem_size),
+  mem(new double[other.mem_size]) {
+    std::copy(other.mem.get(), other.mem.get() + other.mem_size, mem.get());
+  }
 
   /* returns pointer to memory */
   double * get_mem() const {
@@ -290,6 +299,9 @@ public:
   double ldeterminant() const;
   /* same as above but does not throw but sets info */
   double ldeterminant(int&) const;
+
+  /* solve method */
+  arma::vec solve(const arma::vec&) const;
 
   /* get dense version */
   arma::mat get_dense() const;

@@ -41,33 +41,7 @@ sym_band_mat get_concentration
   return out;
 }
 
-nlopt_opt get_nlopt(const std::string &which, const unsigned n){
-  if     (which == "MMA")
-    return nlopt_create(NLOPT_LD_MMA, n);
-  else if(which == "CCSAQ")
-    return nlopt_create(NLOPT_LD_CCSAQ, n);
-  else if(which == "SLSQP")
-    return nlopt_create(NLOPT_LD_SLSQP, n);
-  else if(which == "LBFGS")
-    return nlopt_create(NLOPT_LD_LBFGS, n);
-  else if(which == "TNEWTON_PRECOND_RESTART")
-    return nlopt_create(NLOPT_LD_TNEWTON_PRECOND_RESTART, n);
-  else if(which == "TNEWTON_PRECOND")
-    return nlopt_create(NLOPT_LD_TNEWTON_PRECOND, n);
-  else if(which == "TNEWTON_RESTART")
-    return nlopt_create(NLOPT_LD_TNEWTON_RESTART, n);
-  else if(which == "TNEWTON")
-    return nlopt_create(NLOPT_LD_TNEWTON, n);
-  else if(which == "VAR2")
-    return nlopt_create(NLOPT_LD_VAR2, n);
-  else if(which == "VAR1")
-    return nlopt_create(NLOPT_LD_VAR1, n);
-
-  throw std::invalid_argument("'" + which + "' not implemented");
-}
-
 namespace {
-  double call_mode_objective(unsigned int, const double*, double*, void*);
   double call_laplace_approx(unsigned int, const double*, double*, void*);
   void   call_Q_constraint(unsigned, double*, unsigned, const double*,
                            double*, void*);
@@ -123,57 +97,84 @@ namespace {
     /* pointer to concentraiton matrix */
     std::unique_ptr<sym_band_mat> concentration_mat;
 
-    /* algorithm to use for mode approxmation */
-    const std::string &alg_inner;
-
     /* funciton used in mode approximation for multithreading. It writes to
      * the part of the gradient for the state and returns a vector with the
      * gradient term related to fixed coefficients. */
     struct mode_objective_inner_output {
       arma::vec obs_coef_grad_terms;
+      arma::mat obs_coef_hess_terms;
       double ll_terms;
     };
     mode_objective_inner_output mode_objective_inner
       (const unsigned start, const unsigned end,
-       const double * const state_mode_start, const bool do_grad,
-       const comp_out what, double * const grad){
+       const double * const state_mode_start, const bool do_hess,
+       const comp_out what, double * const grad, sym_band_mat * neg_hess_mat){
       mode_objective_inner_output out;
       out.ll_terms = 0.;
-      if(do_grad)
-        out.obs_coef_grad_terms = arma::vec(cfix_n_disp, arma::fill::zeros);
+      std::unique_ptr<double[]> obs_grad_hess;
+      if(do_hess){
+        unsigned int obs_grad_hess_size = cfix_n_disp * (cfix_n_disp + 1L);
+        obs_grad_hess.reset(new double[obs_grad_hess_size]);
+        std::fill(
+          obs_grad_hess.get(), obs_grad_hess.get() + obs_grad_hess_size, 0.);
 
+      }
+
+      arma::mat work_mem =
+        do_hess ? arma::mat(state_dim, state_dim) : arma::mat(0L, 0L);
       for(unsigned i = start; i < end; ++i){
         const unsigned inc = i * state_dim;
         const arma::vec state(state_mode_start + inc, state_dim);
 
         const std::unique_ptr<arma::vec> gr_ptr =
-          do_grad ?
+          do_hess ?
           std::unique_ptr<arma::vec>(
             new arma::vec(grad + cfix_dim + inc, state_dim, false)) :
           std::unique_ptr<arma::vec>();
+        work_mem.zeros();
 
         auto &obs_dist = obs_dists.at(i);
         out.ll_terms +=
-          obs_dist->log_density_state(state, gr_ptr.get(), nullptr, what);
+          obs_dist->log_density_state(state, gr_ptr.get(), &work_mem, what);
 
-        if(do_grad)
+        if(do_hess)
+          neg_hess_mat->set_diag_block(i, work_mem, -1.);
+
+        if(do_hess)
           obs_dist->comp_stats_state_only(
-              state, out.obs_coef_grad_terms.memptr(), what);
+              state, obs_grad_hess.get(), what);
       }
 
-      out.obs_coef_grad_terms = out.obs_coef_grad_terms.subvec(
-        0L, cfix_dim - 1L);
+      if(do_hess){
+        out.obs_coef_grad_terms = arma::vec(obs_grad_hess.get(), cfix_dim);
+        out.obs_coef_hess_terms = arma::mat(
+          obs_grad_hess.get() + cfix_n_disp, cfix_n_disp, cfix_n_disp);
+        out.obs_coef_hess_terms = out.obs_coef_hess_terms.submat(
+          0L, 0L, cfix_dim - 1L, cfix_dim - 1L);
+      }
 
       return out;
     }
 
     /* Evaluates the log-likelihood and gradient w.r.t. the fixed coefficients
-     * and random effects for given state space parameters. Used for mode
-     * approximation */
-    double mode_objective(
-        unsigned int n, const double *x, double *grad, void *data_in)
+     * and random effects for given state space parameters. If 'do_hess' is
+     * true then maximization is performed */
+    struct mode_objective_res {
+      const arma::vec mode;
+      const double ll;
+      bool failed;
+    };
+    mode_objective_res mode_objective
+      (const arma::vec &params, const bool do_hess)
     {
+#ifdef MSSM_DEBUG
+      if(!concentration_mat)
+        throw std::runtime_error("'concentration_mat' not set");
+#endif
+
       it_inner++;
+      const unsigned int n = random_effects.n_elem + cfix_dim;
+      const double *x = params.memptr();
 
 #ifdef MSSM_DEBUG
       if(n != random_effects.n_elem + cfix_dim)
@@ -183,11 +184,17 @@ namespace {
       if(verbose)
         Rcpp::Rcout << "Running mode objective... ";
 
-      /* check whether we need to compute the gradient */
-      const bool do_grad = grad;
-      comp_out what = grad ? gradient : log_densty;
-      if(do_grad)
+      /* check whether we need to compute the gradient and Hessian */
+      comp_out what = do_hess ? Hessian : log_densty;
+      arma::vec grad_vec = do_hess ? arma::vec(n) : arma::vec();
+      double * grad = do_hess ? grad_vec.memptr() : nullptr;
+      if(do_hess)
         std::fill(grad, grad + n, 0.);
+
+      /* maybe copy concentration matrix */
+      std::unique_ptr<sym_band_mat> neg_hess;
+      if(do_hess)
+        neg_hess.reset(new sym_band_mat(*concentration_mat));
 
       /* update fixed coefficients */
       {
@@ -209,15 +216,11 @@ namespace {
         end = std::min(end + inc, n_tasks);
         auto task = std::bind(
           &Laplace_util::mode_objective_inner, this, start, end,
-          state_mode_start, do_grad, what, grad);
+          state_mode_start, do_hess, what, grad, neg_hess.get());
         futures.push_back(pool.submit(std::move(task)));
       }
 
       /* handle log-likelihood terms from state equation */
-#ifdef MSSM_DEBUG
-      if(!concentration_mat)
-        throw std::runtime_error("'concentration_mat' not set");
-#endif
       arma::vec con_state = concentration_mat->mult(x + cfix_dim);
       {
         const double *xi = state_mode_start;
@@ -226,20 +229,25 @@ namespace {
       }
 
       /* get results from other threads */
+      std::unique_ptr<arma::mat> obs_hess;
+      if(do_hess)
+        obs_hess.reset(new arma::mat(cfix_dim, cfix_dim, arma::fill::zeros));
       {
         arma::vec obs_grad =
-          do_grad ? arma::vec(grad, cfix_dim, false) : arma::vec();
+          do_hess ? arma::vec(grad, cfix_dim, false) : arma::vec();
         for(auto &fu : futures){
           auto out = fu.get();
-          if(do_grad)
-            obs_grad += out.obs_coef_grad_terms;
+          if(do_hess){
+            obs_grad  += out.obs_coef_grad_terms;
+            *obs_hess += out.obs_coef_hess_terms;
+          }
           ll += out.ll_terms;
 
         }
       }
 
       /* compute gradient terms from state equation */
-      if(do_grad){
+      if(do_hess){
         double *gr = grad + cfix_dim;
         for(auto z : con_state)
           *gr++ -= z;
@@ -247,14 +255,82 @@ namespace {
 
       if(verbose){
         Rprintf("Objective value is %10.4f\n", ll);
-        arma::vec t1(x, n), t2(grad, n);
-        Rcpp::Rcout   << "Mode:      " << t1.t();
-        if(do_grad)
-          Rcpp::Rcout << "Gradient:  " << t2.t();
+        if(data.ctrl.trace > 3L){
+          arma::vec t1(x, n);
+          Rcpp::Rcout << "Mode: " << t1.t();
+        }
 
       }
 
-      return ll;
+      if(!do_hess)
+        return { params, ll };
+
+      /* use step halving. First, find direction. Then perform maximization */
+      const arma::vec direction = ([&] {
+        arma::vec out(n);
+        out.subvec(0L, cfix_dim - 1L) =
+          /* this part of the hessian matrix is not multiplied by -1 */
+          arma::solve(*obs_hess, -grad_vec.subvec(0L, cfix_dim - 1L));
+        out.subvec(cfix_dim, out.n_elem - 1L) =
+          neg_hess->solve(grad_vec.subvec(cfix_dim, out.n_elem - 1L));
+
+        return out;
+      })();
+
+      double step_size = 1.;
+
+      std::unique_ptr<mode_objective_res> out;
+      const unsigned max_it = 50L;
+      for(unsigned i = 0; i < max_it; ++i, step_size *= .5){
+        arma::vec new_params = params + step_size * direction;
+        if(verbose)
+          Rprintf("Using step size %12.8f\n", step_size);
+        out.reset(
+          new mode_objective_res(mode_objective(new_params, false)));
+
+        const double diff = out->ll - ll;
+        if(diff > 0.)
+          break;
+
+        if(i == max_it - 1L){
+          out->failed = true;
+          break;
+
+        }
+      }
+
+      return std::move(*out);
+    }
+
+    /* call the above until the criterion is satisfied */
+    bool failed_mode = false;
+    mode_objective_res mode_objective(const arma::vec &params){
+      const unsigned it_inner_start = it_inner;
+      double objective_value = -std::numeric_limits<double>::infinity();
+      for(;;) {
+        const double old_value = objective_value;
+        auto out = mode_objective(params, true);
+        objective_value = out.ll;
+
+        if(!failed_mode and out.failed){
+          failed_mode = true;
+          Rcpp::Rcout << "Mode approxmation failed at least once\n";
+        }
+
+        const double adiff = std::abs(objective_value - old_value);
+        if(ftol_abs_inner > 0. and adiff < ftol_abs_inner)
+          return out;
+        if(ftol_rel_inner > 0. and
+             adiff / (std::abs(objective_value) + 1e-8) < ftol_rel_inner)
+          return out;
+
+        if(it_inner - it_inner_start > maxeval_inner)
+          break;
+      }
+
+      throw std::runtime_error(
+          "Failed to find mode within " + std::to_string(maxeval_inner) +
+            " iterations");
     }
 
     /* quick (implementation wise) way to constraint a positive definte
@@ -438,49 +514,27 @@ namespace {
         data.get_F(), data.get_Q(), data.get_Q0(), data.n_periods)));
 
       /* make log-likelihood approximation. First, find the mode */
-      nlopt_opt opt;
       const unsigned n_inner = random_effects.n_elem + cfix_dim;
       std::unique_ptr<double[]> val(new double[n_inner]);
 
+      /* set starting values  */
+      {
+        double *d = val.get();
+        const arma::vec cfix_copy = data.get_cfix();
+        const double *z = cfix_copy.memptr();
+        for(unsigned i = 0; i < cfix_dim; ++i)
+          *d++ = *z++;
+        z = random_effects.memptr();
+        for(unsigned i = 0; i < random_effects.n_elem; ++i)
+          *d++ = *z++;
+      }
+
       const unsigned it_inner_old = it_inner;
-      auto make_mode_aprx = [&]
-        (const bool set_rng_zero, const bool throw_on_fail){
-        opt = get_nlopt(alg_inner, n_inner);
-
-        nlopt_set_max_objective(opt, call_mode_objective, this);
-        nlopt_set_ftol_abs(opt, ftol_abs_inner);
-        nlopt_set_ftol_rel(opt, ftol_rel_inner);
-        nlopt_set_maxeval(opt, maxeval_inner);
-
-        /* set starting values  */
-        {
-          double *d = val.get();
-          const arma::vec cfix_copy = data.get_cfix();
-          const double *z = cfix_copy.memptr();
-          for(unsigned i = 0; i < cfix_dim; ++i)
-            *d++ = *z++;
-          if(set_rng_zero)
-            std::fill(random_effects.begin(), random_effects.end(), 0.);
-          z = random_effects.memptr();
-          for(unsigned i = 0; i < random_effects.n_elem; ++i)
-            *d++ = *z++;
-        }
-
-        double maxf;
-        int nlopt_result_code = nlopt_optimize(opt, val.get(), &maxf);
-        nlopt_destroy(opt);
-
-        const bool failed = nlopt_result_code < 1L or nlopt_result_code > 4L;
-        if(failed and throw_on_fail)
-          throw std::runtime_error(
-              "laplace_approx: Got code " + std::to_string(nlopt_result_code) +
-                " from nlopt");
-
-        return failed;
-      };
-
-      if(make_mode_aprx(false, false))
-        make_mode_aprx(true, true);
+      {
+        arma::vec val_vec(val.get(), n_inner, false);
+        auto mout = mode_objective(val_vec);
+        val_vec = mout.mode;
+      }
 
       if(verbose)
         Rprintf("It: %5d: %5d inner iterations\n",
@@ -564,11 +618,10 @@ namespace {
     Laplace_util
     (problem_data &data, const double ftol_abs, const double ftol_rel,
      const double ftol_abs_inner, const double ftol_rel_inner,
-     const unsigned maxeval, const unsigned maxeval_inner,
-     const std::string &alg_inner):
+     const unsigned maxeval, const unsigned maxeval_inner):
     data(data), ftol_abs(ftol_abs), ftol_rel(ftol_rel),
     ftol_abs_inner(ftol_abs_inner), ftol_rel_inner(ftol_rel_inner),
-    maxeval(maxeval), maxeval_inner(maxeval_inner), alg_inner(alg_inner) { }
+    maxeval(maxeval), maxeval_inner(maxeval_inner) { }
 
     /* uses Laplace approximation to estimate the parameters */
     Laplace_aprx_output operator()(){
@@ -669,8 +722,6 @@ namespace {
       return out;
     }
 
-    friend double call_mode_objective
-      (unsigned int, const double*, double*, void*);
     friend double call_laplace_approx
       (unsigned int, const double*, double*, void*);
     friend void call_Q_constraint
@@ -679,11 +730,6 @@ namespace {
       (unsigned, double*, unsigned, const double*, double*, void*);
   };
 
-  double call_mode_objective
-    (unsigned int n, const double *x, double *grad, void *data_in){
-    Laplace_util *obj = (Laplace_util*)(data_in);
-    return obj->mode_objective(n, x, grad, nullptr);
-  }
   double call_laplace_approx
     (unsigned int n, const double *x, double *grad, void *data_in){
     Laplace_util *obj = (Laplace_util*)(data_in);
@@ -706,12 +752,11 @@ namespace {
 Laplace_aprx_output Laplace_aprx
   (problem_data &data, const double ftol_abs, const double ftol_rel,
    const double ftol_abs_inner, const double ftol_rel_inner,
-   const unsigned maxeval, const unsigned maxeval_inner,
-   const std::string &alg_inner){
+   const unsigned maxeval, const unsigned maxeval_inner){
 #ifdef MSSM_PROF
   profiler prof("Laplace");
 #endif
 
   return Laplace_util(data, ftol_abs, ftol_rel, ftol_abs_inner, ftol_rel_inner,
-                      maxeval, maxeval_inner, alg_inner)();
+                      maxeval, maxeval_inner)();
 }

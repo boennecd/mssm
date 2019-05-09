@@ -50,6 +50,11 @@ extern "C" {
       const double *alpha, const double *a, const int *lda,
       const double *x, const int *incx,
       const double *beta, double *y, const int *incy);
+  void F77_NAME(dpbtrs)(
+      const char* uplo, const int* n,
+      const int* kd, const int* nrhs,
+      const double* ab, const int* ldab,
+      double* b, const int* ldb, int* info);
 }
 
 /* avoid warnings due to different definitions of function */

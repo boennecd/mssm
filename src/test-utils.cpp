@@ -419,10 +419,12 @@ context("Test sym_band_mat") {
     do_tests(5L, 10L, 10L);
   }
 
-  test_that("log determinant is correct"){
+  test_that("log determinant and solve is correct"){
     /* R code
      X <- matrix(c(1, .5, 0, .5, 2, 1, 0 , 1, 3), 3, byrow = TRUE)
      dput(determinant(X)$modulus)
+     z = c(4, 3, 1)
+     dput(solve(X, z))
      */
     sym_band_mat b_mat(1L, 1L, 3L);
 
@@ -435,5 +437,23 @@ context("Test sym_band_mat") {
 
     const double expect = 1.44691898293633;
     expect_true(std::abs(b_mat.ldeterminant() - expect) < 1e-8);
+
+    const arma::vec z = create_vec<3L>({ 4, 3, 1 });
+    auto expect_solve = create_vec<3L>
+      ({3.76470588235294, 0.470588235294118, 0.176470588235294 });
+
+    {
+      arma::vec z_solve = b_mat.solve(z);
+      expect_true(is_all_aprx_equal(expect_solve, z_solve));
+    }
+
+    sym_band_mat b_copy = b_mat;
+    expect_true(std::abs(b_copy.ldeterminant() - expect) < 1e-8);
+
+    {
+      arma::vec z_solve = b_copy.solve(z);
+      expect_true(is_all_aprx_equal(expect_solve, z_solve));
+    }
+
   }
 }

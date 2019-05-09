@@ -5,10 +5,10 @@
 \title{Auxiliary for Controlling Multivariate State Space Model Fitting}
 \usage{
 mssm_control(N_part = 1000L, n_threads = 1L, covar_fac = 1.2,
-  ftol_rel = 1e-06, nu = 8, what = "log_density",
+  ftol_rel = 0.000001, nu = 8, what = "log_density",
   which_sampler = "mode_aprx", which_ll_cp = "no_aprx", seed = 1L,
-  KD_N_max = 10L, aprx_eps = 0.001, ftol_abs = 1e-04,
-  ftol_abs_inner = 1e-04, la_ftol_rel = -1, la_ftol_rel_inner = -1,
+  KD_N_max = 10L, aprx_eps = 0.001, ftol_abs = 0.0001,
+  ftol_abs_inner = 0.0001, la_ftol_rel = -1, la_ftol_rel_inner = -1,
   maxeval = 10000L, maxeval_inner = 10000L)
 }
 \arguments{
@@ -52,7 +52,9 @@ method is used.}
 dual k-d tree method is used.}
 
 \item{ftol_abs, ftol_abs_inner, la_ftol_rel, la_ftol_rel_inner, maxeval, maxeval_inner}{scalars passed to \code{nlopt} when estimating parameters with a Laplace
-approximation. The \code{_inner} denotes the value passed in the mode estimation.}
+approximation. The \code{_inner} denotes the values passed in the inner
+mode estimation. The mode estimation is done with a custom Newton–Raphson
+method}
 }
 \description{
 Auxiliary function for \code{\link{mssm}}.

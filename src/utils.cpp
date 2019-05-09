@@ -302,14 +302,20 @@ arma::vec sym_band_mat::mult(const arma::vec &x) const{
   return mult(x.memptr());
 }
 
-/* TODO: replace by method that uses LU decomposition */
-double sym_band_mat::ldeterminant(int &info) const {
+std::unique_ptr<double[]> sym_band_mat::get_chol(int &info) const {
   /* copy matrix */
   std::unique_ptr<double[]> cp(new double[mem_size]);
   std::copy(mem.get(), mem.get() + mem_size, cp.get());
 
   /* compute cholesky decomposition */
   lapack::dpbtrf(&C_U, &dim, &ku, cp.get(), &ku1, &info);
+
+  return cp;
+}
+
+/* TODO: replace by method that uses LU decomposition */
+double sym_band_mat::ldeterminant(int &info) const {
+  std::unique_ptr<double[]> cp = get_chol(info);
 
   if(info != 0L)
     return 0.;
@@ -330,6 +336,31 @@ double sym_band_mat::ldeterminant() const {
   if(info != 0)
     throw std::runtime_error(
         "'dpbtrf' failed with code " + std::to_string(info));
+
+  return out;
+}
+
+arma::vec sym_band_mat::solve(const arma::vec &x) const {
+#ifdef MSSM_DEBUG
+  if((int)x.n_elem != dim)
+    throw std::invalid_argument(
+        "invalid dimension in 'sym_band_mat::solve' (" +
+          std::to_string(x.n_elem) + ", " + std::to_string(dim) + ")");
+#endif
+  int info;
+  std::unique_ptr<double[]> cp = get_chol(info);
+
+  if(info != 0L)
+    throw std::runtime_error("sym_band_mat::solve: got info " +
+                             std::to_string(info));
+
+  arma::vec out = x;
+  F77_CALL(dpbtrs)(
+    &C_U, &dim, &ku, &I_one, cp.get(), &ku1, out.memptr(), &dim, &info);
+
+  if(info != 0L)
+    throw std::runtime_error("sym_band_mat::solve: dpbtrs returned info " +
+                             std::to_string(info));
 
   return out;
 }

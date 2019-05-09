@@ -238,8 +238,7 @@ mssm <- function(
       ftol_abs = control$ftol_abs, la_ftol_rel = control$la_ftol_rel,
       ftol_abs_inner = control$ftol_abs_inner,
       la_ftol_rel_inner = control$la_ftol_rel_inner,
-      maxeval = control$maxeval, maxeval_inner = control$maxeval_inner,
-      alg_inner = control$nlopt_alg_inner)
+      maxeval = control$maxeval, maxeval_inner = control$maxeval_inner)
     out$cfix <- drop(out$cfix)
 
     # set dimension names
@@ -450,11 +449,9 @@ NULL
 #' dual k-d tree method is used.
 #' @param ftol_abs,ftol_abs_inner,la_ftol_rel,la_ftol_rel_inner,maxeval,maxeval_inner
 #' scalars passed to \code{nlopt} when estimating parameters with a Laplace
-#' approximation. The \code{_inner} denotes the value passed in the mode estimation.
-#' @param nlopt_alg_inner name of algorithm to use in mode estimation
-#' within the Laplace approximation. It can be one of the local gradient
-#' based methods listed at
-#' \url{https://nlopt.readthedocs.io/en/latest/NLopt_Algorithms/#local-gradient-based-optimization}.
+#' approximation. The \code{_inner} denotes the values passed in the inner
+#' mode estimation. The mode estimation is done with a custom Newton–Raphson
+#' method
 #'
 #' @seealso
 #' \code{\link{mssm}}.
@@ -468,7 +465,7 @@ mssm_control <- function(
   what = "log_density", which_sampler = "mode_aprx", which_ll_cp = "no_aprx",
   seed = 1L, KD_N_max = 10L, aprx_eps = 1e-3, ftol_abs = 1e-4,
   ftol_abs_inner = 1e-4, la_ftol_rel = -1., la_ftol_rel_inner = -1.,
-  maxeval = 10000L, maxeval_inner = 10000L, nlopt_alg_inner = "TNEWTON"){
+  maxeval = 10000L, maxeval_inner = 10000L){
   stopifnot(
     .is.num.le1(n_threads), n_threads > 0L,
     .is.num.le1(covar_fac), covar_fac > 0.,
@@ -492,9 +489,7 @@ mssm_control <- function(
     ftol_abs_inner > 0. || la_ftol_rel_inner > 0.,
 
     .is.int.le1(maxeval), maxeval > 0L,
-    .is.int.le1(maxeval_inner), maxeval_inner > 0L,
-
-    is.character(nlopt_alg_inner), length(nlopt_alg_inner) == 1L)
+    .is.int.le1(maxeval_inner), maxeval_inner > 0L)
   .is_valid_N_part(N_part)
   .is_valid_what(what)
 
@@ -504,8 +499,7 @@ mssm_control <- function(
     which_ll_cp = which_ll_cp, nu = nu, seed = seed, KD_N_max = KD_N_max,
     aprx_eps = aprx_eps, ftol_abs = ftol_abs, la_ftol_rel = la_ftol_rel,
     ftol_abs_inner = ftol_abs_inner, la_ftol_rel_inner = la_ftol_rel_inner,
-    maxeval = maxeval, maxeval_inner = maxeval_inner,
-    nlopt_alg_inner = nlopt_alg_inner)
+    maxeval = maxeval, maxeval_inner = maxeval_inner)
 }
 
 .is_valid_N_part <- function(N_part)
