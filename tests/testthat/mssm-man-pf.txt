@@ -20,7 +20,7 @@ Fixed coefficients are
             (Intercept)  factor(country)BELGIUM   factor(country)CANADA 
                0.611349               -0.015300                0.213982 
  factor(country)DENMARK   factor(country)FRANCE  factor(country)GERMANY 
-               0.047908               -0.012904               -0.016385 
+               0.047907               -0.012904               -0.016385 
   factor(country)GREECE  factor(country)IRELAND    factor(country)ITALY 
               -0.021885                0.047232               -0.046189 
    factor(country)JAPAN factor(country)NETHERLA   factor(country)NORWAY 

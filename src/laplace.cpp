@@ -418,7 +418,8 @@ namespace {
       std::unique_ptr<double[]> val(new double[n_inner]);
       {
         double *d = val.get();
-        const double *z = data.get_cfix().memptr();
+        const arma::vec cfix_copy = data.get_cfix();
+        const double *z = cfix_copy.memptr();
         for(unsigned i = 0; i < cfix_dim; ++i)
           *d++ = *z++;
         z = random_effects.memptr();
