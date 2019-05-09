@@ -45,9 +45,10 @@ sym_band_mat get_concentration
 namespace {
   double call_mode_objective(unsigned int, const double*, double*, void*);
   double call_laplace_approx(unsigned int, const double*, double*, void*);
-  double call_Q_constraint(unsigned int, const double*, double*, void*);
-  double call_F_constraint1(unsigned int, const double*, double*, void*);
-  double call_F_constraint2(unsigned int, const double*, double*, void*);
+  void   call_Q_constraint(unsigned, double*, unsigned, const double*,
+                           double*, void*);
+  void   call_F_constraint(unsigned, double*, unsigned, const double*,
+                           double*, void*);
 
   /* Takes a pointer to values of upper diagonal and size of the matrix and
    * return the full dense symmetric matrix */
@@ -116,7 +117,7 @@ namespace {
 
       for(unsigned i = start; i < end; ++i){
         const unsigned inc = i * state_dim;
-        arma::vec state(state_mode_start + inc, state_dim);
+        const arma::vec state(state_mode_start + inc, state_dim);
 
         const std::unique_ptr<arma::vec> gr_ptr =
           do_grad ?
@@ -223,7 +224,7 @@ namespace {
       return ll;
     }
 
-    /* quick (implementation wise) way to constraint a postiive definte
+    /* quick (implementation wise) way to constraint a positive definte
      * matrix. TODO: do something smarter... */
     class Q_constraint_util {
       /* catch previous values to safe computations */
@@ -250,51 +251,55 @@ namespace {
         if(this_num >= size.n_cols)
           this_num = call_number = 0L;
 
-        return
-          -eigvals(this_num) + std::sqrt(std::numeric_limits<double>::epsilon());
+        /* TODO: account for precision */
+        return -eigvals(this_num) + std::numeric_limits<double>::epsilon();
       }
     };
 
     Q_constraint_util Q_constraint_u;
 
     /* method for NLOPT to call */
-    double Q_constraint
-      (unsigned int n, const double *x, double *grad, void *data_in)
+    void Q_constraint
+      (unsigned m, double *result, unsigned n, const double *x, double *grad,
+       void *f_data)
     {
-      return Q_constraint_u(x + F_size.n_cols * F_size.n_rows, Q_size);
+#ifdef MSSM_DEBUG
+      if(m != Q_size.n_cols)
+        throw std::invalid_argument("invalid m in 'Q_constraint'");
+#endif
+
+      for(unsigned i = 0; i < Q_size.n_cols; ++i, ++result)
+        *result = Q_constraint_u(x + F_size.n_cols * F_size.n_rows, Q_size);
     }
 
-    /* constraint F such that the system is stationary */
-    double F_constraint1
-      (unsigned int n, const double *x, double *grad, void *data_in) const
+    /* constraint F such that the system is stationary.
+     * constraint F such that it is not too close to being singular (required
+     * for some computation but could be avoided). TODO: avoid this... */
+    void F_constraint
+      (unsigned m, double *result, unsigned n, const double *x, double *grad,
+       void *f_data) const
     {
+#ifdef MSSM_DEBUG
+      if(m != 2L)
+        throw std::invalid_argument("m != 2 in 'F_constraint'");
+#endif
       arma::mat F(x, F_size.n_rows, F_size.n_cols);
       arma::cx_vec eigs_vals = arma::eig_gen(F);
-      double maxv = 0.;
+      double minx = std::numeric_limits<double>::infinity(),
+             maxv = 0.;
       for(auto d : eigs_vals){
         const double da = std::sqrt(d.real() * d.real() + d.imag() * d.imag());
+        if(da < minx)
+          minx = da;
         if(da > maxv)
           maxv = da;
       }
 
-      return maxv - 1 + std::pow(std::numeric_limits<double>::epsilon(), .25);
-    }
+      const double
+        tol = std::numeric_limits<double>::epsilon() * F_size.n_cols * maxv;
 
-    /* constraint F such that it is not too close to being singular (required
-     * for some computation but could be avoided). TODO: avoid this... */
-    double F_constraint2
-      (unsigned int n, const double *x, double *grad, void *data_in) const
-    {
-      arma::mat F(x, F_size.n_rows, F_size.n_cols);
-      arma::vec eigs_vals = arma::real(arma::eig_gen(F));
-      double minx = std::numeric_limits<double>::infinity();
-      for(auto d : eigs_vals){
-        const double da = std::abs(d);
-        if(da < minx)
-          minx = da;
-      }
-
-      return -minx + std::pow(std::numeric_limits<double>::epsilon(), .25);
+      * result       = -minx     + tol;
+      *(result + 1L) =  maxv - 1 + tol;
     }
 
     /* function used for multithreading in Laplace approximation. Writes to
@@ -336,14 +341,18 @@ namespace {
       /* check constraints. TODO: ok to return -Inf? */
       const double * const Qmem = x + F_size.n_cols * F_size.n_rows;
       {
+        const double test_failed_res =
+          -std::numeric_limits<double>::infinity();
+
         Q_constraint_util Qu;
         for(unsigned i = 0; i < Q_size.n_cols; ++i)
           if(Qu(Qmem, Q_size) >= 0.)
-            return -std::numeric_limits<double>::infinity();
-        if(F_constraint1(n, x, grad, data_in) >= 0.)
-          return -std::numeric_limits<double>::infinity();
-        if(F_constraint2(n, x, grad, data_in) >= 0.)
-          return -std::numeric_limits<double>::infinity();
+            return test_failed_res;
+
+        std::array<double, 2L> F_test_val;
+        F_constraint(2L, F_test_val.data(), n, x, nullptr, nullptr);
+        if(F_test_val[0L] >= 0. or F_test_val[1L] >= 0.)
+          return test_failed_res;
       }
 
       /* set parameters */
@@ -464,7 +473,7 @@ namespace {
           return -std::numeric_limits<double>::infinity();
       }
 
-      /* compute terms from observations conditional density and update the
+      /* compute terms from observation's conditional density and update the
        * Hessian */
       {
         thread_pool &pool = data.ctrl.get_pool();
@@ -560,22 +569,34 @@ namespace {
       nlopt_set_local_optimizer(opt, opt_inner);
 
       /* add constraints */
-      /* TODO: replace by 'nlopt_add_inequality_mconstraint' */
-      for(unsigned i = 0; i < Q_size.n_cols; ++i)
-        nlopt_add_inequality_constraint(
-          opt, call_Q_constraint, this, 0);
-      /* TODO: replace by 'nlopt_add_inequality_mconstraint' */
-      nlopt_add_inequality_constraint(
-        opt, call_F_constraint1, this, 0);
-      nlopt_add_inequality_constraint(
-        opt, call_F_constraint2, this, 0);
+      std::unique_ptr<double[]> Q_constraint_tol(new double[Q_size.n_cols]);
+      std::fill(
+        Q_constraint_tol.get(), Q_constraint_tol.get() + Q_size.n_cols, 0.);
+      nlopt_add_inequality_mconstraint
+        (opt, Q_size.n_cols, call_Q_constraint, this,
+         Q_constraint_tol.get());
+
+      std::array<double, 2L> F_constraint_tol = { 0., 0. };
+      nlopt_add_inequality_mconstraint
+        (opt, 2L, call_F_constraint, this, F_constraint_tol.data());
 
       std::unique_ptr<double[]> lbs(new double[outer_dim]);
       if(has_disp){
         /* add positivity constraint to dispersion parameter */
         lbs.reset(new double[outer_dim]);
         std::fill(lbs.get(), lbs.get() + outer_dim - 1L, -HUGE_VAL);
-        lbs[outer_dim - 1L] = std::numeric_limits<double>::epsilon();
+        /* TODO: replace eps with something else... */
+        constexpr double eps = std::numeric_limits<double>::epsilon();
+        lbs[outer_dim - 1L] = eps;
+
+        /* add positivity constraints to diagonal elements of Q */
+        const unsigned Q_start = F_size.n_cols * F_size.n_rows;
+        double *lbs_i = lbs.get() + Q_start;
+        for(unsigned i = 0; i < Q_size.n_cols; ++i){
+          *lbs_i = eps;
+          lbs_i += i + 2L;
+        }
+
         nlopt_set_lower_bounds(opt, lbs.get());
 
       }
@@ -604,12 +625,10 @@ namespace {
       (unsigned int, const double*, double*, void*);
     friend double call_laplace_approx
       (unsigned int, const double*, double*, void*);
-    friend double call_Q_constraint
-      (unsigned int, const double*, double*, void*);
-    friend double call_F_constraint1
-      (unsigned int, const double*, double*, void*);
-    friend double call_F_constraint2
-      (unsigned int, const double*, double*, void*);
+    friend void call_Q_constraint
+      (unsigned, double*, unsigned, const double*, double*, void*);
+    friend void call_F_constraint
+      (unsigned, double*, unsigned, const double*, double*, void*);
   };
 
   double call_mode_objective
@@ -622,20 +641,17 @@ namespace {
     Laplace_util *obj = (Laplace_util*)(data_in);
     return obj->laplace_approx(n, x, grad, nullptr);
   }
-  double call_Q_constraint
-    (unsigned int n, const double *x, double *grad, void *data_in){
-    Laplace_util *obj = (Laplace_util*)(data_in);
-    return obj->Q_constraint(n, x, grad, nullptr);
+  void call_Q_constraint
+    (unsigned m, double *result, unsigned n, const double *x, double *grad,
+     void *f_data){
+    Laplace_util *obj = (Laplace_util*)(f_data);
+    obj->Q_constraint(m, result, n, x, grad, f_data);
   }
-  double call_F_constraint1
-    (unsigned int n, const double *x, double *grad, void *data_in){
-    Laplace_util *obj = (Laplace_util*)(data_in);
-    return obj->F_constraint1(n, x, grad, nullptr);
-  }
-  double call_F_constraint2
-    (unsigned int n, const double *x, double *grad, void *data_in){
-    Laplace_util *obj = (Laplace_util*)(data_in);
-    return obj->F_constraint2(n, x, grad, nullptr);
+  void call_F_constraint
+    (unsigned m, double *result, unsigned n, const double *x, double *grad,
+     void *f_data){
+    Laplace_util *obj = (Laplace_util*)(f_data);
+    obj->F_constraint(m, result, n, x, grad, f_data);
   }
 }
 
