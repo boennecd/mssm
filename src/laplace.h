@@ -20,6 +20,6 @@ struct Laplace_aprx_output {
 };
 Laplace_aprx_output Laplace_aprx
   (problem_data&, const double, const double, const double, const double,
-   const unsigned, const unsigned);
+   const unsigned, const unsigned, const std::string&);
 
 #endif

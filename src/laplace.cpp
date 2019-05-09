@@ -41,6 +41,30 @@ sym_band_mat get_concentration
   return out;
 }
 
+nlopt_opt get_nlopt(const std::string &which, const unsigned n){
+  if     (which == "MMA")
+    return nlopt_create(NLOPT_LD_MMA, n);
+  else if(which == "CCSAQ")
+    return nlopt_create(NLOPT_LD_CCSAQ, n);
+  else if(which == "SLSQP")
+    return nlopt_create(NLOPT_LD_SLSQP, n);
+  else if(which == "LBFGS")
+    return nlopt_create(NLOPT_LD_LBFGS, n);
+  else if(which == "TNEWTON_PRECOND_RESTART")
+    return nlopt_create(NLOPT_LD_TNEWTON_PRECOND_RESTART, n);
+  else if(which == "TNEWTON_PRECOND")
+    return nlopt_create(NLOPT_LD_TNEWTON_PRECOND, n);
+  else if(which == "TNEWTON_RESTART")
+    return nlopt_create(NLOPT_LD_TNEWTON_RESTART, n);
+  else if(which == "TNEWTON")
+    return nlopt_create(NLOPT_LD_TNEWTON, n);
+  else if(which == "VAR2")
+    return nlopt_create(NLOPT_LD_VAR2, n);
+  else if(which == "VAR1")
+    return nlopt_create(NLOPT_LD_VAR1, n);
+
+  throw std::invalid_argument("'" + which + "' not implemented");
+}
 
 namespace {
   double call_mode_objective(unsigned int, const double*, double*, void*);
@@ -98,6 +122,9 @@ namespace {
 
     /* pointer to concentraiton matrix */
     std::unique_ptr<sym_band_mat> concentration_mat;
+
+    /* algorithm to use for mode approxmation */
+    const std::string &alg_inner;
 
     /* funciton used in mode approximation for multithreading. It writes to
      * the part of the gradient for the state and returns a vector with the
@@ -218,8 +245,14 @@ namespace {
           *gr++ -= z;
       }
 
-      if(verbose)
+      if(verbose){
         Rprintf("Objective value is %10.4f\n", ll);
+        arma::vec t1(x, n), t2(grad, n);
+        Rcpp::Rcout   << "Mode:      " << t1.t();
+        if(do_grad)
+          Rcpp::Rcout << "Gradient:  " << t2.t();
+
+      }
 
       return ll;
     }
@@ -406,35 +439,48 @@ namespace {
 
       /* make log-likelihood approximation. First, find the mode */
       nlopt_opt opt;
-      unsigned n_inner = random_effects.n_elem + cfix_dim;
-      opt = nlopt_create(NLOPT_LD_TNEWTON, n_inner);
-
-      nlopt_set_max_objective(opt, call_mode_objective, this);
-      nlopt_set_ftol_abs(opt, ftol_abs_inner);
-      nlopt_set_ftol_rel(opt, ftol_rel_inner);
-      nlopt_set_maxeval(opt, maxeval_inner);
-
-      /* set starting values  */
+      const unsigned n_inner = random_effects.n_elem + cfix_dim;
       std::unique_ptr<double[]> val(new double[n_inner]);
-      {
-        double *d = val.get();
-        const arma::vec cfix_copy = data.get_cfix();
-        const double *z = cfix_copy.memptr();
-        for(unsigned i = 0; i < cfix_dim; ++i)
-          *d++ = *z++;
-        z = random_effects.memptr();
-        for(unsigned i = 0; i < random_effects.n_elem; ++i)
-          *d++ = *z++;
-      }
 
-      double maxf;
       const unsigned it_inner_old = it_inner;
-      int nlopt_result_code = nlopt_optimize(opt, val.get(), &maxf);
-      nlopt_destroy(opt);
-      if(nlopt_result_code < 1L or nlopt_result_code > 4L)
-        throw std::runtime_error(
-            "laplace_approx: Got code " + std::to_string(nlopt_result_code) +
-              " from nlopt");
+      auto make_mode_aprx = [&]
+        (const bool set_rng_zero, const bool throw_on_fail){
+        opt = get_nlopt(alg_inner, n_inner);
+
+        nlopt_set_max_objective(opt, call_mode_objective, this);
+        nlopt_set_ftol_abs(opt, ftol_abs_inner);
+        nlopt_set_ftol_rel(opt, ftol_rel_inner);
+        nlopt_set_maxeval(opt, maxeval_inner);
+
+        /* set starting values  */
+        {
+          double *d = val.get();
+          const arma::vec cfix_copy = data.get_cfix();
+          const double *z = cfix_copy.memptr();
+          for(unsigned i = 0; i < cfix_dim; ++i)
+            *d++ = *z++;
+          if(set_rng_zero)
+            std::fill(random_effects.begin(), random_effects.end(), 0.);
+          z = random_effects.memptr();
+          for(unsigned i = 0; i < random_effects.n_elem; ++i)
+            *d++ = *z++;
+        }
+
+        double maxf;
+        int nlopt_result_code = nlopt_optimize(opt, val.get(), &maxf);
+        nlopt_destroy(opt);
+
+        const bool failed = nlopt_result_code < 1L or nlopt_result_code > 4L;
+        if(failed and throw_on_fail)
+          throw std::runtime_error(
+              "laplace_approx: Got code " + std::to_string(nlopt_result_code) +
+                " from nlopt");
+
+        return failed;
+      };
+
+      if(make_mode_aprx(false, false))
+        make_mode_aprx(true, true);
 
       if(verbose)
         Rprintf("It: %5d: %5d inner iterations\n",
@@ -518,10 +564,11 @@ namespace {
     Laplace_util
     (problem_data &data, const double ftol_abs, const double ftol_rel,
      const double ftol_abs_inner, const double ftol_rel_inner,
-     const unsigned maxeval, const unsigned maxeval_inner):
+     const unsigned maxeval, const unsigned maxeval_inner,
+     const std::string &alg_inner):
     data(data), ftol_abs(ftol_abs), ftol_rel(ftol_rel),
     ftol_abs_inner(ftol_abs_inner), ftol_rel_inner(ftol_rel_inner),
-    maxeval(maxeval), maxeval_inner(maxeval_inner) { }
+    maxeval(maxeval), maxeval_inner(maxeval_inner), alg_inner(alg_inner) { }
 
     /* uses Laplace approximation to estimate the parameters */
     Laplace_aprx_output operator()(){
@@ -659,11 +706,12 @@ namespace {
 Laplace_aprx_output Laplace_aprx
   (problem_data &data, const double ftol_abs, const double ftol_rel,
    const double ftol_abs_inner, const double ftol_rel_inner,
-   const unsigned maxeval, const unsigned maxeval_inner){
+   const unsigned maxeval, const unsigned maxeval_inner,
+   const std::string &alg_inner){
 #ifdef MSSM_PROF
   profiler prof("Laplace");
 #endif
 
   return Laplace_util(data, ftol_abs, ftol_rel, ftol_abs_inner, ftol_rel_inner,
-                      maxeval, maxeval_inner)();
+                      maxeval, maxeval_inner, alg_inner)();
 }
