@@ -622,7 +622,7 @@ o <- ll_func$pf_filter(
 
 #####
 # Gaussian w/ log link
-n_periods <- 100L
+n_periods <- 400L
 F. <- matrix(c(.5, 0, 0, .8), 2L)
 Q <- matrix(c(.5^2, .1, .1, .7^2), 2L)
 Q0 <- mssm:::.get_Q0(Q, F.)
@@ -640,7 +640,7 @@ ll_func <- mssm(
   fixed = y ~ x + Z, family = gaussian("log"), data = dat,
   random = ~ Z, ti = time_idx, control = mssm_control(
     n_threads = 5L, N_part = 1000L, what = "gradient",
-    which_ll_cp = "KD", aprx_eps = .01))
+    which_ll_cp = "KD", aprx_eps = .01, ftol_abs = 1e-8, ftol_abs_inner = 1e-8))
 sta <- coef(glm_fit <- glm(y ~ x  + Z, gaussian("log"), dat, start = cfix))
 
 logLik(glm_fit)
@@ -648,13 +648,14 @@ disp <- summary(glm_fit)$dispersion
 
 system.time(
   lpa <- ll_func$Laplace(
-    F. = diag(.5, 2), Q = diag(1, 2), cfix = sta, trace = 1L, disp = disp))
+    F. = diag(.01, 2), Q = diag(1e-8, 2), cfix = sta, trace = 1L, disp = disp))
+lpa
+cov2cor(Q)
 
 system.time(
   res <- adam(
-    ll_func, cfix = lpa$cfix, disp = lpa$dispersion, F. = lpa$F., Q = lpa$Q,
+    ll_func, cfix = lpa$cfix, disp = lpa$disp, F. = lpa$F., Q = lpa$Q,
     verbose = TRUE, n_it = 100L, lr = .01))
-
 plot(res$logLik)
 
 o <- ll_func$pf_filter(

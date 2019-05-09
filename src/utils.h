@@ -302,6 +302,7 @@ public:
 
   /* solve method */
   arma::vec solve(const arma::vec&) const;
+  arma::vec solve(const arma::vec&, int&) const;
 
   /* get dense version */
   arma::mat get_dense() const;

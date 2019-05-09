@@ -48,8 +48,8 @@ namespace {
   void   call_F_constraint(unsigned, double*, unsigned, const double*,
                            double*, void*);
 
-  /* Takes a pointer to values of upper diagonal and size of the matrix and
-   * return the full dense symmetric matrix */
+  /* Takes a pointer to values of upper triangular matrix and size of the
+   * matrix and return the full dense symmetric matrix */
   arma::mat create_Q(const double *vals, const arma::SizeMat Q_size){
     arma::mat Q_new(Q_size);
     for(unsigned j = 0; j < Q_size.n_cols; ++j)
@@ -80,7 +80,7 @@ namespace {
     const double ftol_abs, ftol_rel, ftol_abs_inner, ftol_rel_inner;
     const unsigned maxeval, maxeval_inner;
 
-    /* stores objects to evaluate conditional densities */
+    /* contains objects to evaluate conditional densities */
     const std::vector<std::unique_ptr<cdist> > obs_dists = ([&]{
       std::vector<std::unique_ptr<cdist> > out;
       out.reserve(data.n_periods);
@@ -98,8 +98,9 @@ namespace {
     std::unique_ptr<sym_band_mat> concentration_mat;
 
     /* funciton used in mode approximation for multithreading. It writes to
-     * the part of the gradient for the state and returns a vector with the
-     * gradient term related to fixed coefficients. */
+     * the part of the gradient and Hessian for the state and returns a
+     * vector and matrix with the gradient and Hessian terms related to fixed
+     * coefficients. */
     struct mode_objective_inner_output {
       arma::vec obs_coef_grad_terms;
       arma::mat obs_coef_hess_terms;
@@ -158,10 +159,10 @@ namespace {
 
     /* Evaluates the log-likelihood and gradient w.r.t. the fixed coefficients
      * and random effects for given state space parameters. If 'do_hess' is
-     * true then maximization is performed */
+     * true then maximization is performed. */
     struct mode_objective_res {
       const arma::vec mode;
-      const double ll;
+      const double ll; /* log-likelihood */
       bool failed;
     };
     mode_objective_res mode_objective
@@ -191,7 +192,7 @@ namespace {
       if(do_hess)
         std::fill(grad, grad + n, 0.);
 
-      /* maybe copy concentration matrix */
+      /* maybe a copy of concentration matrix */
       std::unique_ptr<sym_band_mat> neg_hess;
       if(do_hess)
         neg_hess.reset(new sym_band_mat(*concentration_mat));
@@ -202,7 +203,7 @@ namespace {
         data.set_cfix(dum);
       }
 
-      /* handle terms from observation equation */
+      /* handle terms from observation's conditional density */
       double ll = 0.;
       const double * const state_mode_start = x + cfix_dim;
       std::vector<std::future<mode_objective_inner_output> > futures;
@@ -267,12 +268,26 @@ namespace {
 
       /* use step halving. First, find direction. Then perform maximization */
       const arma::vec direction = ([&] {
+        const arma::span
+          sp_grad(0L, cfix_dim - 1L), sp_state(cfix_dim, n - 1L);
         arma::vec out(n);
-        out.subvec(0L, cfix_dim - 1L) =
+        out(sp_grad) =
           /* this part of the hessian matrix is not multiplied by -1 */
-          arma::solve(*obs_hess, -grad_vec.subvec(0L, cfix_dim - 1L));
-        out.subvec(cfix_dim, out.n_elem - 1L) =
-          neg_hess->solve(grad_vec.subvec(cfix_dim, out.n_elem - 1L));
+          arma::solve(*obs_hess, -grad_vec(sp_grad));
+
+        /* TODO: implement another method to solve that does not assume that
+         *       the hessian is (strictly) positive definite? */
+        int info;
+        out(sp_state) = neg_hess->solve(grad_vec(sp_state), info);
+
+        if(info < 0)
+          throw std::runtime_error("neg_hess->solve failed");
+
+        if(info > 0){ /* TODO: assumes cholesky decomposition is still used! */
+          /* fall back to gradient decent */
+          out = grad_vec;
+
+        }
 
         return out;
       })();
@@ -302,7 +317,7 @@ namespace {
       return std::move(*out);
     }
 
-    /* call the above until the criterion is satisfied */
+    /* call the above until the criterion(s) is satisfied */
     bool failed_mode = false;
     mode_objective_res mode_objective(const arma::vec &params){
       const unsigned it_inner_start = it_inner;
@@ -333,8 +348,8 @@ namespace {
             " iterations");
     }
 
-    /* quick (implementation wise) way to constraint a positive definte
-     * matrix. TODO: do something smarter... */
+    /* quick (implementation wise) way to constraint a matrix to be positive
+     * definte. TODO: do something smarter... */
     class Q_constraint_util {
       /* catch previous values to safe computations */
       arma::mat Q_old;
@@ -705,8 +720,8 @@ namespace {
       /* solve problem */
       double maxf;
       int nlopt_result_code = nlopt_optimize(opt, vals.get(), &maxf);
-      nlopt_destroy(opt);
       nlopt_destroy(opt_inner);
+      nlopt_destroy(opt);
 
       /* setup output object and return */
       Laplace_aprx_output out;

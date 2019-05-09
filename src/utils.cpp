@@ -340,26 +340,34 @@ double sym_band_mat::ldeterminant() const {
   return out;
 }
 
-arma::vec sym_band_mat::solve(const arma::vec &x) const {
+arma::vec sym_band_mat::solve(const arma::vec &x, int &info) const {
 #ifdef MSSM_DEBUG
   if((int)x.n_elem != dim)
     throw std::invalid_argument(
         "invalid dimension in 'sym_band_mat::solve' (" +
           std::to_string(x.n_elem) + ", " + std::to_string(dim) + ")");
 #endif
-  int info;
   std::unique_ptr<double[]> cp = get_chol(info);
-
-  if(info != 0L)
-    throw std::runtime_error("sym_band_mat::solve: got info " +
-                             std::to_string(info));
-
   arma::vec out = x;
+
+  if(info != 0L){
+    std::fill(
+      out.begin(), out.end(), std::numeric_limits<double>::quiet_NaN());
+    return out;
+  }
+
   F77_CALL(dpbtrs)(
     &C_U, &dim, &ku, &I_one, cp.get(), &ku1, out.memptr(), &dim, &info);
 
+  return out;
+}
+
+arma::vec sym_band_mat::solve(const arma::vec &x) const {
+  int info;
+  const arma::vec out = sym_band_mat::solve(x, info);
+
   if(info != 0L)
-    throw std::runtime_error("sym_band_mat::solve: dpbtrs returned info " +
+    throw std::runtime_error("sym_band_mat::solve: got info " +
                              std::to_string(info));
 
   return out;
