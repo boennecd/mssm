@@ -288,7 +288,7 @@ Rcpp::List run_Laplace_aprx
     Named("logLik") = result.logLik,
     Named("n_it") = result.n_it,
     Named("code") = result.code,
-    Named("dispersion") = result.disp);
+    Named("disp") = result.disp);
 }
 
 // [[Rcpp::export]]

@@ -11,7 +11,9 @@ mssm_ele_to_check <- c("pf_output", "control", "family")
 
 # elements that we want to test on mssmLaplace object
 mssmLaplace_to_check <- c("control", "family", "F.", "Q", "cfix", "n_it",
-                          "code", "logLik")
+                          "code", "logLik", "disp")
+
+options(digits = 4L)
 
 #####
 # simulate or load data sets to use

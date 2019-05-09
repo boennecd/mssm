@@ -8,6 +8,8 @@ extern "C" {
   void F77_NAME(dpbtrf)
     (const char* uplo, const int* n, const int* kd,
      double* ab, const int* ldab, int* info);
+  void F77_NAME(dpotri)
+    (char *uplo, int *n, double *a, int *lda, int *info);
 }
 
 namespace lapack {
@@ -21,6 +23,11 @@ namespace lapack {
   (const char* uplo, const int* n, const int* kd,
    double* ab, const int* ldab, int* info){
     F77_CALL(::dpbtrf)(uplo, n, kd, ab, ldab, info);
+  }
+
+  void dpotri
+    (char* uplo, int *n, double *a, int *lda, int *info){
+    F77_CALL(::dpotri)(uplo, n, a, lda, info);
   }
 }
 

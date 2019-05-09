@@ -1,0 +1,43 @@
+
+Call:  mssm(fixed = formula(glm_fit), family = Gamma("log"), data = Gasoline, 
+    random = ~1, ti = year, control = mssm_control(N_part = 1000L, 
+        n_threads = 1L, ftol_abs = 1e-08, ftol_abs_inner = 1e-08))
+
+Family is 'Gamma' with link 'log'.
+State vector is assumed to be X_t ~ N(F * X_(t-1), Q).
+
+F is
+            (Intercept)
+(Intercept)       0.979
+
+Q's standard deviations are
+(Intercept) 
+    0.00466 
+
+Dispersion parameter is 0.000291
+
+Fixed coefficients are
+            (Intercept)  factor(country)BELGIUM   factor(country)CANADA 
+               0.611347               -0.015300                0.213983 
+ factor(country)DENMARK   factor(country)FRANCE  factor(country)GERMANY 
+               0.047908               -0.012904               -0.016385 
+  factor(country)GREECE  factor(country)IRELAND    factor(country)ITALY 
+              -0.021885                0.047232               -0.046189 
+   factor(country)JAPAN factor(country)NETHERLA   factor(country)NORWAY 
+               0.006644               -0.000787                0.007688 
+   factor(country)SPAIN   factor(country)SWEDEN factor(country)SWITZERL 
+              -0.117244                0.075128                0.047704 
+  factor(country)TURKEY     factor(country)U.K.   factor(country)U.S.A. 
+              -0.053988                0.017082                0.228004 
+               lincomep                   lrpmg                lcarpcap 
+               0.076836               -0.056470               -0.138837 
+
+Log-likelihood approximation is 399
+1000 particles are used and summary statistics for effective sample sizes are
+  Mean      961.6
+  sd         18.8
+  Min       936.5
+  Max       989.8
+
+Number of parameters           24
+Number of observations        342

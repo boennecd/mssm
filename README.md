@@ -204,7 +204,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   2.118   0.022   0.533
+    ##   1.807   0.039   0.467
 
 ``` r
 # returns the log-likelihood approximation
@@ -212,6 +212,46 @@ logLik(mssm_obj)
 ```
 
     ## 'log Lik.' -5865 (df=11)
+
+``` r
+# also shown by print
+mssm_obj
+```
+
+    ## 
+    ## Call:  mssm(fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
+    ##     random = ~1 + Z, ti = time_idx, control = mssm_control(n_threads = 5L, 
+    ##         N_part = 500L, what = "log_density"))
+    ## 
+    ## Family is 'poisson' with link 'log'.
+    ## State vector is assumed to be X_t ~ N(F * X_(t-1), Q).
+    ## 
+    ## F is
+    ##             (Intercept)   Z
+    ## (Intercept)         0.5 0.0
+    ## Z                   0.1 0.8
+    ## 
+    ## Q's standard deviations are
+    ## (Intercept)           Z 
+    ##         0.5         0.7 
+    ## 
+    ## Q's correlation matrix is (lower triangle is shown)
+    ##   (Intercept)
+    ## Z       0.286
+    ## 
+    ## Fixed coefficients are
+    ## (Intercept)          X1          X2           Z 
+    ##        -1.0         0.2         0.5        -1.0 
+    ## 
+    ## Log-likelihood approximation is -5865
+    ## 500 particles are used and summary statistics for effective sample sizes are
+    ##   Mean      458.4
+    ##   sd         22.1
+    ##   Min       325.7
+    ##   Max       484.8
+    ## 
+    ## Number of parameters           11
+    ## Number of observations       6242
 
 We get a much larger log-likelihood as expected. We can plot the predicted values of state variables from the filter distribution.
 
@@ -316,7 +356,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   2.191   0.042   0.551
+    ##   1.943   0.026   0.481
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -352,13 +392,40 @@ system.time(
     ##  75.221   2.603  16.680
 
 ``` r
-# the function returns an object with the estimated parameters and log-likelihood
-sta$F.
+# the function returns an object with the estimated parameters and  
+# approximation log-likelihood
+sta
 ```
 
-    ##             (Intercept)         Z
-    ## (Intercept)   0.4988631 -0.003391
-    ## Z             0.0004558  0.796224
+    ## 
+    ## Call:  mssm(fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
+    ##     random = ~Z, ti = time_idx, control = mssm_control(n_threads = 5L, 
+    ##         N_part = 200L, what = "gradient"))
+    ## 
+    ## Family is 'poisson' with link 'log'.
+    ## Parameters are estimated with a Laplace approximation.
+    ## State vector is assumed to be X_t ~ N(F * X_(t-1), Q).
+    ## 
+    ## F estimate is
+    ##             (Intercept)        Z
+    ## (Intercept)    0.498863 -0.00339
+    ## Z              0.000456  0.79622
+    ## 
+    ## Q's standard deviations estimates are
+    ## (Intercept)           Z 
+    ##       0.550       0.707 
+    ## 
+    ## Q's correlation matrix estimates is (lower triangle is shown)
+    ##   (Intercept)
+    ## Z       0.322
+    ## 
+    ## Fixed coefficients estimates are
+    ## (Intercept)          X1          X2           Z 
+    ##      -0.911       0.213       0.523      -0.892 
+    ## 
+    ## Log-likelihood approximation is -5863 
+    ## Number of parameters           11
+    ## Number of observations       6242
 
 ``` r
 sta$Q
@@ -367,19 +434,6 @@ sta$Q
     ##             (Intercept)      Z
     ## (Intercept)      0.3024 0.1252
     ## Z                0.1252 0.5001
-
-``` r
-sta$cfix
-```
-
-    ## (Intercept)          X1          X2           Z 
-    ##     -0.9108      0.2134      0.5234     -0.8923
-
-``` r
-logLik(sta) # log-likelihood approximation
-```
-
-    ## 'log Lik.' -5863 (df=11)
 
 ``` r
 # use stochastic gradient descent with averaging
@@ -632,7 +686,7 @@ The `aprx_eps` controls the size of the error. To be precise about what this val
 
 where ![g\_t](https://chart.googleapis.com/chart?cht=tx&chl=g_t "g_t") is conditional distribution ![\\vec y\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20y_t "\vec y_t") given ![\\vec\\beta\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_t "\vec\beta_t"), ![f](https://chart.googleapis.com/chart?cht=tx&chl=f "f") is the conditional distribution of ![\\vec\\beta\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_t "\vec\beta_t") given ![\\vec\\beta\_{t-1}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_%7Bt-1%7D "\vec\beta_{t-1}"), and ![\\mu](https://chart.googleapis.com/chart?cht=tx&chl=%5Cmu "\mu") is the time-invariant distribution of ![\\vec\\beta\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_t "\vec\beta_t"). Let ![w\_t^{(j)}](https://chart.googleapis.com/chart?cht=tx&chl=w_t%5E%7B%28j%29%7D "w_t^{(j)}") be the weight of particle ![j](https://chart.googleapis.com/chart?cht=tx&chl=j "j") at time ![t](https://chart.googleapis.com/chart?cht=tx&chl=t "t") and ![\\vec \\beta\_t^{(j)}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20%5Cbeta_t%5E%7B%28j%29%7D "\vec \beta_t^{(j)}") be the ![j](https://chart.googleapis.com/chart?cht=tx&chl=j "j")th particle at time ![t](https://chart.googleapis.com/chart?cht=tx&chl=t "t"). Then we ensure the error in our evaluation of terms ![w\_{t-1}^{(j)}f(\\vec\\beta\_t^{(i)} \\mid \\vec\\beta\_{t-1}^{(j)})](https://chart.googleapis.com/chart?cht=tx&chl=w_%7Bt-1%7D%5E%7B%28j%29%7Df%28%5Cvec%5Cbeta_t%5E%7B%28i%29%7D%20%5Cmid%20%5Cvec%5Cbeta_%7Bt-1%7D%5E%7B%28j%29%7D%29 "w_{t-1}^{(j)}f(\vec\beta_t^{(i)} \mid \vec\beta_{t-1}^{(j)})") never exceeds
 
-![w\_{t-1} \\frac{u - l}{(u + l)/2}](https://chart.googleapis.com/chart?cht=tx&chl=w_%7Bt-1%7D%20%5Cfrac%7Bu%20-%20l%7D%7B%28u%20%2B%20l%29%2F2%7D "w_{t-1} \frac{u - l}{(u + l)/2}")
+![w\_{t-1}^{(j)} \\frac{u - l}{(u + l)/2}](https://chart.googleapis.com/chart?cht=tx&chl=w_%7Bt-1%7D%5E%7B%28j%29%7D%20%5Cfrac%7Bu%20-%20l%7D%7B%28u%20%2B%20l%29%2F2%7D "w_{t-1}^{(j)} \frac{u - l}{(u + l)/2}")
 
  where ![u](https://chart.googleapis.com/chart?cht=tx&chl=u "u") and ![l](https://chart.googleapis.com/chart?cht=tx&chl=l "l") are respectively an upper and lower bound of ![f(\\vec\\beta\_t^{(i)} \\mid \\vec\\beta\_{t-1}^{(j)})](https://chart.googleapis.com/chart?cht=tx&chl=f%28%5Cvec%5Cbeta_t%5E%7B%28i%29%7D%20%5Cmid%20%5Cvec%5Cbeta_%7Bt-1%7D%5E%7B%28j%29%7D%29 "f(\vec\beta_t^{(i)} \mid \vec\beta_{t-1}^{(j)})"). The question is how big the error is. Thus, we consider the error in the log-likelihood approximation at the true parameters.
 

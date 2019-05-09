@@ -1,5 +1,2 @@
-Test output with bootstrap method
-Add smoothing method
-Better `logLik` method implementation
 Test that method works when there are time points with no observations
 Make better Laplace approximation implementation

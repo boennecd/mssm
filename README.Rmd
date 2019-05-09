@@ -142,6 +142,9 @@ system.time(
 
 # returns the log-likelihood approximation
 logLik(mssm_obj)
+
+# also shown by print
+mssm_obj
 ```
 
 We get a much larger log-likelihood as expected. We can plot the predicted 
@@ -538,11 +541,10 @@ system.time(
 ```
 
 ```{r show_laplace}
-# the function returns an object with the estimated parameters and log-likelihood
-sta$F.
+# the function returns an object with the estimated parameters and  
+# approximation log-likelihood
+sta
 sta$Q
-sta$cfix
-logLik(sta) # log-likelihood approximation
 ```
 
 ```{r sgd, cache = 1, dependson = "laplace"}
@@ -699,7 +701,7 @@ Then we ensure the error in our evaluation of terms
 $w_{t-1}^{(j)}f(\vec\beta_t^{(i)} \mid \vec\beta_{t-1}^{(j)})$ never 
 exceeds
 
-$$w_{t-1} \frac{u - l}{(u + l)/2}$$
+$$w_{t-1}^{(j)} \frac{u - l}{(u + l)/2}$$
 where $u$ and $l$ are respectively an upper and lower bound of 
 $f(\vec\beta_t^{(i)} \mid \vec\beta_{t-1}^{(j)})$. 
 The question is how big the error is. 

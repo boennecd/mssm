@@ -31,7 +31,7 @@ An object of class \code{mssmLaplace} with the following elements
 \item{logLik}{approximate log-likelihood at estimates.}
 \item{n_it}{number of Laplace approximations.}
 \item{code}{returned code from \code{nlopt}.}
-\item{dispersion}{estimated dispersion parameter \code{nlopt}.}
+\item{disp}{estimated dispersion parameter \code{nlopt}.}
 
 Remaining elements are the same as returned by \code{\link{mssm}}.
 }

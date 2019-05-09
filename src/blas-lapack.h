@@ -17,8 +17,6 @@ extern "C" {
       const char* uplo, const int* n,
       const int* nrhs, const double* a, const int* lda,
       double* b, const int* ldb, int* info);
-  void F77_NAME(dpotri)(
-      char* uplo, int* n, double* a, int* lda, int* info);
   void F77_NAME(dger)(
       const int *m, const int *n, const double *alpha,
       const double *x, const int *incx,
@@ -60,6 +58,7 @@ namespace lapack {
     (const int*, const int*, double*, const int*, int*, int*);
   void dpbtrf
     (const char*, const int*, const int*, double*, const int*, int*);
+  void dpotri(char*, int*, double*, int*, int*);
 }
 
 #endif

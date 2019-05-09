@@ -10,7 +10,14 @@ Authors@R: c(
          role = c("cph")),
   person("Boost developers", 
          role = c("cph")))
-Description: TODO: what does this package do?
+Description: The package provides methods to perform parameter estimation and 
+  make analysis of a multivariate observed time series which depepends on a 
+  latent state variable. All methods scale well in the dimension 
+  of the observed outcomes. The package contains an implementation of a Laplace 
+  approximation, particle filters like suggested by Lin et al. (2005)
+  <doi:10.1198/016214505000000349>, and the gradient and observed information
+  matrix approximation suggested by Poyiadjis et al. (2011) 
+  <doi:10.1093/biomet/asq062>.
 License: GPL-2
 Encoding: UTF-8
 LazyData: true
@@ -30,4 +37,5 @@ RoxygenNote: 6.1.1
 SystemRequirements: C++11
 Suggests: 
     testthat,
-    microbenchmark
+    microbenchmark, 
+    Ecdat

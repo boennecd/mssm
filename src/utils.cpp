@@ -132,7 +132,7 @@ const arma::mat& chol_decomp::get_inv() const
     inv_mat = chol_;
     int n = chol_.n_cols, info;
     char upper = 'U';
-    F77_CALL(dpotri)(&upper, &n, inv_mat.memptr(), &n, &info);
+    lapack::dpotri(&upper, &n, inv_mat.memptr(), &n, &info);
     if(info != 0)
       throw std::runtime_error("'dpotri' failed with info " +
                                std::to_string(info));

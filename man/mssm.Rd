@@ -57,6 +57,51 @@ Returns an object with a function that can be used to run a particle filter,
 a function to perform parameter estimation using a Laplace approximation,
 and a function to perform smoothing of particle weights.
 }
+\examples{
+\dontrun{
+# load data and fit glm model to get starting values
+data("Gasoline", package = "Ecdat")
+glm_fit <- glm(lgaspcar ~ factor(country) + lincomep + lrpmg + lcarpcap,
+               Gamma("log"), Gasoline)
+
+# get object to perform estimation
+library(mssm)
+ll_func <- mssm(
+fixed = formula(glm_fit), random = ~ 1, family = Gamma("log"),
+  data = Gasoline, ti = year, control = mssm_control(
+    N_part = 1000L, n_threads = 2L, ftol_abs = 1e-8,
+    ftol_abs_inner = 1e-8))
+ll_func
+
+# fit model with time-varying intercept with Laplace approximation
+disp <- summary(glm_fit)$dispersion
+laplace <- ll_func$Laplace(
+  cfix = coef(glm_fit), disp = disp, F. = diag(.5, 1), Q = diag(1))
+laplace
+
+# compare w/ glm
+logLik(laplace)
+logLik(glm_fit)
+rbind(laplace = laplace$cfix, glm = coef(glm_fit))
+
+# run particle filter
+pf <- ll_func$pf_filter(
+  cfix = laplace$cfix, disp = laplace$disp, F. = laplace$F., Q = laplace$Q)
+pf
+
+# compare approximate log-likelihoods
+logLik(pf)
+logLik(laplace)
+
+# predicted values from filtering (does not appear random...)
+plot(pf)
+
+# plot predicted values from smoothing distribution
+pf <- ll_func$smoother(pf)
+sm <- plot(pf, which_weights = "smooth")
+}
+
+}
 \seealso{
 The README of the package contains examples of how to use this function.
 See \url{https://github.com/boennecd/mssm}.
