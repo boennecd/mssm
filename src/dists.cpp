@@ -307,6 +307,11 @@ std::array<double, 3> binomial_logit::log_density_state_inner
   return out;
 }
 
+/* dput(log(.Machine$double.eps)) */
+static constexpr double
+      eps = 2.22044604925031e-16,
+  log_eps = -36.0436533891172;
+
 std::array<double, 3> binomial_cloglog::log_density_state_inner
   (const double y, const double eta, const comp_out what, const double w) const
 {
@@ -315,11 +320,9 @@ std::array<double, 3> binomial_cloglog::log_density_state_inner
   std::array<double, 3> out;
   static constexpr double
     /* log(-log1p(-.Machine$double.eps)) ~ log(.Machine$double.eps)  */
-    eta_lower =
-      log(std::numeric_limits<double>::epsilon()),
-    /* log(-log  (.Machine$double.eps)) */
-    eta_upper =
-      log(-log  (std::numeric_limits<double>::epsilon()));
+    eta_lower = log_eps,
+    /* dput(log(-log  (.Machine$double.eps))) */
+    eta_upper = 3.58473079799976;
   const double eta_use = std::max(std::min(eta, eta_upper), eta_lower);
   const double eta_exp = exp(eta_use);
   const double mu = -std::expm1(-eta_exp);
@@ -354,7 +357,8 @@ std::array<double, 3> binomial_probit::log_density_state_inner
 
   out[0L] = binom_pdf(y, w, mu);
   if(what == gradient or what == Hessian){
-    static constexpr double norm_const = 1. / sqrt(2. * M_PI);
+    /* dput(1 / sqrt(2 * pi)) */
+    static constexpr double norm_const = 0.398942280401433;
     const double
       dmu_deta = norm_const * exp(-eta_use * eta_use / 2.),
       denom = mu * (1 - mu),
@@ -375,8 +379,9 @@ std::array<double, 3> poisson_log::log_density_state_inner
   gaurd_new_comp_out(what);
 
   constexpr double
-    lambda_min = std::numeric_limits<double>::epsilon(),
-    eta_min = std::log(lambda_min);
+    lambda_min = eps,
+    /* dput(log(.Machine$double.eps)) */
+    eta_min = log_eps;
   const bool is_small = eta < eta_min;
   const double
     eta_use = is_small ? eta_min    : eta,
@@ -441,8 +446,9 @@ std::array<double, 3> Gamma_log::log_density_state_inner
   gaurd_new_comp_out(what);
 
   constexpr double
-    exp_eat_min = std::numeric_limits<double>::epsilon(),
-        eta_min = std::log(exp_eat_min);
+    /*  dput(.Machine$double.eps) */
+    exp_eat_min = eps,
+        eta_min = log_eps;
 
   const bool is_small = eta < eta_min;
 
@@ -470,8 +476,9 @@ std::array<double, 6> Gamma_log::log_density_state_inner_w_disp
   gaurd_new_comp_out(what);
 
   constexpr double
-    exp_eat_min = std::numeric_limits<double>::epsilon(),
-      eta_min = std::log(exp_eat_min);
+    /*  dput(.Machine$double.eps) */
+    exp_eat_min = eps,
+        eta_min = log_eps;
 
   const bool is_small = eta < eta_min;
 
@@ -522,12 +529,15 @@ void gaussian_identity::set_disp() const {
   disp = scalar_pos_dist(disp_in);
 }
 
+/* dput(.5 * log(2 * pi)) */
+static constexpr double half_log_2_pi = 0.918938533204673;
+
 std::array<double, 3> gaussian_identity::log_density_state_inner
   (const double y, const double eta, const comp_out what, const double w) const
 {
   gaurd_new_comp_out(what);
 
-  static constexpr double norm_term = -.5 * std::log(2. * M_PI);
+  static constexpr double norm_term = -half_log_2_pi;
   const double var = disp(0L),
     log_var = disp(1L),
     diff = y - eta;
@@ -549,7 +559,7 @@ std::array<double, 6> gaussian_identity::log_density_state_inner_w_disp
 {
   gaurd_new_comp_out(what);
 
-  static constexpr double norm_term = -.5 * std::log(2. * M_PI);
+  static constexpr double norm_term = -half_log_2_pi;
   const double var = disp(0L),
     log_var = disp(1L),
     diff = y - eta, diff_sq = diff * diff;
@@ -581,8 +591,8 @@ std::array<double, 3> gaussian_log::log_density_state_inner
 {
   gaurd_new_comp_out(what);
 
-  static constexpr double norm_term = -.5 * std::log(2. * M_PI),
-    eta_min = log(std::numeric_limits<double>::epsilon());
+  static constexpr double norm_term = -half_log_2_pi,
+    eta_min = log_eps;
 
   const double var = disp(0L),
     log_var = disp(1L),
@@ -607,8 +617,8 @@ std::array<double, 6> gaussian_log::log_density_state_inner_w_disp
 {
   gaurd_new_comp_out(what);
 
-  static constexpr double norm_term = -.5 * std::log(2. * M_PI),
-    eta_min = log(std::numeric_limits<double>::epsilon());
+  static constexpr double norm_term = -half_log_2_pi,
+    eta_min = log_eps;
 
   const double var = disp(0L),
     log_var = disp(1L),
@@ -643,7 +653,7 @@ std::array<double, 3> gaussian_inverse::log_density_state_inner
 {
   gaurd_new_comp_out(what);
 
-  static constexpr double norm_term = -.5 * std::log(2. * M_PI);
+  static constexpr double norm_term = -half_log_2_pi;
 
   const double var = disp(0L),
     log_var = disp(1L),
@@ -667,7 +677,7 @@ std::array<double, 6> gaussian_inverse::log_density_state_inner_w_disp
 {
   gaurd_new_comp_out(what);
 
-  static constexpr double norm_term = -.5 * std::log(2. * M_PI);
+  static constexpr double norm_term = -half_log_2_pi;
 
   const double var = disp(0L),
     log_var = disp(1L),

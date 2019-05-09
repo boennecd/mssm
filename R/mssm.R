@@ -47,7 +47,7 @@
 #'
 #' @examples
 #' \dontrun{
-#' # load data and fit glm model to get starting values
+#' # load data and fit glm to get starting values
 #' data("Gasoline", package = "Ecdat")
 #' glm_fit <- glm(lgaspcar ~ factor(country) + lincomep + lrpmg + lcarpcap,
 #'                Gamma("log"), Gasoline)
@@ -386,7 +386,7 @@ NULL
 #' \item{logLik}{approximate log-likelihood at estimates.}
 #' \item{n_it}{number of Laplace approximations.}
 #' \item{code}{returned code from \code{nlopt}.}
-#' \item{disp}{estimated dispersion parameter \code{nlopt}.}
+#' \item{disp}{estimated dispersion parameter.}
 #'
 #' Remaining elements are the same as returned by \code{\link{mssm}}.
 #'
@@ -426,9 +426,9 @@ NULL
 #' @param ftol_rel positive numeric scalar with convergence threshold passed
 #' to \code{\link{nloptr}} if the mode approximation method is used for the
 #' proposal distribution.
-#' @param nu degrees of freedom to use for the multivariate \eqn{t}-distribution
-#' used as the proposal distribution. A multivariate normal distribution is
-#' used if \code{nu <= 2}.
+#' @param nu degrees of freedom to use for the multivariate
+#' \eqn{t}-distribution that is used as the proposal distribution. A
+#' multivariate normal distribution is used if \code{nu <= 2}.
 #' @param what character indicating what to approximate. \code{"log_density"}
 #' implies only the log-likelihood. \code{"gradient"} also yields a gradient
 #' approximation. \code{"Hessian"} also yields an approximation of the
@@ -443,7 +443,7 @@ NULL
 #' method.
 #' @param seed integer with seed to pass to \code{\link{set.seed}}.
 #' @param KD_N_max integer greater than zero with the maximum number of
-#' particles to be in each leaf of the two k-d trees if the dual k-d trees
+#' particles to include in each leaf of the two k-d trees if the dual k-d trees
 #' method is used.
 #' @param aprx_eps positive numeric scalar with the maximum error if the
 #' dual k-d tree method is used.

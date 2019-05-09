@@ -1,6 +1,7 @@
 #ifndef MSSM_UTILS_H
 #define MSSM_UTILS_H
 #include "arma.h"
+#include <memory>
 #include <mutex>
 #include <type_traits>
 

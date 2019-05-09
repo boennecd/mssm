@@ -10,8 +10,8 @@ Authors@R: c(
          role = c("cph")),
   person("Boost developers", 
          role = c("cph")))
-Description: The package provides methods to perform parameter estimation and 
-  make analysis of a multivariate observed time series which depepends on a 
+Description: Provides methods to perform parameter estimation and 
+  make analysis of a multivariate observed time series which depends on a 
   latent state variable. All methods scale well in the dimension 
   of the observed outcomes. The package contains an implementation of a Laplace 
   approximation, particle filters like suggested by Lin et al. (2005)

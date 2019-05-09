@@ -59,7 +59,7 @@ and a function to perform smoothing of particle weights.
 }
 \examples{
 \dontrun{
-# load data and fit glm model to get starting values
+# load data and fit glm to get starting values
 data("Gasoline", package = "Ecdat")
 glm_fit <- glm(lgaspcar ~ factor(country) + lincomep + lrpmg + lcarpcap,
                Gamma("log"), Gasoline)

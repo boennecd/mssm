@@ -5,10 +5,10 @@
 \title{Auxiliary for Controlling Multivariate State Space Model Fitting}
 \usage{
 mssm_control(N_part = 1000L, n_threads = 1L, covar_fac = 1.2,
-  ftol_rel = 0.000001, nu = 8, what = "log_density",
+  ftol_rel = 1e-06, nu = 8, what = "log_density",
   which_sampler = "mode_aprx", which_ll_cp = "no_aprx", seed = 1L,
-  KD_N_max = 10L, aprx_eps = 0.001, ftol_abs = 0.0001,
-  ftol_abs_inner = 0.0001, la_ftol_rel = -1, la_ftol_rel_inner = -1,
+  KD_N_max = 10L, aprx_eps = 0.001, ftol_abs = 1e-04,
+  ftol_abs_inner = 1e-04, la_ftol_rel = -1, la_ftol_rel_inner = -1,
   maxeval = 10000L, maxeval_inner = 10000L)
 }
 \arguments{
@@ -23,9 +23,9 @@ matrix in the proposal distribution.}
 to \code{\link{nloptr}} if the mode approximation method is used for the
 proposal distribution.}
 
-\item{nu}{degrees of freedom to use for the multivariate \eqn{t}-distribution
-used as the proposal distribution. A multivariate normal distribution is
-used if \code{nu <= 2}.}
+\item{nu}{degrees of freedom to use for the multivariate
+\eqn{t}-distribution that is used as the proposal distribution. A
+multivariate normal distribution is used if \code{nu <= 2}.}
 
 \item{what}{character indicating what to approximate. \code{"log_density"}
 implies only the log-likelihood. \code{"gradient"} also yields a gradient
@@ -45,7 +45,7 @@ method.}
 \item{seed}{integer with seed to pass to \code{\link{set.seed}}.}
 
 \item{KD_N_max}{integer greater than zero with the maximum number of
-particles to be in each leaf of the two k-d trees if the dual k-d trees
+particles to include in each leaf of the two k-d trees if the dual k-d trees
 method is used.}
 
 \item{aprx_eps}{positive numeric scalar with the maximum error if the
