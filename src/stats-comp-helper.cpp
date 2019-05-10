@@ -73,7 +73,9 @@ using namespace std::placeholders;
  */
 
 class comp_stat_util {
+public:
   const comp_out what;
+private:
 
   struct dist_util {
     const comp_out what;
@@ -285,7 +287,10 @@ inline void set_ll_state_only_
 
   for(arma::uword i = i_start; i < i_end; ++i, ++log_w){
     *log_w += obs_dist.log_density_state(states.unsafe_col(i));
-    util.state_only(states.unsafe_col(i), stats.colptr(i));
+    util.state_only(
+      states.unsafe_col(i),
+      /* avoid UBSAN error */
+      (util.what == log_densty) ? nullptr : stats.colptr(i));
   }
 }
 
@@ -392,13 +397,16 @@ inline void set_trans_ll_n_comp_stats_no_aprx
   arma::vec new_log_ws(n_old);
   for(arma::uword i = start; i < end; ++i){
     const double *d_new = new_cloud.particles.colptr(i);
-    double *stats_new = new_cloud.stats.colptr(i),
+    double *stats_new =
+      (util.what == log_densty) ? nullptr : new_cloud.stats.colptr(i),
       *n_w = new_log_ws.begin(),
       max_w = -std::numeric_limits<double>::infinity();
 
     for(arma::uword j = 0; j < n_old; ++j, ++n_w){
-      const double *d_old = old_cloud.particles.colptr(j),
-        *stats_old = old_cloud.stats.colptr(j);
+      const double
+        *d_old = old_cloud.particles.colptr(j),
+        *stats_old =
+        (util.what == log_densty) ? nullptr : old_cloud.stats.colptr(j);
 
       *n_w = trans_func(
         d_old, d_new, dim_particle, old_cloud.ws_normalized(j));
@@ -445,7 +453,7 @@ void stats_comp_helper_no_aprx::set_ll_state_state
     }
 
     /* normalize statistics */
-    {
+    if(new_cloud.stats.n_elem > 0L){
       arma::vec norm_conts = arma::exp(new_cloud.ws);
       new_cloud.stats.each_row() /= norm_conts.t();
     }
@@ -496,7 +504,7 @@ void stats_comp_helper_aprx_KD::set_ll_state_state
     })();
 
     /* normalize statistics */
-    {
+    if(new_cloud.stats.n_elem > 0L){
       arma::vec norm_conts = arma::exp(ws);
       new_cloud.stats.each_row() /= norm_conts.t();
     }

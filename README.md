@@ -204,7 +204,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   1.807   0.039   0.467
+    ##   2.045   0.031   0.530
 
 ``` r
 # returns the log-likelihood approximation
@@ -356,7 +356,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   1.943   0.026   0.481
+    ##   2.003   0.011   0.502
 
 ![](./README-fig/comp_boot-1.png)
 
@@ -389,7 +389,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##  75.221   2.603  16.680
+    ##   4.811   0.215   1.160
 
 ``` r
 # the function returns an object with the estimated parameters and  
@@ -407,13 +407,13 @@ sta
     ## State vector is assumed to be X_t ~ N(F * X_(t-1), Q).
     ## 
     ## F estimate is
-    ##             (Intercept)        Z
-    ## (Intercept)    0.498863 -0.00339
-    ## Z              0.000456  0.79622
+    ##             (Intercept)       Z
+    ## (Intercept)      0.4689 0.00066
+    ## Z               -0.0239 0.79456
     ## 
     ## Q's standard deviations estimates are
     ## (Intercept)           Z 
-    ##       0.550       0.707 
+    ##       0.549       0.712 
     ## 
     ## Q's correlation matrix estimates is (lower triangle is shown)
     ##   (Intercept)
@@ -421,7 +421,7 @@ sta
     ## 
     ## Fixed coefficients estimates are
     ## (Intercept)          X1          X2           Z 
-    ##      -0.911       0.213       0.523      -0.892 
+    ##      -0.910       0.213       0.523      -0.891 
     ## 
     ## Log-likelihood approximation is -5863 
     ## Number of parameters           11
@@ -432,8 +432,8 @@ sta$Q
 ```
 
     ##             (Intercept)      Z
-    ## (Intercept)      0.3024 0.1252
-    ## Z                0.1252 0.5001
+    ## (Intercept)      0.3018 0.1260
+    ## Z                0.1260 0.5069
 
 ``` r
 # use stochastic gradient descent with averaging
@@ -445,7 +445,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 211.941   1.248  49.042
+    ## 202.049   1.068  46.862
 
 ``` r
 # use Adam algorithm instead
@@ -457,7 +457,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 219.571   1.317  50.747
+    ## 205.935   1.284  47.799
 
 A plot of the approximate log-likelihoods at each iteration is shown below along with the final estimates.
 
@@ -465,7 +465,7 @@ A plot of the approximate log-likelihoods at each iteration is shown below along
 print(tail(res$logLik), digits = 6) # final log-likelihood approximations
 ```
 
-    ## [1] -5862.02 -5861.98 -5861.54 -5862.09 -5862.73 -5860.91
+    ## [1] -5862.05 -5861.99 -5861.53 -5862.08 -5862.73 -5860.91
 
 ``` r
 par(mar = c(5, 4, 1, 1))
@@ -486,29 +486,29 @@ res$F.
 ```
 
     ##             (Intercept)         Z
-    ## (Intercept)    0.497548 -0.002534
-    ## Z              0.001475  0.798505
+    ## (Intercept)    0.492513 -0.001837
+    ## Z             -0.007831  0.799483
 
 ``` r
 res$Q
 ```
 
     ##             (Intercept)      Z
-    ## (Intercept)      0.3039 0.1247
-    ## Z                0.1247 0.4982
+    ## (Intercept)      0.3054 0.1265
+    ## Z                0.1265 0.5001
 
 ``` r
 res$cfix
 ```
 
-    ## [1] -0.9796  0.2139  0.5242 -0.8886
+    ## [1] -0.9800  0.2139  0.5242 -0.8881
 
 ``` r
 # compare with output from Adam algorithm
 print(tail(resa$logLik), digits = 6) # final log-likelihood approximations
 ```
 
-    ## [1] -5862.04 -5862.01 -5861.57 -5862.11 -5862.78 -5860.94
+    ## [1] -5862.03 -5862.00 -5861.57 -5862.12 -5862.78 -5860.94
 
 ``` r
 plot(resa$logLik, type = "l", ylab = "log-likelihood approximation")
@@ -527,22 +527,22 @@ resa$F.
 ```
 
     ##             (Intercept)         Z
-    ## (Intercept)    0.500776 -0.001617
-    ## Z              0.005663  0.795618
+    ## (Intercept)    0.499803 -0.002039
+    ## Z              0.006496  0.795101
 
 ``` r
 resa$Q
 ```
 
     ##             (Intercept)      Z
-    ## (Intercept)      0.3046 0.1281
-    ## Z                0.1281 0.4971
+    ## (Intercept)      0.3061 0.1290
+    ## Z                0.1290 0.4999
 
 ``` r
 resa$cfix
 ```
 
-    ## [1] -0.9782  0.2141  0.5218 -0.8868
+    ## [1] -0.9780  0.2138  0.5218 -0.8869
 
 We may want to use more particles towards the end when we estimate the parameters. To do, we use the approximation described in the next section at the final estimates that we arrived at before.
 
@@ -561,7 +561,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 2901.22   23.83  641.93
+    ## 2915.68   25.08  644.63
 
 ``` r
 plot(res_final$logLik, type = "l", ylab = "log-likelihood approximation")
@@ -580,22 +580,22 @@ res_final$F.
 ```
 
     ##             (Intercept)         Z
-    ## (Intercept)    0.501085 -0.002807
-    ## Z              0.005801  0.800062
+    ## (Intercept)    0.501807 -0.002509
+    ## Z              0.005627  0.800132
 
 ``` r
 res_final$Q
 ```
 
     ##             (Intercept)      Z
-    ## (Intercept)      0.3042 0.1236
-    ## Z                0.1236 0.4956
+    ## (Intercept)      0.3038 0.1238
+    ## Z                0.1238 0.4951
 
 ``` r
 res_final$cfix
 ```
 
-    ## [1] -0.9762  0.2139  0.5249 -0.9031
+    ## [1] -0.9761  0.2141  0.5249 -0.9032
 
 ### Faster Approximation
 
@@ -631,12 +631,12 @@ local({
 ```
 
     ## Unit: milliseconds
-    ##  expr     min     lq    mean  median      uq    max neval
-    ##   100   58.23   60.1   62.03   61.97   63.94   65.9     3
-    ##   200  128.79  131.3  134.00  133.87  136.60  139.3     3
-    ##   400  336.51  346.6  351.59  356.70  359.13  361.6     3
-    ##   800  996.40  999.0 1018.52 1001.67 1029.57 1057.5     3
-    ##  1600 3354.21 3403.4 3438.20 3452.60 3480.19 3507.8     3
+    ##  expr     min      lq   mean median      uq     max neval
+    ##   100   60.02   60.51   60.7   61.0   61.04   61.09     3
+    ##   200  122.63  129.62  134.3  136.6  140.08  143.56     3
+    ##   400  349.90  353.72  356.7  357.5  360.06  362.59     3
+    ##   800  982.03  986.71  988.8  991.4  992.13  992.87     3
+    ##  1600 3379.63 3439.02 3520.2 3498.4 3590.46 3682.51     3
 
 A solution is to use the dual k-d tree method I cover later. The computational complexity is ![\\mathcal{O}(N \\log N)](https://chart.googleapis.com/chart?cht=tx&chl=%5Cmathcal%7BO%7D%28N%20%5Clog%20N%29 "\mathcal{O}(N \log N)") for this method which is somewhat indicated by the run times shown below.
 
@@ -673,12 +673,12 @@ local({
 
     ## Unit: milliseconds
     ##   expr    min     lq   mean median     uq    max neval
-    ##    100  106.5  107.8  112.4  109.1  115.3  121.6     3
-    ##    200  197.6  198.9  202.3  200.2  204.6  209.1     3
-    ##    400  413.7  418.1  421.2  422.6  424.9  427.3     3
-    ##    800  808.1  808.8  814.6  809.4  817.9  826.3     3
-    ##   1600 1505.2 1517.0 1527.1 1528.8 1538.0 1547.3     3
-    ##  12800 8021.6 8031.6 8065.5 8041.7 8087.5 8133.4     3
+    ##    100  109.7  111.5  115.0  113.3  117.6  122.0     3
+    ##    200  220.8  228.1  232.6  235.5  238.5  241.6     3
+    ##    400  417.7  428.8  454.7  439.8  473.2  506.6     3
+    ##    800  832.8  837.9  865.5  842.9  881.8  920.7     3
+    ##   1600 1529.8 1543.7 1556.2 1557.6 1569.5 1581.4     3
+    ##  12800 8097.3 8151.4 8229.5 8205.6 8295.6 8385.7     3
 
 The `aprx_eps` controls the size of the error. To be precise about what this value does then we need to some notation for the complete likelihood (the likelihood where we observe ![\\vec\\beta\_1,\\dots,\\vec\\beta\_T](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%5Cbeta_1%2C%5Cdots%2C%5Cvec%5Cbeta_T "\vec\beta_1,\dots,\vec\beta_T")s). This is
 
@@ -818,7 +818,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 333.623   1.195  72.409
+    ##  343.39    1.27   74.55
 
 We define a function below to get the approximate gradient and approximate observed information matrix from the returned object. Then we compare the output to the GLM we estimated and to the true parameters.
 
@@ -870,17 +870,17 @@ out$grad
 ```
 
     ##               (Intercept)                        X1 
-    ##                    0.1936                   -0.2370 
+    ##                   0.20108                  -0.51308 
     ##                        X2                         Z 
-    ##                   -0.3557                   -0.3838 
+    ##                  -0.36470                  -0.38839 
     ## F:(Intercept).(Intercept)           F:Z.(Intercept) 
-    ##                    0.2591                   -0.3950 
+    ##                   0.06072                  -0.34830 
     ##           F:(Intercept).Z                     F:Z.Z 
-    ##                    0.9044                   -0.4166 
+    ##                   0.35560                  -0.22239 
     ## Q:(Intercept).(Intercept)           Q:Z.(Intercept) 
-    ##                   -0.1026                   -0.6147 
+    ##                   0.34194                  -1.26208 
     ##                     Q:Z.Z 
-    ##                    0.5177
+    ##                   0.79162
 
 ``` r
 # approximate standard errors
@@ -888,17 +888,17 @@ out$grad
 ```
 
     ##               (Intercept)                        X1 
-    ##                   0.04328                   0.02815 
+    ##                   0.04333                   0.02815 
     ##                        X2                         Z 
-    ##                   0.02920                   0.08717 
+    ##                   0.02920                   0.08723 
     ## F:(Intercept).(Intercept)           F:Z.(Intercept) 
-    ##                   0.06737                   0.09058 
+    ##                   0.06734                   0.09055 
     ##           F:(Intercept).Z                     F:Z.Z 
-    ##                   0.03283                   0.04163 
+    ##                   0.03282                   0.04162 
     ## Q:(Intercept).(Intercept)           Q:Z.(Intercept) 
-    ##                   0.03624                   0.03950 
+    ##                   0.03619                   0.03945 
     ##                     Q:Z.Z 
-    ##                   0.06988
+    ##                   0.06975
 
 ``` r
 # look at output for parameters in the observational equation. First, compare 
@@ -921,8 +921,8 @@ rbind(
     ##                (Intercept)      X1     X2        Z
     ## true              -1.00000 0.20000 0.5000 -1.00000
     ## glm               -0.55576 0.20237 0.5160 -0.91216
-    ## mssm              -0.97618 0.21392 0.5249 -0.90313
-    ## standard error     0.04328 0.02815 0.0292  0.08717
+    ## mssm              -0.97612 0.21414 0.5249 -0.90322
+    ## standard error     0.04333 0.02815 0.0292  0.08723
 
 ``` r
 # next look at parameters in state equation. First four are for F.
@@ -934,12 +934,12 @@ rbind(
 
     ##                F:(Intercept).(Intercept) F:Z.(Intercept) F:(Intercept).Z
     ## true                             0.50000        0.100000        0.000000
-    ## mssm                             0.50109        0.005801       -0.002807
-    ## standard error                   0.06737        0.090585        0.032830
+    ## mssm                             0.50181        0.005627       -0.002509
+    ## standard error                   0.06734        0.090545        0.032820
     ##                  F:Z.Z
     ## true           0.80000
-    ## mssm           0.80006
-    ## standard error 0.04163
+    ## mssm           0.80013
+    ## standard error 0.04162
 
 ``` r
 # next three are w.r.t. the lower diagonal part of Q
@@ -950,9 +950,9 @@ rbind(
 ```
 
     ##                Q:(Intercept).(Intercept) Q:Z.(Intercept)   Q:Z.Z
-    ## true                             0.25000          0.1000 0.49000
-    ## mssm                             0.30416          0.1236 0.49564
-    ## standard error                   0.03624          0.0395 0.06988
+    ## true                             0.25000         0.10000 0.49000
+    ## mssm                             0.30377         0.12384 0.49506
+    ## standard error                   0.03619         0.03945 0.06975
 
 Supported Families
 ------------------
@@ -1048,11 +1048,11 @@ microbenchmark::microbenchmark(
 ```
 
     ## Unit: milliseconds
-    ##         expr     min      lq    mean  median      uq     max neval
-    ##  dual tree 1  104.16  105.99  114.76  108.60  112.63  154.23    10
-    ##  dual tree 4   39.17   39.97   41.85   41.39   42.11   49.58    10
-    ##      naive 1 3264.48 3335.19 3634.28 3410.87 3510.42 5631.76    10
-    ##      naive 4  915.44  983.84 1108.99 1018.44 1280.91 1541.58    10
+    ##         expr    min      lq    mean  median      uq    max neval
+    ##  dual tree 1  105.7  115.80  121.44  118.00  124.04  156.9    10
+    ##  dual tree 4   41.1   47.55   51.64   50.42   55.37   66.0    10
+    ##      naive 1 3347.8 3426.92 3536.83 3495.70 3612.94 3851.4    10
+    ##      naive 4 1192.5 1237.17 1331.74 1295.51 1369.08 1574.0    10
 
 ``` r
 # The functions return the un-normalized log weights. We first compare
@@ -1133,20 +1133,20 @@ meds
 ```
 
     ##          method
-    ## N         Dual-tree     Naive Dual-tree 1
-    ##   384      0.001400  0.001237    0.003377
-    ##   768      0.002648  0.002554    0.006466
-    ##   1536     0.004468  0.009398    0.011401
-    ##   3072     0.008605  0.036123    0.021883
-    ##   6144     0.018782  0.157725    0.045535
-    ##   12288    0.038410  0.625686    0.090218
-    ##   24576    0.060695  2.592649    0.165799
-    ##   49152    0.113861 10.530529    0.317075
-    ##   98304    0.222563        NA          NA
-    ##   196608   0.460327        NA          NA
-    ##   393216   0.991877        NA          NA
-    ##   786432   1.855886        NA          NA
-    ##   1572864  3.863262        NA          NA
+    ## N         Dual-tree      Naive Dual-tree 1
+    ##   384      0.001317  0.0007598    0.003699
+    ##   768      0.002577  0.0026710    0.006728
+    ##   1536     0.004437  0.0105199    0.012611
+    ##   3072     0.011184  0.0490589    0.030740
+    ##   6144     0.022194  0.2009249    0.049122
+    ##   12288    0.043600  0.7678893    0.092875
+    ##   24576    0.072676  2.7654586    0.169660
+    ##   49152    0.113088 10.8754836    0.324493
+    ##   98304    0.236804         NA          NA
+    ##   196608   0.481461         NA          NA
+    ##   393216   1.131333         NA          NA
+    ##   786432   2.094602         NA          NA
+    ##   1572864  4.232296         NA          NA
 
 ``` r
 par(mar = c(5, 4, 1, 1))
