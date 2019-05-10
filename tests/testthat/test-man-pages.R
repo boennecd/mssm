@@ -2,6 +2,7 @@ context("Testing manual page results")
 
 test_that("manual page for 'mssm' yields the same output", {
   skip_if_not_installed("Ecdat")
+  skip_on_cran()
 
   # load data and fit glm model to get starting values
   data("Gasoline", package = "Ecdat")

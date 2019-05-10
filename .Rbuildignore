@@ -1,8 +1,13 @@
 ^README\.Rmd$
-^README-*
+^README-.*
+^README_cache.*
+^README.bib$
+^TODO$
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^\.travis\.yml$
 render_toc\.R
 ^tests/testthat/local-tests-res/*
 ^tests/.test-script.R$
+.*Rplots.pdf$
+^cran-comments.md$
