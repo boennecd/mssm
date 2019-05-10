@@ -12,7 +12,7 @@ test_that("'FSKA' gives the same", {
   expect_known_value(exact, "FSKA-old-res-small-eps-exact.RDS")
 
   o1 <- FSKA(X = X, ws = ws, Y = X, N_min = 10L, eps = 1e-3,
-                    n_threads = 2L)
+                    n_threads = 1L)
   # all.equal(o1, exact)
   # o1 <- o1 / sum(o1)
   # exact <- exact / sum(exact)
@@ -25,7 +25,7 @@ test_that("'FSKA' gives the same", {
   expect_equal(o1, o2)
 
   o3 <- FSKA(X = X, ws = ws, Y = X, N_min = 10L, eps = 1e-12,
-                    n_threads = 2L)
+                    n_threads = 1L)
   expect_equal(o3, exact)
 })
 

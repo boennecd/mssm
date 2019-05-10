@@ -205,53 +205,109 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE, n_threads){
 }
 
 test_that(
-  "get the same with 'poisson_log'",
-  eval(get_test_expr(
-    poisson_log, "poisson-log", poisson(), alway_hess = TRUE,
-    n_threads = 1L)))
+  "get the same with 'poisson_log'", {
+    eval(get_test_expr(
+      poisson_log, "poisson-log", poisson(), alway_hess = TRUE,
+      n_threads = 1L))
+
+    skip_on_cran()
+    eval(get_test_expr(
+      poisson_log, "poisson-log", poisson(), alway_hess = TRUE,
+      n_threads = 4L))
+  })
 
 test_that(
-  "get the same with 'poisson_sqrt'",
-  eval(get_test_expr(poisson_sqrt, "poisson-sqrt", poisson("sqrt"),
-                     n_threads = 1L)))
+  "get the same with 'poisson_sqrt'", {
+
+    eval(get_test_expr(poisson_sqrt, "poisson-sqrt", poisson("sqrt"),
+                       n_threads = 1L))
+
+    skip_on_cran()
+    eval(get_test_expr(poisson_sqrt, "poisson-sqrt", poisson("sqrt"),
+                       n_threads = 4L))
+  })
 
 test_that(
-  "get the same with 'binomial_logit'",
-  eval(get_test_expr(binomial_logit, "binomial-logit", binomial(),
-                     n_threads = 1L)))
+  "get the same with 'binomial_logit'", {
+
+    eval(get_test_expr(binomial_logit, "binomial-logit", binomial(),
+                       n_threads = 1L))
+
+    skip_on_cran()
+    eval(get_test_expr(binomial_logit, "binomial-logit", binomial(),
+                       n_threads = 4L))
+  })
 
 test_that(
-  "get the same with 'binomial_cloglog'",
-  eval(get_test_expr(
-    binomial_cloglog, "binomial-cloglog", binomial("cloglog"),
-    n_threads = 1L)))
+  "get the same with 'binomial_cloglog'", {
+
+    eval(get_test_expr(
+      binomial_cloglog, "binomial-cloglog", binomial("cloglog"),
+      n_threads = 1L))
+
+    skip_on_cran()
+    eval(get_test_expr(
+      binomial_cloglog, "binomial-cloglog", binomial("cloglog"),
+      n_threads = 4L))
+  })
 
 test_that(
-  "get the same with 'binomial_probit'",
-  eval(get_test_expr(
-    binomial_probit, "binomial-probit", binomial("probit"),
-    n_threads = 1L)))
+  "get the same with 'binomial_probit'", {
+
+    eval(get_test_expr(
+      binomial_probit, "binomial-probit", binomial("probit"),
+      n_threads = 1L))
+
+    skip_on_cran()
+    eval(get_test_expr(
+      binomial_probit, "binomial-probit", binomial("probit"),
+      n_threads = 4L))
+  })
 
 test_that(
-  "get the same with 'Gamma_log'",
-  eval(get_test_expr(Gamma_log, "Gamma-log", Gamma("log"),
-                     n_threads = 1L)))
+  "get the same with 'Gamma_log'", {
+
+    eval(get_test_expr(Gamma_log, "Gamma-log", Gamma("log"),
+                       n_threads = 1L))
+
+    skip_on_cran()
+    eval(get_test_expr(Gamma_log, "Gamma-log", Gamma("log"),
+                       n_threads = 4L))
+  })
 
 test_that(
-  "get the same with 'gaussian_identity'",
-  eval(get_test_expr(gaussian_identity, "gaussian-identity", gaussian(),
-                     n_threads = 1L)))
+  "get the same with 'gaussian_identity'", {
+    eval(get_test_expr(gaussian_identity, "gaussian-identity", gaussian(),
+                       n_threads = 1L))
+
+    skip_on_cran()
+    eval(get_test_expr(gaussian_identity, "gaussian-identity", gaussian(),
+                       n_threads = 4L))
+  })
 
 test_that(
-  "get the same with 'gaussian_log'",
-  eval(get_test_expr(gaussian_log, "gaussian-log", gaussian("log"),
-                     n_threads = 1L)))
+  "get the same with 'gaussian_log'", {
+
+    eval(get_test_expr(gaussian_log, "gaussian-log", gaussian("log"),
+                       n_threads = 1L))
+
+    skip_on_cran()
+    eval(get_test_expr(gaussian_log, "gaussian-log", gaussian("log"),
+                       n_threads = 4L))
+  })
 
 test_that(
-  "get the same with 'gaussian_inverse'",
-  eval(get_test_expr(
-    gaussian_inverse, "gaussian-inverse", gaussian("inverse"),
-    n_threads = 1L)))
+  "get the same with 'gaussian_inverse'", {
+
+    eval(get_test_expr(
+      gaussian_inverse, "gaussian-inverse", gaussian("inverse"),
+      n_threads = 1L))
+
+    skip_on_cran()
+    eval(get_test_expr(
+      gaussian_inverse, "gaussian-inverse", gaussian("inverse"),
+      n_threads = 4L))
+  })
 
 test_that("gets the same with Poisson data with offsets", {
   ctrl <- mssm_control(N_part = 100L, n_threads = 1L, seed = 26545947)
