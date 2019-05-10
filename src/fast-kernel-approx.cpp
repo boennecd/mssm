@@ -251,11 +251,21 @@ void comp_all(
     x_y_ws = arma::vec(mem_, n_p_x, false);
 
   } else {
-    const unsigned int required_mem = end_X - start_X;
+    const unsigned int required_mem =
+      has_extra ?
+      end_X - start_X + Y_extra->n_rows :
+      end_X - start_X;
     if(mem.size() < required_mem)
       mem.resize(required_mem);
 
-    x_y_ws = arma::vec(mem.data(), required_mem, false);
+    double * mem_ = mem.data();
+    if(has_extra){
+      stats_inner = arma::vec(mem_, Y_extra->n_rows, false);
+      mem_ += Y_extra->n_rows;
+
+    }
+
+    x_y_ws = arma::vec(mem_, end_X - start_X, false);
 
   }
 
@@ -331,16 +341,14 @@ struct comp_weights {
   (const source_node<has_extra> &X_node, const query_node &Y_node,
    const bool is_main_thread) const
   {
-    /* check if we need to clear futures */
+    /* check if we need to clear futures. TODO: avoid the use of list here? */
     if(is_main_thread and futures.size() > max_futures){
       std::size_t n_earsed = 0L;
       std::future_status status;
       constexpr std::chrono::milliseconds t_weight(1);
       std::list<std::future<void> >::iterator it;
-      const std::list<std::future<void> >::const_iterator
-        end = futures.end();
       while(n_earsed < max_futures_clear){
-        for(it = futures.begin(); it != end; ){
+        for(it = futures.begin(); it != futures.end(); ){
           status = it->wait_for(t_weight);
           if(status == std::future_status::ready){
             it->get();

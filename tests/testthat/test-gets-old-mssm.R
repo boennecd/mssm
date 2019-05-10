@@ -1,5 +1,10 @@
 context("Test versus old results for 'mssm' methods")
 
+prep_for_test_mssmFunc <- function(obj){
+  obj$control$n_threads <- NULL
+  obj
+}
+
 prep_for_test <- function(obj){
   N <- length(obj$pf_output)
   ta <- obj$pf_output[[N]]
@@ -18,12 +23,13 @@ prep_for_test <- function(obj){
       rbind(head(z, 2L), tail(z, 2L))
     }))
   obj$pf_output[[N]]$gr <- gr
+  obj$control$n_threads <- NULL
   obj
 }
 
-get_test_expr <- function(data, label, family, alway_hess = FALSE){
+get_test_expr <- function(data, label, family, alway_hess = FALSE, n_threads){
   substitute({
-  ctrl <- mssm_control(N_part = 100L, n_threads = 2L, seed = 26545947,
+  ctrl <- mssm_control(N_part = 100L, n_threads = n_threads, seed = 26545947,
                        maxeval = 100L)
   disp <- if(is.null(dat$disp)) numeric() else dat$disp
 
@@ -33,8 +39,8 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE){
   expect_s3_class(func, "mssmFunc")
 
   expect_known_value(
-    func[mssmFunc_ele_to_check], paste0("mssmFunc-", label, ".RDS"),
-    label = label)
+    prep_for_test_mssmFunc(func[mssmFunc_ele_to_check]),
+    paste0("mssmFunc-", label, ".RDS"), label = label)
 
   func_out <- func$pf_filter(
     cfix = dat$cfix, F. = dat$F., Q = dat$Q,
@@ -60,6 +66,7 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE){
     cfix = dat$cfix, F. = dat$F., Q = dat$Q, disp = disp)
   expect_s3_class(lpa, "mssmLaplace")
 
+  lpa$control["n_threads"] <- NULL
   expect_known_value(
     lpa[mssmLaplace_to_check],
     paste0("mssmLaplace-", label, ".RDS"),
@@ -96,13 +103,14 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE){
       fixed = y ~ x + Z, random = ~ Z, family = family,
       data = dat$data, ti = time_idx,
       control = mssm_control(
-        N_part = 50L, n_threads = 2L, seed = 26545947,
+        N_part = 50L, n_threads = n_threads, seed = 26545947,
         what = "Hessian"))
     expect_s3_class(func, "mssmFunc")
 
     func_out_hess <- func$pf_filter(
       cfix = dat$cfix, F. = dat$F., Q = dat$Q,
       disp = disp)
+    func_out_hess$control["n_threads"] <- NULL
     expect_s3_class(func_out_hess, "mssm")
 
     expect_known_value(
@@ -111,7 +119,7 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE){
 
   #####
   # w/ k-d tree method
-  ctrl <- mssm_control(N_part = 100L, n_threads = 2L, seed = 26545947,
+  ctrl <- mssm_control(N_part = 100L, n_threads = 1L, seed = 26545947,
                        what = "log_density", which_ll_cp = "KD")
 
   func <- mssm(
@@ -180,6 +188,7 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE){
       disp = disp)
     expect_s3_class(func_out_hess, "mssm")
 
+    func_out_hess$control["n_threads"] <- NULL
     expect_known_value(
       func_out_hess[mssm_ele_to_check], f, label = label)
 
@@ -191,51 +200,61 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE){
     expect_equal(t1, t2)
   }
   }, list(dat = substitute(data), label = label, family = substitute(family),
-          disp = substitute(disp), alway_hess = alway_hess))
+          disp = substitute(disp), alway_hess = alway_hess,
+          n_threads = n_threads))
 }
 
 test_that(
   "get the same with 'poisson_log'",
   eval(get_test_expr(
-    poisson_log, "poisson-log", poisson(), alway_hess = TRUE)))
+    poisson_log, "poisson-log", poisson(), alway_hess = TRUE,
+    n_threads = 1L)))
 
 test_that(
   "get the same with 'poisson_sqrt'",
-  eval(get_test_expr(poisson_sqrt, "poisson-sqrt", poisson("sqrt"))))
+  eval(get_test_expr(poisson_sqrt, "poisson-sqrt", poisson("sqrt"),
+                     n_threads = 1L)))
 
 test_that(
   "get the same with 'binomial_logit'",
-  eval(get_test_expr(binomial_logit, "binomial-logit", binomial())))
+  eval(get_test_expr(binomial_logit, "binomial-logit", binomial(),
+                     n_threads = 1L)))
 
 test_that(
   "get the same with 'binomial_cloglog'",
   eval(get_test_expr(
-    binomial_cloglog, "binomial-cloglog", binomial("cloglog"))))
+    binomial_cloglog, "binomial-cloglog", binomial("cloglog"),
+    n_threads = 1L)))
 
 test_that(
   "get the same with 'binomial_probit'",
   eval(get_test_expr(
-    binomial_probit, "binomial-probit", binomial("probit"))))
+    binomial_probit, "binomial-probit", binomial("probit"),
+    n_threads = 1L)))
 
 test_that(
   "get the same with 'Gamma_log'",
-  eval(get_test_expr(Gamma_log, "Gamma-log", Gamma("log"))))
+  eval(get_test_expr(Gamma_log, "Gamma-log", Gamma("log"),
+                     n_threads = 1L)))
 
 test_that(
   "get the same with 'gaussian_identity'",
-  eval(get_test_expr(gaussian_identity, "gaussian-identity", gaussian())))
+  eval(get_test_expr(gaussian_identity, "gaussian-identity", gaussian(),
+                     n_threads = 1L)))
 
 test_that(
   "get the same with 'gaussian_log'",
-  eval(get_test_expr(gaussian_log, "gaussian-log", gaussian("log"))))
+  eval(get_test_expr(gaussian_log, "gaussian-log", gaussian("log"),
+                     n_threads = 1L)))
 
 test_that(
   "get the same with 'gaussian_inverse'",
   eval(get_test_expr(
-    gaussian_inverse, "gaussian-inverse", gaussian("inverse"))))
+    gaussian_inverse, "gaussian-inverse", gaussian("inverse"),
+    n_threads = 1L)))
 
 test_that("gets the same with Poisson data with offsets", {
-  ctrl <- mssm_control(N_part = 100L, n_threads = 2L, seed = 26545947)
+  ctrl <- mssm_control(N_part = 100L, n_threads = 1L, seed = 26545947)
   poisson_log$data$offs <-
     (1:nrow(poisson_log$data)) / nrow(poisson_log$data) - .5
 
@@ -250,7 +269,7 @@ test_that("gets the same with Poisson data with offsets", {
 })
 
 test_that("gets the same with binomial data with weights", {
-  ctrl <- mssm_control(N_part = 100L, n_threads = 2L, seed = 26545947)
+  ctrl <- mssm_control(N_part = 100L, n_threads = 1L, seed = 26545947)
 
   ll_func <- mssm(
     fixed = I(y/size) ~ x + Z, random = ~ Z, family = binomial(),

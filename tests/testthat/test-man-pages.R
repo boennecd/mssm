@@ -61,7 +61,7 @@ test_that("manual page for 'plot.mssm' yields the same output", {
 
   library(mssm)
   ll_func <- mssm(
-    fixed = lgaspcar ~ lincomep + lrpmg + lcarpcap,
+    fixed = lgaspcar ~ factor(country) + lincomep + lrpmg + lcarpcap,
     random = ~ 1, family = Gamma("log"), data = Gasoline, ti = year,
     control = mssm_control(N_part = 1000L, n_threads = 1L))
 
@@ -69,10 +69,6 @@ test_that("manual page for 'plot.mssm' yields the same output", {
   cfix <- c(0.612, -0.015, 0.214, 0.048, -0.013, -0.016, -0.022, 0.047,
             -0.046, 0.007, -0.001, 0.008, -0.117, 0.075, 0.048, -0.054, 0.017,
             0.228, 0.077, -0.056, -0.139)
-  ll_func <- mssm(
-    fixed = lgaspcar ~ factor(country) + lincomep + lrpmg + lcarpcap,
-    random = ~ 1, family = Gamma("log"), data = Gasoline, ti = year,
-    control = mssm_control(N_part = 1000L, n_threads = 2L))
   pf <- ll_func$pf_filter(
     cfix = cfix, Q = as.matrix(2.163e-05), F. = as.matrix(0.9792),
     disp = 0.000291)

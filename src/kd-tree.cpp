@@ -118,8 +118,10 @@ KD_note::KD_note(
           status = current_back.wait_for(std::chrono::nanoseconds(1L));
           if(status == std::future_status::ready){
             std::lock_guard<std::mutex> ga(lc);
-            if(&current_back == &futures.back())
+            if(&current_back == &futures.back()){
+              current_back.get();
               futures.pop_back();
+            }
 
           } else
             std::this_thread::yield();
