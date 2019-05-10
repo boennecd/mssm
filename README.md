@@ -75,7 +75,7 @@ par(mar = c(5, 4, 1, 1))
 matplot(betas, lty = 1, type = "l")
 ```
 
-![](./README-fig/simulate-1.png)
+![](man/figures/README-simulate-1.png)
 
 ``` r
 # simulate observations
@@ -131,7 +131,7 @@ plot(smooth.spline(dat$time_idx, dat$y), type = "l", xlab = "Time",
      ylab = "Number of events")
 ```
 
-![](./README-fig/simulate-2.png)
+![](man/figures/README-simulate-2.png)
 
 ``` r
 # and split by those with `Z` above and below 0
@@ -144,7 +144,7 @@ with(dat, {
 })
 ```
 
-![](./README-fig/simulate-3.png)![](./README-fig/simulate-4.png)
+![](man/figures/README-simulate-3.png)![](man/figures/README-simulate-4.png)
 
 In the above, we simulate 312 (`n_periods`) with 100 (`n_obs`) individuals. Each individual has a fixed covariate, `X2`, and two time-varying covariates, `X1` and `Z`. One of the time-varying covariates, `Z`, has a random slope. Further, the intercept is also random.
 
@@ -204,7 +204,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   2.045   0.031   0.530
+    ##   2.080   0.020   0.517
 
 ``` r
 # returns the log-likelihood approximation
@@ -275,7 +275,7 @@ for(i in 1:ncol(betas)){
 }
 ```
 
-![](./README-fig/plot_filter-1.png)![](./README-fig/plot_filter-2.png)
+![](man/figures/README-plot_filter-1.png)![](man/figures/README-plot_filter-2.png)
 
 We can also get predicted values from the smoothing distribution.
 
@@ -307,7 +307,7 @@ for(i in 1:ncol(betas)){
 }
 ```
 
-![](./README-fig/show_smooths-1.png)![](./README-fig/show_smooths-2.png)
+![](man/figures/README-show_smooths-1.png)![](man/figures/README-show_smooths-2.png)
 
 ``` r
 # compare mean square error of the two means
@@ -335,7 +335,7 @@ We can get the effective sample size at each point in time with the `get_ess` fu
 plot(ess)
 ```
 
-![](./README-fig/show_ess-1.png)
+![](man/figures/README-show_ess-1.png)
 
 We can compare this what we get by using a so-called bootstrap (like) filter instead.
 
@@ -356,9 +356,9 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   2.003   0.011   0.502
+    ##   2.163   0.002   0.538
 
-![](./README-fig/comp_boot-1.png)
+![](man/figures/README-comp_boot-1.png)
 
 The above is not much faster (and maybe slower in this run) as the bulk of the computation is not in the sampling step. We can also compare the log-likelihood approximation with what we get if we choose parameters close to the GLM estimates.
 
@@ -472,13 +472,13 @@ par(mar = c(5, 4, 1, 1))
 plot(res$logLik, type = "l", ylab = "log-likelihood approximation")
 ```
 
-![](./README-fig/show_use_sgd-1.png)
+![](man/figures/README-show_use_sgd-1.png)
 
 ``` r
 plot(res$grad_norm, type = "l", ylab = "approximate gradient norm")
 ```
 
-![](./README-fig/show_use_sgd-2.png)
+![](man/figures/README-show_use_sgd-2.png)
 
 ``` r
 # final estimates
@@ -514,13 +514,13 @@ print(tail(resa$logLik), digits = 6) # final log-likelihood approximations
 plot(resa$logLik, type = "l", ylab = "log-likelihood approximation")
 ```
 
-![](./README-fig/show_use_sgd-3.png)
+![](man/figures/README-show_use_sgd-3.png)
 
 ``` r
 plot(resa$grad_norm, type = "l", ylab = "approximate gradient norm")
 ```
 
-![](./README-fig/show_use_sgd-4.png)
+![](man/figures/README-show_use_sgd-4.png)
 
 ``` r
 resa$F. 
@@ -567,13 +567,13 @@ system.time(
 plot(res_final$logLik, type = "l", ylab = "log-likelihood approximation")
 ```
 
-![](./README-fig/show_cont_est-1.png)
+![](man/figures/README-show_cont_est-1.png)
 
 ``` r
 plot(res_final$grad_norm, type = "l", ylab = "approximate gradient norm")
 ```
 
-![](./README-fig/show_cont_est-2.png)
+![](man/figures/README-show_cont_est-2.png)
 
 ``` r
 res_final$F. 
@@ -729,7 +729,7 @@ hist(
   xlab = "Log-likelihood approximation -- no aprox")
 ```
 
-![](./README-fig/show_comp_arell_aprx-1.png)
+![](man/figures/README-show_comp_arell_aprx-1.png)
 
 ``` r
 hist(
@@ -737,7 +737,7 @@ hist(
   xlab = "Log-likelihood approximation -- aprox")
 ```
 
-![](./README-fig/show_comp_arell_aprx-2.png)
+![](man/figures/README-show_comp_arell_aprx-2.png)
 
 We can make a t-test for whether there is a difference between the two log-likelihood estimates
 
@@ -749,7 +749,7 @@ with(ll_compare, t.test(ll_no_approx, ll_approx))
     ##  Welch Two Sample t-test
     ## 
     ## data:  ll_no_approx and ll_approx
-    ## t = -8.9, df = 400, p-value <2e-16
+    ## t = -8.9, df = 398, p-value <2e-16
     ## alternative hypothesis: true difference in means is not equal to 0
     ## 95 percent confidence interval:
     ##  -0.5457 -0.3479
@@ -1031,7 +1031,7 @@ invisible(lapply(borders, function(b)
   rect(b[1, "X1"], b[1, "X2"], b[2, "X1"], b[2, "X2"])))
 ```
 
-![](./README-fig/sim_func-1.png)
+![](man/figures/README-sim_func-1.png)
 
 Next, we compute the run-times for the previous examples and compare the approximations of the un-normalized log weights, ![\\log \\tilde W\_i](https://chart.googleapis.com/chart?cht=tx&chl=%5Clog%20%5Ctilde%20W_i "\log \tilde W_i"), and normalized weights, ![W\_i](https://chart.googleapis.com/chart?cht=tx&chl=W_i "W_i"). The `n_threads` sets the number of threads to use in the methods.
 
@@ -1048,11 +1048,11 @@ microbenchmark::microbenchmark(
 ```
 
     ## Unit: milliseconds
-    ##         expr    min      lq    mean  median      uq    max neval
-    ##  dual tree 1  105.7  115.80  121.44  118.00  124.04  156.9    10
-    ##  dual tree 4   41.1   47.55   51.64   50.42   55.37   66.0    10
-    ##      naive 1 3347.8 3426.92 3536.83 3495.70 3612.94 3851.4    10
-    ##      naive 4 1192.5 1237.17 1331.74 1295.51 1369.08 1574.0    10
+    ##         expr     min      lq    mean  median      uq     max neval
+    ##  dual tree 1  129.77  141.08  143.04  142.68  145.09  155.26    10
+    ##  dual tree 4   47.37   50.06   55.12   54.96   59.86   66.04    10
+    ##      naive 1 3554.80 3661.16 4097.52 3726.52 3927.04 7240.59    10
+    ##      naive 4 1038.59 1127.57 1183.10 1180.79 1230.22 1396.77    10
 
 ``` r
 # The functions return the un-normalized log weights. We first compare
@@ -1072,7 +1072,7 @@ hist((o1 - o2)/ abs((o1 + o2) / 2), breaks = 50, main = "",
      xlab = "Delta un-normalized log weights")
 ```
 
-![](./README-fig/comp_run_times-1.png)
+![](man/figures/README-comp_run_times-1.png)
 
 ``` r
 # then we compare the normalized weights
@@ -1094,7 +1094,7 @@ hist((o1 - o2)/ abs((o1 + o2) / 2), breaks = 50, main = "",
      xlab = "Delta normalized log weights")
 ```
 
-![](./README-fig/comp_run_times-2.png)
+![](man/figures/README-comp_run_times-2.png)
 
 Finally, we compare the run-times as function of ![N = N\_s = N\_q](https://chart.googleapis.com/chart?cht=tx&chl=N%20%3D%20N_s%20%3D%20N_q "N = N_s = N_q"). The dashed line is "naive" method, the continuous line is the dual-tree method, and the dotted line is dual-tree method using 1 thread.
 
@@ -1133,20 +1133,20 @@ meds
 ```
 
     ##          method
-    ## N         Dual-tree      Naive Dual-tree 1
-    ##   384      0.001317  0.0007598    0.003699
-    ##   768      0.002577  0.0026710    0.006728
-    ##   1536     0.004437  0.0105199    0.012611
-    ##   3072     0.011184  0.0490589    0.030740
-    ##   6144     0.022194  0.2009249    0.049122
-    ##   12288    0.043600  0.7678893    0.092875
-    ##   24576    0.072676  2.7654586    0.169660
-    ##   49152    0.113088 10.8754836    0.324493
-    ##   98304    0.236804         NA          NA
-    ##   196608   0.481461         NA          NA
-    ##   393216   1.131333         NA          NA
-    ##   786432   2.094602         NA          NA
-    ##   1572864  4.232296         NA          NA
+    ## N         Dual-tree     Naive Dual-tree 1
+    ##   384      0.001578  0.001294    0.004176
+    ##   768      0.003591  0.004909    0.009437
+    ##   1536     0.006513  0.018931    0.015016
+    ##   3072     0.011790  0.066597    0.028722
+    ##   6144     0.025998  0.202903    0.058725
+    ##   12288    0.049973  0.766686    0.127330
+    ##   24576    0.072642  3.033713    0.202479
+    ##   49152    0.140678 11.698939    0.377869
+    ##   98304    0.271664        NA          NA
+    ##   196608   0.533162        NA          NA
+    ##   393216   1.141847        NA          NA
+    ##   786432   2.283444        NA          NA
+    ##   1572864  4.655115        NA          NA
 
 ``` r
 par(mar = c(5, 4, 1, 1))
@@ -1154,7 +1154,7 @@ matplot(c(Ns, Ns_xtra) * 3L, meds, lty = 1:3, type = "l", log = "xy",
         ylab = "seconds", xlab = "N", col = "black")
 ```
 
-![](./README-fig/plot_run_times_N-1.png)
+![](man/figures/README-plot_run_times_N-1.png)
 
 Function Definitions
 --------------------

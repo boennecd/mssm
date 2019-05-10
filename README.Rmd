@@ -12,7 +12,7 @@ nocite: |
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
-  error = FALSE, cache = "./README-cache/", fig.path = "./README-fig/", 
+  error = FALSE, cache = "./README-cache/", fig.path = "man/figures/README-", 
   echo = TRUE)
 options(digits = 4, scipen = 7)
 .fig_height_small <- 4

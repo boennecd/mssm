@@ -1,5 +1,4 @@
 ^README\.Rmd$
-^README-.*
 ^README_cache.*
 ^README.bib$
 ^TODO$
