@@ -44,7 +44,7 @@ context("Test KD-tree") {
 context("Test hyper_rectangle") {
   test_that("hyper_rectangle gives expected result in 2D") {
     /* [0, 1] x [0, 1] */
-    auto X1 = create_mat<2L, 3L>({ 0, 0, .5, 0, 1, 1});
+    auto X1 = create_mat<2L, 3L>({ 0., 0., .5, 0., 1., 1. });
     /* [2, 5] x [2, 4] */
     auto X2 = create_mat<2L, 3L>({ 3,  3, 5,  4, 2,  2});
     auto idx = create_vec<3L, arma::uvec::fixed>({

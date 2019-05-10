@@ -9,10 +9,10 @@ using std::log;
 context("Test source_node") {
   test_that("source_node gives expected result in 2D") {
     /* second rows has higher variation so it will be selected */
-    auto X = create_mat<2L, 4L>({ 0,   4,
-                                .5 ,  -2,
-                                .25,   2,
-                                -.3,  -1});
+    auto X = create_mat<2L, 4L>({0.,   4.,
+                                  .5 ,  -2.,
+                                  .25,   2.,
+                                -.3,  -1.});
     auto ws = create_vec<4L>({ log(.1), log(.4), log(.3), log(.2) });
 
     thread_pool pool(1L);

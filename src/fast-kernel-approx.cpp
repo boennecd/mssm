@@ -153,9 +153,11 @@ void comp_w_centroid
       continue;
     }
 
+    double *Y_extra_ptr = has_extra ? Y_extra->colptr(i) : nullptr;
+
     set_func<has_extra>(
       log_weights[i], new_term, xp, yp, xp_extra,
-      Y_extra->colptr(i), &extra_func);
+      Y_extra_ptr, &extra_func);
 
   }
 

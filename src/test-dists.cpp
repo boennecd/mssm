@@ -106,7 +106,7 @@ context("Test state distribution") {
     }
 
     auto mea = di.mean(x);
-    auto expected = create_vec<2L>({-2.2, 0});
+    auto expected = create_vec<2L>({-2.2, 0.});
     expect_true(is_all_aprx_equal(mea, expected));
   }
 
@@ -408,8 +408,8 @@ context("testing that derivatives are correct for exponential families with a di
 
     test_exp_fam_func<gaussian_identity>(
       create_vec<2L>({-1, 1}),
-      create_mat<2L, 5L>({-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 2.5}),
-      create_vec<5L>({-1, -0.5, 0, 0.5, 1}),
+      create_mat<2L, 5L>({-2., -1.5, -1., -0.5, 0., 0.5, 1., 1.5, 2., 2.5}),
+      create_vec<5L>({-1., -0.5, 0., 0.5, 1.}),
       create_vec<5L>({0.159, 0.485, 0.083, 0.235, 0.038}),
       create_vec<1L>({2}),
       create_vec<3L>({
@@ -434,8 +434,8 @@ context("testing that derivatives are correct for exponential families with a di
 
     test_exp_fam_func<gaussian_log>(
       create_vec<2L>({-1, 1}),
-      create_mat<2L, 5L>({-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2, 2.5}),
-      create_vec<5L>({-1, -0.5, 0, 0.5, 1}),
+      create_mat<2L, 5L>({-2., -1.5, -1., -0.5, 0., 0.5, 1., 1.5, 2., 2.5}),
+      create_vec<5L>({-1., -0.5, 0., 0.5, 1.}),
       create_vec<5L>({0.159, 0.485, 0.083, 0.235, 0.038}),
       create_vec<1L>({2}),
       create_vec<3L>({
@@ -460,8 +460,8 @@ context("testing that derivatives are correct for exponential families with a di
 
     test_exp_fam_func<gaussian_inverse>(
       create_vec<2L>({1, 2}),
-      create_mat<2L, 5L>({-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1, 1.25}),
-      create_vec<5L>({-1, -0.5, 0, 0.5, 1}),
+      create_mat<2L, 5L>({-1., -0.75, -0.5, -0.25, 0., 0.25, 0.5, 0.75, 1., 1.25}),
+      create_vec<5L>({-1., -0.5, 0., 0.5, 1.}),
       create_vec<5L>({0.159, 0.485, 0.083, 0.235, 0.038}),
       create_vec<1L>({2}),
       create_vec<3L>({
@@ -486,8 +486,8 @@ context("testing that derivatives are correct for exponential families with a di
 
     test_exp_fam_func<Gamma_log>(
       create_vec<2L>({1, 3}),
-      create_mat<2L, 5L>({-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1, 1.25}),
-      create_vec<5L>({1, 1.25, 1.5, 1.75, 2}),
+      create_mat<2L, 5L>({-1., -0.75, -0.5, -0.25, 0., 0.25, 0.5, 0.75, 1., 1.25}),
+      create_vec<5L>({1., 1.25, 1.5, 1.75, 2.}),
       create_vec<5L>({0.159, 0.485, 0.083, 0.235, 0.038}),
       create_vec<1L>({2}),
       create_vec<3L>({

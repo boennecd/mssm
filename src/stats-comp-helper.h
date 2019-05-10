@@ -22,6 +22,8 @@ protected:
     (const problem_data&, particle_cloud*, particle_cloud&,
      const cdist&, const arma::uword) const;
 public:
+  virtual ~stats_comp_helper() = default;
+
   /* compute the needed conditional log likelihoods and the requested
    * statistics.
    * It assumes that the dimension of the statistic is correct and that the

@@ -198,7 +198,7 @@ context("Test mode_approximation") {
      func(y = y, X = X, cfix = cfix, Z = Z, w = w, Q = Q, mu = mu, family = binomial("logit"), offs = offs)
      */
     test_func<binomial_logit>(
-      create_vec<5L>({1, 1, 1, 0, 0.333333333333333}),
+      create_vec<5L>({1., 1., 1., 0., 0.333333333333333}),
       create_mat<2L, 5L>({0.51, 0.49, 0.38, 0.45, 0.078, 0.61, 0.14, 0.34, 0.56, 0.072}),
       create_vec<2L>({.5, -.3}),
       create_mat<2L, 5L>({0.19, 0.032, 0.96, 0.87, 0.65, 0.89, 0.12, 0.96, 0.51, 0.91}),
@@ -228,7 +228,7 @@ context("Test mode_approximation") {
     func(y = y, X = X, cfix = cfix, Z = Z, w = w, Q = Q, mu = mu, family = binomial("cloglog"), offs = offs)
     */
     test_func<binomial_cloglog>(
-      create_vec<5L>({1, 1, 1, 0, 0.333333333333333}),
+      create_vec<5L>({1., 1., 1., 0., 0.333333333333333}),
       create_mat<2L, 5L>({0.51, 0.49, 0.38, 0.45, 0.078, 0.61, 0.14, 0.34, 0.56, 0.072}),
       create_vec<2L>({.5, -.3}),
       create_mat<2L, 5L>({0.19, 0.032, 0.96, 0.87, 0.65, 0.89, 0.12, 0.96, 0.51, 0.91}),
@@ -258,7 +258,7 @@ context("Test mode_approximation") {
      func(y = y, X = X, cfix = cfix, Z = Z, w = w, Q = Q, mu = mu, family = binomial("probit"), offs = offs)
      */
     test_func<binomial_probit>(
-      create_vec<5L>({1, 1, 1, 0, 0.666666666666667}),
+      create_vec<5L>({1., 1., 1., 0., 0.666666666666667}),
       create_mat<2L, 5L>({0.51, 0.49, 0.38, 0.45, 0.078, 0.61, 0.14, 0.34, 0.56, 0.072}),
       create_vec<2L>({.5, -.3}),
       create_mat<2L, 5L>({0.19, 0.032, 0.96, 0.87, 0.65, 0.89, 0.12, 0.96, 0.51, 0.91}),

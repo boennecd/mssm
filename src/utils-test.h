@@ -5,23 +5,34 @@
 
 template
   <arma::uword n_elem,
-   template <arma::uword> class arma_T = arma::vec::fixed, std::size_t N>
-  constexpr arma_T<n_elem> create_vec
-  (const typename arma_T<n_elem>::value_type(&data)[N])
+   template <arma::uword> class arma_T = arma::vec::fixed, std::size_t N,
+   typename T>
+  arma_T<n_elem> create_vec(const T(&data)[N])
 {
   static_assert(N == n_elem, "invalid 'data'");
-  return arma_T<n_elem>(data);
+
+  typedef typename arma_T<n_elem>::value_type value_T;
+  value_T data_pass[N];
+  for(unsigned i = 0; i < N; ++i)
+    data_pass[i] = data[i];
+
+  return arma_T<n_elem>(data_pass);
 }
 
 template
   <arma::uword n_rows, arma::uword n_cols,
    template <arma::uword, arma::uword> class arma_T = arma::mat::fixed,
-   std::size_t N>
-  constexpr arma_T<n_rows, n_cols> create_mat
-    (const typename arma_T<n_rows, n_cols>::value_type(&data)[N])
+   std::size_t N, typename T>
+  arma_T<n_rows, n_cols> create_mat(const T(&data)[N])
 {
   static_assert(N == n_rows * n_cols, "invalid 'data'");
-  return arma_T<n_rows, n_cols>(data);
+
+  typedef typename arma_T<n_rows, n_cols>::value_type value_T;
+  value_T data_pass[N];
+  for(unsigned i = 0; i < N; ++i)
+    data_pass[i] = data[i];
+
+  return arma_T<n_rows, n_cols>(data_pass);
 }
 
 template<class T1, class T2>
