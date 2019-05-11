@@ -210,7 +210,8 @@ namespace {
       const unsigned n_tasks = obs_dists.size();
       thread_pool &pool = data.ctrl.get_pool();
 
-      const unsigned inc = n_tasks / (5L * pool.thread_count) + 1L;
+      /* TODO: smarter way to set this? */
+      const unsigned inc = n_tasks / 5L + 1L;
       futures.reserve(n_tasks / inc + 1L);
       unsigned start = 0L, end = 0L;
       for(; start < n_tasks; start = end){
@@ -596,7 +597,8 @@ namespace {
         std::vector<std::future<double> > futures;
 
         const unsigned n_tasks = obs_dists.size();
-        const unsigned inc = n_tasks / (5L * pool.thread_count) + 1L;
+        /* TODO: smarter way to set this? */
+        const unsigned inc = n_tasks / 5L + 1L;
         futures.reserve(n_tasks / inc + 1L);
         unsigned start = 0L, end = 0L;
         for(; start < n_tasks; start = end){

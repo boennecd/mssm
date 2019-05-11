@@ -1,7 +1,7 @@
 
 Call:  mssm(fixed = formula(glm_fit), family = Gamma("log"), data = Gasoline, 
     random = ~1, ti = year, control = mssm_control(N_part = 1000L, 
-        n_threads = 1L, ftol_abs = 1e-08, ftol_abs_inner = 1e-08))
+        n_threads = n_threads, ftol_abs = 1e-12, ftol_abs_inner = 1e-12))
 
 Family is 'Gamma' with link 'log'.
 Parameters are estimated with a Laplace approximation.
