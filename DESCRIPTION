@@ -11,11 +11,11 @@ Authors@R: c(
   person("Boost developers", 
          role = c("cph")))
 Description: Provides methods to perform parameter estimation and 
-  make analysis of a multivariate observed time series which depends on a 
-  latent state variable. All methods scale well in the dimension 
-  of the observed outcomes. The package contains an implementation of a Laplace 
-  approximation, particle filters like suggested by Lin, Zhang, Cheng, & Chen 
-  (2005)
+  make analysis of multivariate observed outcomes through time which depends 
+  on a latent state variable. All methods scale well in the dimension 
+  of the observed outcomes at each time point. The package contains an 
+  implementation of a Laplace approximation, particle filters like 
+  suggested by Lin, Zhang, Cheng, & Chen (2005)
   <doi:10.1198/016214505000000349>, and the gradient and observed information
   matrix approximation suggested by Poyiadjis, Doucet, & Singh (2011) 
   <doi:10.1093/biomet/asq062>.
