@@ -1,3 +1,6 @@
+library(testthat)
+library(mssm)
+
 #####
 # override defaults
 formals(expect_known_value)$update <- FALSE
@@ -201,9 +204,9 @@ Gamma_log <- readRDS("Gamma_log.RDS")
 # cfix <- c(-1, .2, .5)
 # n_obs <- 20L
 #
-# set.seed(78727269)
+# set.seed(78727271)
 # betas <- .get_beta(Q, Q0, F., n_periods)
-# disp <- 3
+# disp <- 1
 # dat <- .get_dat(cfix, betas,
 #                 function(n, mu) rnorm(n, mu, sqrt(disp)), trans_func = identity)
 #

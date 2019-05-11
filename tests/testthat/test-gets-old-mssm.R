@@ -29,8 +29,7 @@ prep_for_test <- function(obj){
 
 get_test_expr <- function(data, label, family, alway_hess = FALSE, n_threads){
   substitute({
-  ctrl <- mssm_control(N_part = 100L, n_threads = n_threads, seed = 26545947,
-                       maxeval = 100L)
+  ctrl <- mssm_control(N_part = 100L, n_threads = n_threads, seed = 26545947)
   disp <- if(is.null(dat$disp)) numeric() else dat$disp
 
   func <- mssm(
@@ -68,7 +67,7 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE, n_threads){
 
   lpa$control["n_threads"] <- NULL
   expect_known_value(
-    lpa[mssmLaplace_to_check],
+    lpa[mssmLaplace_to_check], tolerance = 1e-5,
     paste0("mssmLaplace-", label, ".RDS"),
     label = label)
 
