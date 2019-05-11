@@ -82,7 +82,9 @@ KD_note::KD_note(
       }
 
       const bool
-        finish =  idx_in->size() <= 50L or
+        finish =
+          pool.thread_count < 2L or
+          idx_in->size() <= 50L or
           (double)idx_in->size() <= (double)X.n_cols * frac_mult;
 
       /* set left and right child */
@@ -91,7 +93,7 @@ KD_note::KD_note(
             hyper_rectangle new_rect) {
           return set_child {
             ptr, std::move(indices), new_rect, X, N_min, order, depth, pool,
-            futures, lc};
+            futures, lc };
       };
 
       auto task_left  = get_worker(

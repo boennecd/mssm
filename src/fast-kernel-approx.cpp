@@ -9,9 +9,6 @@
 #include "profile.h"
 #endif
 
-using std::ref;
-using std::cref;
-
 static constexpr unsigned int max_futures       = 30000L;
 static constexpr unsigned int max_futures_clear = max_futures / 3L;
 
@@ -104,224 +101,239 @@ void set_func
 }
 
 template<bool has_extra>
-void comp_w_centroid
-  (arma::vec &log_weights, const source_node<has_extra> &X_node,
-   const query_node &Y_node, const arma::mat &Y, const trans_obj &kernel,
-   const bool is_single_threaded, arma::mat *Y_extra,
-   FSKA_cpp_xtra_func &extra_func)
-{
-  const arma::uword start = Y_node.node.get_start(),
-                    end   = Y_node.node.get_end();
+struct comp_w_centroid {
+  arma::vec &log_weights;
+  const source_node<has_extra> &X_node;
+  const query_node &Y_node;
+  const arma::mat &Y;
+  const trans_obj &kernel;
+  const bool is_single_threaded;
+  arma::mat *Y_extra;
+  FSKA_cpp_xtra_func &extra_func;
 
-  const arma::vec &X_centroid = X_node.centroid;
-  double x_weight_log = std::log(X_node.weight);
-  const double *xp = X_centroid.begin(),
-    *xp_extra = has_extra ?  X_node.extra->memptr() : nullptr;
-  const arma::uword N = X_centroid.n_elem;
+ void operator()(){
+    const arma::uword start = Y_node.node.get_start(),
+      end   = Y_node.node.get_end();
 
-  arma::vec out;
-  arma::mat xtra;
-  double *o = nullptr;
-  thread_local static std::vector<double> mem;
+    const arma::vec &X_centroid = X_node.centroid;
+    double x_weight_log = std::log(X_node.weight);
+    const double *xp = X_centroid.begin(),
+      *xp_extra = has_extra ?  X_node.extra->memptr() : nullptr;
+    const arma::uword N = X_centroid.n_elem;
 
-  /* setup needed objects */
-  if(!is_single_threaded){
-    const unsigned int n_p = end - start,
-      required_mem = has_extra ? n_p * (1L + Y_extra->n_rows) : n_p;
-    if(mem.size() < required_mem)
-      mem.resize(required_mem);
-    double *mem_ = mem.data();
-    out = arma::vec(mem_, n_p, false);
-    o = out.begin();
-    if(has_extra){
-      xtra = arma::mat(mem_ + n_p, Y_extra->n_rows, n_p, false);
-      xtra.zeros();
-    }
+    arma::vec out;
+    arma::mat xtra;
+    double *o = nullptr;
+    thread_local static std::vector<double> mem;
 
-  }
-
-  for(arma::uword i = start; i < end; ++i){
-    const double *yp = Y.colptr(i);
-    double new_term = kernel(xp, yp, N, x_weight_log) ;
+    /* setup needed objects */
     if(!is_single_threaded){
-      *(o++) = new_term;
-
-      if(has_extra)
-        /* compute stats */
-        extra_func(xp, yp, xp_extra, xtra.colptr(i - start), new_term);
-
-      continue;
-    }
-
-    double *Y_extra_ptr = has_extra ? Y_extra->colptr(i) : nullptr;
-
-    set_func<has_extra>(
-      log_weights[i], new_term, xp, yp, xp_extra,
-      Y_extra_ptr, &extra_func);
-
-  }
-
-  if(is_single_threaded)
-    return;
-
-  /* travers down the tree from left to right. We use that data is sorted and
-   * we only lock one lock at a time */
-  o = out.begin();
-  thread_local std::vector<const query_node*> tasks;
-  const std::size_t required_size = Y_node.node.get_depth() + 1L;
-  if(tasks.size() < required_size)
-    tasks.resize(required_size);
-
-  int yi = 0L;
-  tasks.front() = &Y_node;
-  const query_node** yip = tasks.data();
-  while(yi > -1){
-    const query_node* this_node = *yip;
-
-    if(this_node->node.is_leaf()){
-      const arma::uword
-        this_start = this_node->node.get_start(),
-        this_end   = this_node->node.get_end();
-
-      {
-        std::lock_guard<std::mutex> gr(*this_node->idx_mutex);
-        double * w_out = log_weights.begin() + this_start;
-        for(arma::uword i = this_start; i < this_end; ++i, ++o, ++w_out)
-          *w_out = log_sum_log(*w_out, *o);
-
-        if(has_extra)
-          Y_extra->cols(this_start, this_end - 1L) +=
-            xtra.cols(this_start - start, this_end - start - 1L);
+      const unsigned int n_p = end - start,
+        required_mem = has_extra ? n_p * (1L + Y_extra->n_rows) : n_p;
+      if(mem.size() < required_mem)
+        mem.resize(required_mem);
+      double *mem_ = mem.data();
+      out = arma::vec(mem_, n_p, false);
+      o = out.begin();
+      if(has_extra){
+        xtra = arma::mat(mem_ + n_p, Y_extra->n_rows, n_p, false);
+        xtra.zeros();
       }
 
-      --yip;
-      --yi;
-      continue;
+    }
+
+    for(arma::uword i = start; i < end; ++i){
+      const double *yp = Y.colptr(i);
+      double new_term = kernel(xp, yp, N, x_weight_log) ;
+      if(!is_single_threaded){
+        *(o++) = new_term;
+
+        if(has_extra)
+          /* compute stats */
+          extra_func(xp, yp, xp_extra, xtra.colptr(i - start), new_term);
+
+        continue;
+      }
+
+      double *Y_extra_ptr = has_extra ? Y_extra->colptr(i) : nullptr;
+
+      set_func<has_extra>(
+        log_weights[i], new_term, xp, yp, xp_extra,
+        Y_extra_ptr, &extra_func);
 
     }
 
-    *   yip  = this_node->right.get();
-    *(++yip) = this_node->left.get();
+    if(is_single_threaded)
+      return;
+
+    /* travers down the tree from left to right. We use that data is sorted and
+    * we only lock one lock at a time */
+    o = out.begin();
+    thread_local std::vector<const query_node*> tasks;
+    const std::size_t required_size = Y_node.node.get_depth() + 1L;
+    if(tasks.size() < required_size)
+      tasks.resize(required_size);
+
+    int yi = 0L;
+    tasks.front() = &Y_node;
+    const query_node** yip = tasks.data();
+    while(yi > -1){
+      const query_node* this_node = *yip;
+
+      if(this_node->node.is_leaf()){
+        const arma::uword
+        this_start = this_node->node.get_start(),
+          this_end   = this_node->node.get_end();
+
+          {
+            std::lock_guard<std::mutex> gr(*this_node->idx_mutex);
+            double * w_out = log_weights.begin() + this_start;
+            for(arma::uword i = this_start; i < this_end; ++i, ++o, ++w_out)
+              *w_out = log_sum_log(*w_out, *o);
+
+            if(has_extra)
+              Y_extra->cols(this_start, this_end - 1L) +=
+                xtra.cols(this_start - start, this_end - start - 1L);
+          }
+
+          --yip;
+          --yi;
+          continue;
+
+      }
+
+      *   yip  = this_node->right.get();
+      *(++yip) = this_node->left.get();
       ++yi;
+    }
   }
-}
+};
 
 template<bool has_extra>
-void comp_all(
-    arma::vec &log_weights, const source_node<has_extra> &X_node,
-    const query_node &Y_node, const arma::mat &X, const arma::vec &ws_log,
-    const arma::mat &Y, const trans_obj &kernel, const bool is_single_threaded,
-    arma::mat *X_extra, arma::mat *Y_extra, FSKA_cpp_xtra_func &extra_func)
-{
+struct  comp_all {
+  arma::vec &log_weights;
+  const source_node<has_extra> &X_node;
+  const query_node &Y_node;
+  const arma::mat &X;
+  const arma::vec &ws_log;
+  const arma::mat &Y;
+  const trans_obj &kernel;
+  const bool is_single_threaded;
+  arma::mat *X_extra;
+  arma::mat *Y_extra;
+  FSKA_cpp_xtra_func &extra_func;
+
+  void operator()(){
 #ifdef MSSM_DEBUG
-  if(!X_node.node.is_leaf() or !Y_node.node.is_leaf())
-    throw std::domain_error(
-        "comp_all called with non-leafs");
+    if(!X_node.node.is_leaf() or !Y_node.node.is_leaf())
+      throw std::domain_error(
+          "comp_all called with non-leafs");
 #endif
 
-  const arma::uword
-    start_X = X_node.node.get_start(), end_X = X_node.node.get_end(),
-    start_Y = Y_node.node.get_start(), end_Y = Y_node.node.get_end();
+    const arma::uword
+      start_X = X_node.node.get_start(), end_X = X_node.node.get_end(),
+        start_Y = Y_node.node.get_start(), end_Y = Y_node.node.get_end();
 
-  arma::vec out, stats_inner, x_y_ws;
-  arma::mat xtra;
-  double *o = nullptr;
-  thread_local static std::vector<double> mem;
+    arma::vec out, stats_inner, x_y_ws;
+    arma::mat xtra;
+    double *o = nullptr;
+    thread_local static std::vector<double> mem;
 
-  /* setup required memory */
-  if(!is_single_threaded){
-    const unsigned int n_p = end_Y - start_Y, n_p_x = end_X - start_X,
-      required_mem = has_extra ?
-        n_p * (1L + Y_extra->n_rows) + n_p_x + Y_extra->n_rows : n_p + n_p_x;
-    if(mem.size() < required_mem)
-      mem.resize(required_mem);
-    double *mem_ = mem.data();
-    out = arma::vec(mem_, n_p, false);
-    mem_ += n_p;
-    o = out.begin();
-    if(has_extra){
-      xtra = arma::mat(mem_, Y_extra->n_rows, n_p, false);
-      mem_ += Y_extra->n_rows *  n_p;
-      xtra.zeros();
-
-      stats_inner = arma::vec(mem_, Y_extra->n_rows, false);
-      mem_ += Y_extra->n_rows;
-    }
-
-    x_y_ws = arma::vec(mem_, n_p_x, false);
-
-  } else {
-    const unsigned int required_mem =
-      has_extra ?
-      end_X - start_X + Y_extra->n_rows :
-      end_X - start_X;
-    if(mem.size() < required_mem)
-      mem.resize(required_mem);
-
-    double * mem_ = mem.data();
-    if(has_extra){
-      stats_inner = arma::vec(mem_, Y_extra->n_rows, false);
-      mem_ += Y_extra->n_rows;
-
-    }
-
-    x_y_ws = arma::vec(mem_, end_X - start_X, false);
-
-  }
-
-  for(arma::uword i_y = start_Y; i_y < end_Y; ++i_y){
-    const arma::uword N = Y.n_rows;
-    double max_log_w = std::numeric_limits<double>::lowest();
-    double *x_y_ws_i = x_y_ws.begin();
-    if(has_extra)
-      stats_inner.zeros();
-    const double * yp = Y.colptr(i_y);
-    for(arma::uword i_x = start_X; i_x < end_X; ++i_x){
-      const double * xp = X.colptr(i_x),
-              *xp_extra = has_extra ? X_extra->colptr(i_x) : nullptr;
-      *x_y_ws_i = kernel(xp, yp, N, ws_log[i_x]);
-      if(*x_y_ws_i > max_log_w)
-        max_log_w = *x_y_ws_i;
-
-      if(has_extra)
-        /* compute stats */
-        extra_func(xp, yp, xp_extra, stats_inner.memptr(), *x_y_ws_i);
-
-      x_y_ws_i++;
-    }
-
-    double new_term = log_sum_log(x_y_ws, max_log_w);
+    /* setup required memory */
     if(!is_single_threaded){
-      /* save log weight */
-      *(o++) = new_term;
-      /* add stats terms */
-      if(has_extra)
-        xtra.col(i_y - start_Y) += stats_inner;
+      const unsigned int n_p = end_Y - start_Y, n_p_x = end_X - start_X,
+        required_mem = has_extra ?
+      n_p * (1L + Y_extra->n_rows) + n_p_x + Y_extra->n_rows : n_p + n_p_x;
+      if(mem.size() < required_mem)
+        mem.resize(required_mem);
+      double *mem_ = mem.data();
+      out = arma::vec(mem_, n_p, false);
+      mem_ += n_p;
+      o = out.begin();
+      if(has_extra){
+        xtra = arma::mat(mem_, Y_extra->n_rows, n_p, false);
+        mem_ += Y_extra->n_rows *  n_p;
+        xtra.zeros();
 
-      continue;
+        stats_inner = arma::vec(mem_, Y_extra->n_rows, false);
+        mem_ += Y_extra->n_rows;
+      }
+
+      x_y_ws = arma::vec(mem_, n_p_x, false);
+
+    } else {
+      const unsigned int required_mem =
+        has_extra ?
+        end_X - start_X + Y_extra->n_rows :
+      end_X - start_X;
+      if(mem.size() < required_mem)
+        mem.resize(required_mem);
+
+      double * mem_ = mem.data();
+      if(has_extra){
+        stats_inner = arma::vec(mem_, Y_extra->n_rows, false);
+        mem_ += Y_extra->n_rows;
+
+      }
+
+      x_y_ws = arma::vec(mem_, end_X - start_X, false);
 
     }
 
-    /* update weights */
-    log_weights[i_y] = log_sum_log(log_weights[i_y], new_term);
+    for(arma::uword i_y = start_Y; i_y < end_Y; ++i_y){
+      const arma::uword N = Y.n_rows;
+      double max_log_w = std::numeric_limits<double>::lowest();
+      double *x_y_ws_i = x_y_ws.begin();
+      if(has_extra)
+        stats_inner.zeros();
+      const double * yp = Y.colptr(i_y);
+      for(arma::uword i_x = start_X; i_x < end_X; ++i_x){
+        const double * xp = X.colptr(i_x),
+          *xp_extra = has_extra ? X_extra->colptr(i_x) : nullptr;
+        *x_y_ws_i = kernel(xp, yp, N, ws_log[i_x]);
+        if(*x_y_ws_i > max_log_w)
+          max_log_w = *x_y_ws_i;
 
-    /* add stats */
+        if(has_extra)
+          /* compute stats */
+          extra_func(xp, yp, xp_extra, stats_inner.memptr(), *x_y_ws_i);
+
+        x_y_ws_i++;
+      }
+
+      double new_term = log_sum_log(x_y_ws, max_log_w);
+      if(!is_single_threaded){
+        /* save log weight */
+        *(o++) = new_term;
+        /* add stats terms */
+        if(has_extra)
+          xtra.col(i_y - start_Y) += stats_inner;
+
+        continue;
+
+      }
+
+      /* update weights */
+      log_weights[i_y] = log_sum_log(log_weights[i_y], new_term);
+
+      /* add stats */
+      if(has_extra)
+        Y_extra->col(i_y) += stats_inner;
+    }
+
+    if(is_single_threaded)
+      return;
+
+    o = out.begin();
+    double * w_out = log_weights.begin() + start_Y;
+    std::lock_guard<std::mutex> guard(*Y_node.idx_mutex);
+    for(arma::uword i_y = start_Y; i_y < end_Y; ++i_y, ++o, ++w_out)
+      *w_out = log_sum_log(*w_out, *o);
+
     if(has_extra)
-      Y_extra->col(i_y) += stats_inner;
+      Y_extra->cols(start_Y, end_Y - 1L) += xtra;
   }
-
-  if(is_single_threaded)
-    return;
-
-  o = out.begin();
-  double * w_out = log_weights.begin() + start_Y;
-  std::lock_guard<std::mutex> guard(*Y_node.idx_mutex);
-  for(arma::uword i_y = start_Y; i_y < end_Y; ++i_y, ++o, ++w_out)
-    *w_out = log_sum_log(*w_out, *o);
-
-  if(has_extra)
-    Y_extra->cols(start_Y, end_Y - 1L) += xtra;
-}
+};
 
 template<bool has_extra>
 struct comp_weights {
@@ -357,8 +369,11 @@ struct comp_weights {
             if(n_earsed >= max_futures_clear)
               break;
 
-          } else
+          } else {
             ++it;
+            std::this_thread::yield();
+
+          }
         }
       }
     }
@@ -370,8 +385,8 @@ struct comp_weights {
          Y_node.node.n_elem < stop_n_elem){
       futures.push_back(
         pool.submit(std::bind(
-            &comp_weights<has_extra>::operator(), ref(*this),
-            cref(X_node), cref(Y_node), false)));
+            &comp_weights<has_extra>::operator(), std::ref(*this),
+            std::cref(X_node), std::cref(Y_node), false)));
       return;
     }
 
@@ -379,10 +394,11 @@ struct comp_weights {
     double k_min = std::exp(log_dens[0L]), k_max = std::exp(log_dens[1L]);
     if(X_node.weight *
        (k_max - k_min) / ((k_max + k_min) / 2. + 1e-16) < 2. * eps){
-      auto task = std::bind(
-        comp_w_centroid<has_extra>,
-        ref(log_weights), cref(X_node), cref(Y_node),
-        cref(Y), cref(kernel), pool.thread_count < 2L, Y_extra, extra_func);
+      comp_w_centroid<has_extra> task =
+        {
+          log_weights, X_node, Y_node,
+          Y, kernel, pool.thread_count < 2L, Y_extra, extra_func
+        };
       if(is_main_thread)
         futures.push_back(pool.submit(std::move(task)));
       else
@@ -392,11 +408,11 @@ struct comp_weights {
     }
 
     if(X_node.node.is_leaf() and Y_node.node.is_leaf()){
-      auto task = std::bind(
-        comp_all<has_extra>,
-        ref(log_weights), cref(X_node), cref(Y_node),
-        cref(X), cref(ws_log), cref(Y), cref(kernel),
-        pool.thread_count < 2L, X_extra, Y_extra, extra_func);
+      comp_all<has_extra> task = {
+        log_weights, X_node, Y_node,
+        X, ws_log, Y, kernel,
+        pool.thread_count < 2L, X_extra, Y_extra, extra_func
+      };
       if(is_main_thread)
         futures.push_back(pool.submit(std::move(task)));
       else
@@ -456,9 +472,9 @@ FSKA_cpp_permutation FSKA_cpp(
   /* transform X and Y before doing any computation */
   if(!has_transformed){
     auto t1 = pool.submit(std::bind(
-      &trans_obj::trans_X, &kernel, ref(X)));
+      &trans_obj::trans_X, &kernel, std::ref(X)));
     auto t2 = pool.submit(std::bind(
-      &trans_obj::trans_Y, &kernel, ref(Y)));
+      &trans_obj::trans_Y, &kernel, std::ref(Y)));
     t1.get();
     t2.get();
   }
@@ -474,11 +490,12 @@ FSKA_cpp_permutation FSKA_cpp(
   source_node<has_extra> &X_root_source = *std::get<1L>(X_root);
   query_node &Y_root_query   = *std::get<1L>(Y_root);
 
-  /* compute weights etc. */
-  (comp_weights<has_extra> {
+  /* compute weights etc. This is a bad design. The class we define
+   * must not get destructed due to a 'this' pointer used in the function... */
+  comp_weights<has_extra> worker {
     log_weights, X, ws_log, Y, eps,
-    kernel, pool, futures, X_extra, Y_extra, extra_func })(
-        X_root_source, Y_root_query, true);
+    kernel, pool, futures, X_extra, Y_extra, extra_func };
+  worker(X_root_source, Y_root_query, true);
 
   while(!futures.empty()){
     futures.back().get();
@@ -488,7 +505,7 @@ FSKA_cpp_permutation FSKA_cpp(
   /* transform back */
   if(!has_transformed){
     auto ta = pool.submit(std::bind(
-      &trans_obj::trans_inv_X, &kernel, ref(X)));
+      &trans_obj::trans_inv_X, &kernel, std::ref(X)));
     kernel.trans_inv_Y(Y);
     ta.get();
   }
