@@ -207,6 +207,7 @@ class thread_pool
 public:
   // Added
   unsigned const thread_count;
+  const bool has_threads = thread_count > 1L;
 
   template<typename FunctionType>
   std::future<typename std::result_of<FunctionType()>::type>
@@ -216,6 +217,12 @@ public:
 
     std::packaged_task<result_type()> task(std::move(f));
     std::future<result_type> res(task.get_future());
+    if(!has_threads){
+      task();
+      return res;
+
+    }
+
     work_queue.push(std::move(task));
     {
       std::unique_lock<std::mutex> lk(mu);
@@ -230,6 +237,9 @@ public:
     joiner(threads),
     thread_count(n_threads)
   {
+    if(!has_threads)
+      return;
+
     // Moved to private member
     //unsigned const thread_count=std::thread::hardware_concurrency();
     try

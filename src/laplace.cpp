@@ -634,6 +634,20 @@ namespace {
       return ll;
     }
 
+  class get_nlopt_problem {
+  public:
+    nlopt_opt opt, opt_inner;
+    get_nlopt_problem(const unsigned n){
+      opt = nlopt_create(NLOPT_AUGLAG, n);
+      opt_inner = nlopt_create(NLOPT_LN_SBPLX, n);
+    }
+
+    ~get_nlopt_problem(){
+      nlopt_destroy(opt_inner);
+      nlopt_destroy(opt);
+    }
+  };
+
   public:
     Laplace_util
     (problem_data &data, const double ftol_abs, const double ftol_rel,
@@ -679,9 +693,8 @@ namespace {
       }
 
       /* setup problem */
-      nlopt_opt opt, opt_inner;
-      opt = nlopt_create(NLOPT_AUGLAG, outer_dim);
-      opt_inner = nlopt_create(NLOPT_LN_SBPLX, outer_dim);
+      get_nlopt_problem probs(outer_dim);
+      nlopt_opt &opt = probs.opt, &opt_inner = probs.opt_inner;
       nlopt_set_ftol_abs(opt_inner, ftol_abs);
       nlopt_set_ftol_rel(opt_inner, ftol_rel);
       nlopt_set_maxeval(opt_inner, maxeval);
@@ -725,8 +738,6 @@ namespace {
       /* solve problem */
       double maxf;
       int nlopt_result_code = nlopt_optimize(opt, vals.get(), &maxf);
-      nlopt_destroy(opt_inner);
-      nlopt_destroy(opt);
 
       /* setup output object and return */
       Laplace_aprx_output out;
