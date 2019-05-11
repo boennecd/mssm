@@ -29,7 +29,8 @@ prep_for_test <- function(obj){
 
 get_test_expr <- function(data, label, family, alway_hess = FALSE, n_threads){
   substitute({
-  ctrl <- mssm_control(N_part = 100L, n_threads = n_threads, seed = 26545947)
+  ctrl <- mssm_control(N_part = 100L, n_threads = n_threads, seed = 26545947,
+                       maxeval = 1L)
   disp <- if(is.null(dat$disp)) numeric() else dat$disp
 
   func <- mssm(

@@ -32,7 +32,7 @@ $y_{it}$, $\vec x_{it}$, and
 $\vec z_{it}$ are known. What is multivariate is 
 $\vec y_t = \{y_{it}\}_{i\in I_t}$ (though, $\vec \beta_t$ can also be 
 multivariate) and this package is written to scale well 
-in the cardinatly of $I_t$. The package uses independent 
+in the cardinality of $I_t$. The package uses independent 
 particle filters as suggested by @Lin05. This particular type of filter 
 can be used in the method suggested by @Poyiadjis11. I will show an example
 of how to use the package through the rest of the document and highlight some 
