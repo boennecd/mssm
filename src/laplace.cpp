@@ -161,8 +161,8 @@ namespace {
      * and random effects for given state space parameters. If 'do_hess' is
      * true then maximization is performed. */
     struct mode_objective_res {
-      const arma::vec mode;
-      const double ll; /* log-likelihood */
+      arma::vec mode;
+      double ll; /* log-likelihood */
       bool failed;
     };
     mode_objective_res mode_objective
@@ -321,23 +321,26 @@ namespace {
     /* call the above until the criterion(s) is satisfied */
     bool failed_mode = false;
     mode_objective_res mode_objective(const arma::vec &params){
+      mode_objective_res out {
+        params,
+        -std::numeric_limits<double>::infinity(),
+        true };
       const unsigned it_inner_start = it_inner;
-      double objective_value = -std::numeric_limits<double>::infinity();
       for(;;) {
-        const double old_value = objective_value;
-        auto out = mode_objective(params, true);
-        objective_value = out.ll;
+        const double old_value = out.ll;
+        out = mode_objective(out.mode, true);
+        const double new_val = out.ll;
 
         if(!failed_mode and out.failed){
           failed_mode = true;
           Rcpp::Rcout << "Mode approxmation failed at least once\n";
         }
 
-        const double adiff = std::abs(objective_value - old_value);
+        const double adiff = std::abs(new_val - old_value);
         if(ftol_abs_inner > 0. and adiff < ftol_abs_inner)
           return out;
         if(ftol_rel_inner > 0. and
-             adiff / (std::abs(objective_value) + 1e-8) < ftol_rel_inner)
+             adiff / (std::abs(new_val) + 1e-8) < ftol_rel_inner)
           return out;
 
         if(it_inner - it_inner_start > maxeval_inner)

@@ -16,8 +16,7 @@ for(n_threads in c(1L, 4L)){
     ll_func <- mssm(
       fixed = formula(glm_fit), random = ~ 1, family = Gamma("log"),
       data = Gasoline, ti = year, control = mssm_control(
-        N_part = 1000L, n_threads = n_threads, ftol_abs = 1e-12,
-        ftol_abs_inner = 1e-12))
+        N_part = 1000L, n_threads = n_threads))
     expect_known_output(
       ll_func, "mssm-man-ll_func.txt", print = TRUE, label = label)
 

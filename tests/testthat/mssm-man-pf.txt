@@ -1,7 +1,7 @@
 
 Call:  mssm(fixed = formula(glm_fit), family = Gamma("log"), data = Gasoline, 
     random = ~1, ti = year, control = mssm_control(N_part = 1000L, 
-        n_threads = n_threads, ftol_abs = 1e-12, ftol_abs_inner = 1e-12))
+        n_threads = n_threads))
 
 Family is 'Gamma' with link 'log'.
 State vector is assumed to be X_t ~ N(F * X_(t-1), Q).
@@ -18,25 +18,25 @@ Dispersion parameter is 0.000291
 
 Fixed coefficients are
             (Intercept)  factor(country)BELGIUM   factor(country)CANADA 
-               0.611382               -0.015301                0.213983 
+               0.611946               -0.015306                0.213964 
  factor(country)DENMARK   factor(country)FRANCE  factor(country)GERMANY 
-               0.047907               -0.012905               -0.016385 
+               0.047899               -0.012909               -0.016392 
   factor(country)GREECE  factor(country)IRELAND    factor(country)ITALY 
-              -0.021885                0.047232               -0.046189 
+              -0.021870                0.047241               -0.046180 
    factor(country)JAPAN factor(country)NETHERLA   factor(country)NORWAY 
-               0.006644               -0.000788                0.007687 
+               0.006648               -0.000792                0.007680 
    factor(country)SPAIN   factor(country)SWEDEN factor(country)SWITZERL 
-              -0.117247                0.075135                0.047705 
+              -0.117247                0.075153                0.047695 
   factor(country)TURKEY     factor(country)U.K.   factor(country)U.S.A. 
-              -0.053986                0.017082                0.228004 
+              -0.053958                0.017080                0.227981 
                lincomep                   lrpmg                lcarpcap 
-               0.076838               -0.056468               -0.138837 
+               0.076863               -0.056479               -0.138838 
 
 Log-likelihood approximation is 399
 1000 particles are used and summary statistics for effective sample sizes are
-  Mean      961.8
-  sd         18.6
-  Min       936.8
+  Mean      961.6
+  sd         18.8
+  Min       936.5
   Max       989.8
 
 Number of parameters           24

@@ -69,8 +69,7 @@ library(mssm)
 ll_func <- mssm(
 fixed = formula(glm_fit), random = ~ 1, family = Gamma("log"),
   data = Gasoline, ti = year, control = mssm_control(
-    N_part = 1000L, n_threads = 2L, ftol_abs = 1e-8,
-    ftol_abs_inner = 1e-8))
+    N_part = 1000L, n_threads = 2L))
 ll_func
 
 # fit model with time-varying intercept with Laplace approximation
