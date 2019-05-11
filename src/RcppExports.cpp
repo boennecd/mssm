@@ -209,7 +209,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_mssm_run_Laplace_aprx", (DL_FUNC) &_mssm_run_Laplace_aprx, 29},
     {"_mssm_smoother_cpp", (DL_FUNC) &_mssm_smoother_cpp, 25},
     {"_mssm_get_Q0", (DL_FUNC) &_mssm_get_Q0, 2},
-    {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 0},
+    {"run_testthat_tests",     (DL_FUNC) &run_testthat_tests,      0},
     {NULL, NULL, 0}
 };
 

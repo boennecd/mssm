@@ -4,6 +4,7 @@
 #include <utility>
 #include "utils.h"
 #include <functional>
+#include "misc.h"
 
 #ifdef MSSM_PROF
 #include "profile.h"
@@ -124,7 +125,7 @@ struct comp_w_centroid {
     arma::vec out;
     arma::mat xtra;
     double *o = nullptr;
-    thread_local static std::vector<double> mem;
+    M_THREAD_LOCAL std::vector<double> mem;
 
     /* setup needed objects */
     if(!is_single_threaded){
@@ -169,7 +170,7 @@ struct comp_w_centroid {
     /* travers down the tree from left to right. We use that data is sorted and
     * we only lock one lock at a time */
     o = out.begin();
-    thread_local std::vector<const query_node*> tasks;
+    M_THREAD_LOCAL std::vector<const query_node*> tasks;
     const std::size_t required_size = Y_node.node.get_depth() + 1L;
     if(tasks.size() < required_size)
       tasks.resize(required_size);
@@ -237,7 +238,7 @@ struct  comp_all {
     arma::vec out, stats_inner, x_y_ws;
     arma::mat xtra;
     double *o = nullptr;
-    thread_local static std::vector<double> mem;
+    M_THREAD_LOCAL std::vector<double> mem;
 
     /* setup required memory */
     if(!is_single_threaded){

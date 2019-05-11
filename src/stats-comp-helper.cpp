@@ -2,6 +2,7 @@
 #include "blas-lapack.h"
 #include "thread_pool.h"
 #include "fast-kernel-approx.h"
+#include "misc.h"
 
 static constexpr double D_ONE = 1., D_M_ONE = -1.;
 static constexpr int I_ONE = 1L;
@@ -106,7 +107,7 @@ private:
 
   void state_only_Hessian(const arma::vec &state, double *stats) const
   {
-    thread_local static std::vector<double> stat_tmp_terms;
+    M_THREAD_LOCAL std::vector<double> stat_tmp_terms;
     if((int)stat_tmp_terms.size() < dobs.total_size)
       stat_tmp_terms.resize(dobs.total_size);
 
@@ -185,7 +186,7 @@ private:
     (const double *state_old, const double *state_new,
      const double *stats_old, double *stats_new, const double log_weight) const
   {
-    thread_local static std::vector<double> stat_tmp_terms;
+    M_THREAD_LOCAL std::vector<double> stat_tmp_terms;
     unsigned int needed_size = stat_dim + dstat.total_size;
     if(stat_tmp_terms.size() < needed_size)
       stat_tmp_terms.resize(needed_size);

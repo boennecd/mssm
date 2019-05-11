@@ -1,5 +1,6 @@
 #include <memory>
 #include "dup-mult.h"
+#include "misc.h"
 
 /* class to store non-zero n x n |-> n(n+1)/2 indices of duplcation matrix.
  * See https://gist.github.com/boennecd/09ab5b0baae4738089530ae37bc9812e */
@@ -33,7 +34,7 @@ void D_mult_left
    double * const o, const unsigned int ldo, const double * const x)
 {
   /* store local copy to avoid computations */
-  thread_local static std::unique_ptr<dup_mult_indices> indices;
+  M_THREAD_LOCAL std::unique_ptr<dup_mult_indices> indices;
 
   if(!indices or indices->n != n)
     indices.reset(new dup_mult_indices(n));
@@ -74,7 +75,7 @@ void D_mult_right
    double * const o, const unsigned int ldo, const double * const x)
 {
   /* store local copy to avoid computations */
-  thread_local static std::unique_ptr<dup_mult_indices> indices;
+  M_THREAD_LOCAL std::unique_ptr<dup_mult_indices> indices;
   if(!indices or indices->n != n)
     indices.reset(new dup_mult_indices(n));
 

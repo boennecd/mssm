@@ -3,6 +3,7 @@
 #include <cmath>
 #include "blas-lapack.h"
 #include "dup-mult.h"
+#include "misc.h"
 
 static constexpr int I_ONE = 1L;
 static constexpr double D_M_ONE = -1.;
@@ -58,7 +59,7 @@ void mv_norm_reg::comp_stats_state_state
 
   /* allocate the memory we need */
   const int nm = dim, nm_sq = nm * nm, nm_lw = (nm * (nm + 1L)) / 2L;
-  thread_local static std::vector<double> work_mem;
+  M_THREAD_LOCAL std::vector<double> work_mem;
   if(what == Hessian){
     /* We need memory for
          an intermediary    [state dim]   x [state dim]   matrix
