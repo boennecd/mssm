@@ -39,6 +39,27 @@ Remaining elements are the same as returned by \code{\link{mssm}}.
 Function returned from \code{\link{mssm}} which can be used to perform
 parameter estimation with a Laplace approximation.
 }
+\examples{
+if(require(Ecdat)){
+  # load data and fit glm to get starting values
+  data("Gasoline", package = "Ecdat")
+  glm_fit <- glm(lgaspcar ~ factor(country) + lincomep + lrpmg + lcarpcap,
+                 Gamma("log"), Gasoline)
+
+  # get object to perform estimation
+  library(mssm)
+  ll_func <- mssm(
+    fixed = formula(glm_fit), random = ~ 1, family = Gamma("log"),
+    data = Gasoline, ti = year, control = mssm_control(
+      N_part = 1000L, n_threads = 1L))
+
+  # fit model with time-varying intercept with Laplace approximation
+  disp <- summary(glm_fit)$dispersion
+  laplace <- ll_func$Laplace(
+    cfix = coef(glm_fit), disp = disp, F. = diag(.5, 1), Q = diag(1))
+  print(laplace)
+}
+}
 \seealso{
 \code{\link{mssm}}.
 }

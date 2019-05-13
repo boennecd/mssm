@@ -1,0 +1,5 @@
+Effective sample sizes
+  Mean      986.5
+  sd          2.8
+  Min       982.8
+  Max       991.6

@@ -91,3 +91,33 @@ for(n_threads in c(1L, 4L)){
     expect_known_value(smooth, "plot-mssm-man-smooth.RDS", label = label)
   })
 }
+
+
+for(n_threads in c(1L, 4L)){
+  test_that("manual page for 'get_ess.mssm' and `plot.mssmEss` yields the same output", {
+    skip_if_not_installed("Ecdat")
+    if(n_threads > 1L)
+      skip_on_cran()
+
+    # load data and fit glm to get some parameters to use in an illustration
+    data("Gasoline", package = "Ecdat")
+    glm_fit <- glm(lgaspcar ~ factor(country) + lincomep + lrpmg + lcarpcap,
+                   Gamma("log"), Gasoline)
+
+    # get object to run particle filter
+    library(mssm)
+    ll_func <- mssm(
+      fixed = formula(glm_fit), random = ~ 1, family = Gamma("log"),
+      data = Gasoline, ti = year, control = mssm_control(
+        N_part = 1000L, n_threads = 1L))
+
+    # run particle filter
+    pf <- ll_func$pf_filter(
+      cfix = coef(glm_fit), disp = summary(glm_fit)$dispersion,
+      F. = as.matrix(.0001), Q = as.matrix(.0001^2))
+
+    # summary statistics for effective sample sizes
+    expect_known_output((ess <- get_ess(pf)), "get_ess.txt", print = TRUE)
+    expect_known_value(plot(ess), "get_ess.RDS")
+  })
+}

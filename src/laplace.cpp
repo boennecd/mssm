@@ -75,7 +75,7 @@ namespace {
     /* current maximum log-likelihood value */
     double max_ll = -std::numeric_limits<double>::infinity();
     /* counters for number of outer and inner evaluations */
-    unsigned it_inner = 0L, it_outer = 0L;
+    unsigned long it_inner = 0L, it_outer = 0L;
     /* parameters to nlopt */
     const double ftol_abs, ftol_rel, ftol_abs_inner, ftol_rel_inner;
     const unsigned maxeval, maxeval_inner;
@@ -325,7 +325,7 @@ namespace {
         params,
         -std::numeric_limits<double>::infinity(),
         true };
-      const unsigned it_inner_start = it_inner;
+      const unsigned long it_inner_start = it_inner;
       for(;;) {
         const double old_value = out.ll;
         out = mode_objective(out.mode, true);
@@ -548,7 +548,7 @@ namespace {
           *d++ = *z++;
       }
 
-      const unsigned it_inner_old = it_inner;
+      const unsigned long it_inner_old = it_inner;
       {
         arma::vec val_vec(val.get(), n_inner, false);
         auto mout = mode_objective(val_vec);

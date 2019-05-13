@@ -46,46 +46,47 @@
 #' See \url{https://github.com/boennecd/mssm}.
 #'
 #' @examples
-#' \dontrun{
-#' # load data and fit glm to get starting values
-#' data("Gasoline", package = "Ecdat")
-#' glm_fit <- glm(lgaspcar ~ factor(country) + lincomep + lrpmg + lcarpcap,
-#'                Gamma("log"), Gasoline)
+#' if(require(Ecdat)){
+#'   # load data and fit glm to get starting values
+#'   . <- print
+#'   data("Gasoline", package = "Ecdat")
+#'   glm_fit <- glm(lgaspcar ~ factor(country) + lincomep + lrpmg + lcarpcap,
+#'                  Gamma("log"), Gasoline)
 #'
-#' # get object to perform estimation
-#' library(mssm)
-#' ll_func <- mssm(
-#' fixed = formula(glm_fit), random = ~ 1, family = Gamma("log"),
-#'   data = Gasoline, ti = year, control = mssm_control(
-#'     N_part = 1000L, n_threads = 2L))
-#' ll_func
+#'   # get object to perform estimation
+#'   library(mssm)
+#'   ll_func <- mssm(
+#'   fixed = formula(glm_fit), random = ~ 1, family = Gamma("log"),
+#'     data = Gasoline, ti = year, control = mssm_control(
+#'       N_part = 1000L, n_threads = 1L))
+#'   .(ll_func)
 #'
-#' # fit model with time-varying intercept with Laplace approximation
-#' disp <- summary(glm_fit)$dispersion
-#' laplace <- ll_func$Laplace(
-#'   cfix = coef(glm_fit), disp = disp, F. = diag(.5, 1), Q = diag(1))
-#' laplace
+#'   # fit model with time-varying intercept with Laplace approximation
+#'   disp <- summary(glm_fit)$dispersion
+#'   laplace <- ll_func$Laplace(
+#'     cfix = coef(glm_fit), disp = disp, F. = diag(.5, 1), Q = diag(1))
+#'   .(laplace)
 #'
-#' # compare w/ glm
-#' logLik(laplace)
-#' logLik(glm_fit)
-#' rbind(laplace = laplace$cfix, glm = coef(glm_fit))
+#'   # compare w/ glm
+#'   .(logLik(laplace))
+#'   .(logLik(glm_fit))
+#'   .(rbind(laplace = laplace$cfix, glm = coef(glm_fit)))
 #'
-#' # run particle filter
-#' pf <- ll_func$pf_filter(
-#'   cfix = laplace$cfix, disp = laplace$disp, F. = laplace$F., Q = laplace$Q)
-#' pf
+#'   # run particle filter
+#'   pf <- ll_func$pf_filter(
+#'     cfix = laplace$cfix, disp = laplace$disp, F. = laplace$F., Q = laplace$Q)
+#'   .(pf)
 #'
-#' # compare approximate log-likelihoods
-#' logLik(pf)
-#' logLik(laplace)
+#'   # compare approximate log-likelihoods
+#'   .(logLik(pf))
+#'   .(logLik(laplace))
 #'
-#' # predicted values from filtering (does not appear random...)
-#' plot(pf)
+#'   # predicted values from filtering (does not appear random...)
+#'   plot(pf)
 #'
-#' # plot predicted values from smoothing distribution
-#' pf <- ll_func$smoother(pf)
-#' sm <- plot(pf, which_weights = "smooth")
+#'   # plot predicted values from smoothing distribution
+#'   pf <- ll_func$smoother(pf)
+#'   plot(pf, which_weights = "smooth")
 #' }
 #'
 #' @importFrom stats model.frame model.matrix model.response terms
@@ -356,6 +357,27 @@ mssm <- function(
 #'
 #' @seealso
 #' \code{\link{mssm}}.
+#'
+#' @examples
+#' if(require(Ecdat)){
+#'   # load data and get object to perform particle filtering
+#'   data("Gasoline", package = "Ecdat")
+#'
+#'   library(mssm)
+#'   ll_func <- mssm(
+#'     fixed = lgaspcar ~ factor(country) + lincomep + lrpmg + lcarpcap,
+#'     random = ~ 1, family = Gamma("log"), data = Gasoline, ti = year,
+#'     control = mssm_control(N_part = 1000L, n_threads = 1L))
+#'
+#'   # run particle filter
+#'   cfix <- c(0.612, -0.015, 0.214, 0.048, -0.013, -0.016, -0.022, 0.047,
+#'             -0.046, 0.007, -0.001, 0.008, -0.117, 0.075, 0.048, -0.054, 0.017,
+#'             0.228, 0.077, -0.056, -0.139)
+#'   pf <- ll_func$pf_filter(
+#'     cfix = cfix, Q = as.matrix(2.163e-05), F. = as.matrix(0.9792),
+#'     disp = 0.000291)
+#'   print(pf)
+#' }
 NULL
 
 #' @title Parameter Estimation with Laplace Approximation for Multivariate
@@ -391,6 +413,27 @@ NULL
 #'
 #' @seealso
 #' \code{\link{mssm}}.
+#'
+#' @examples
+#' if(require(Ecdat)){
+#'   # load data and fit glm to get starting values
+#'   data("Gasoline", package = "Ecdat")
+#'   glm_fit <- glm(lgaspcar ~ factor(country) + lincomep + lrpmg + lcarpcap,
+#'                  Gamma("log"), Gasoline)
+#'
+#'   # get object to perform estimation
+#'   library(mssm)
+#'   ll_func <- mssm(
+#'     fixed = formula(glm_fit), random = ~ 1, family = Gamma("log"),
+#'     data = Gasoline, ti = year, control = mssm_control(
+#'       N_part = 1000L, n_threads = 1L))
+#'
+#'   # fit model with time-varying intercept with Laplace approximation
+#'   disp <- summary(glm_fit)$dispersion
+#'   laplace <- ll_func$Laplace(
+#'     cfix = coef(glm_fit), disp = disp, F. = diag(.5, 1), Q = diag(1))
+#'   print(laplace)
+#' }
 NULL
 
 #' @title Computes Smoothed Particle Weights for Multivariate State Space
@@ -411,7 +454,29 @@ NULL
 #' @seealso
 #' \code{\link{mssm}}.
 #'
-#' @name mssm-Laplace
+#' @examples
+#' if(require(Ecdat)){
+#'   # load data and get object to perform particle filtering
+#'   data("Gasoline", package = "Ecdat")
+#'
+#'   library(mssm)
+#'   ll_func <- mssm(
+#'     fixed = lgaspcar ~ factor(country) + lincomep + lrpmg + lcarpcap,
+#'     random = ~ 1, family = Gamma("log"), data = Gasoline, ti = year,
+#'     control = mssm_control(N_part = 1000L, n_threads = 1L))
+#'
+#'   # run particle filter
+#'   cfix <- c(0.612, -0.015, 0.214, 0.048, -0.013, -0.016, -0.022, 0.047,
+#'             -0.046, 0.007, -0.001, 0.008, -0.117, 0.075, 0.048, -0.054, 0.017,
+#'             0.228, 0.077, -0.056, -0.139)
+#'   pf <- ll_func$pf_filter(
+#'     cfix = cfix, Q = as.matrix(2.163e-05), F. = as.matrix(0.9792),
+#'     disp = 0.000291)
+#'
+#'   print(is.null(pf$pf_output[[1L]]$ws_normalized_smooth))
+#'   pf <- ll_func$smoother(pf)
+#'   print(is.null(pf$pf_output[[1L]]$ws_normalized_smooth))
+#' }
 NULL
 
 #' @title Auxiliary for Controlling Multivariate State Space Model Fitting
@@ -458,6 +523,10 @@ NULL
 #' See the README of the package for details of the dual k-d tree method
 #' at \url{https://github.com/boennecd/mssm}.
 #'
+#' @examples
+#' library(mssm)
+#' str(mssm_control())
+#' str(mssm_control(N_part = 2000L))
 #' @export
 mssm_control <- function(
   N_part = 1000L, n_threads = 1L, covar_fac = 1.2, ftol_rel = 1e-6, nu = 8.,
@@ -525,6 +594,33 @@ mssm_control <- function(
 #' observations may be invalid for some models (e.g., discrete survival
 #' analysis).
 #'
+#' @examples
+#' if(require(Ecdat)){
+#'  # load data and fit glm to get starting values
+#'  data("Gasoline", package = "Ecdat")
+#'  glm_fit <- glm(lgaspcar ~ factor(country) + lincomep + lrpmg + lcarpcap,
+#'                 Gamma("log"), Gasoline)
+#'
+#'  # get object to perform estimation
+#'  library(mssm)
+#'  ll_func <- mssm(
+#'    fixed = formula(glm_fit), random = ~ 1, family = Gamma("log"),
+#'    data = Gasoline, ti = year, control = mssm_control(
+#'      N_part = 1000L, n_threads = 1L))
+#'
+#'  # fit model with time-varying intercept with Laplace approximation
+#'  disp <- summary(glm_fit)$dispersion
+#'  laplace <- ll_func$Laplace(
+#'    cfix = coef(glm_fit), disp = disp, F. = diag(.5, 1), Q = diag(1))
+#'
+#'  # run particle filter
+#'  pf <- ll_func$pf_filter(
+#'    cfix = laplace$cfix, disp = laplace$disp, F. = laplace$F., Q = laplace$Q)
+#'
+#'  # compare approximate log-likelihoods
+#'  print(logLik(pf))
+#'  print(logLik(laplace))
+#'}
 #' @method logLik mssm
 #' @export
 logLik.mssm <- function(object, ...){

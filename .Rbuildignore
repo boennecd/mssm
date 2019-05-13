@@ -10,3 +10,4 @@ render_toc\.R
 ^tests/.test-script.R$
 .*Rplots.pdf$
 ^cran-comments.md$
+^CRAN-RELEASE$

@@ -7,8 +7,6 @@ Authors@R: c(
          email = "boennecd@gmail.com", 
          role = c("cre", "aut")), 
   person("Anthony", "Williams", 
-         role = c("cph")),
-  person("Boost developers", 
          role = c("cph")))
 Description: Provides methods to perform parameter estimation and 
   make analysis of multivariate observed outcomes through time which depends 

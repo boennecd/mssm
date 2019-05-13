@@ -22,31 +22,30 @@
 #' @export
 #'
 #' @examples
-#' \dontrun{
-#' # load data and get object to perform particle filtering
-#' data("Gasoline", package = "Ecdat")
+#' if(require(Ecdat)){
+#'   # load data and get object to perform particle filtering
+#'   data("Gasoline", package = "Ecdat")
 #'
-#' library(mssm)
-#' ll_func <- mssm(
-#'   fixed = lgaspcar ~ factor(country) + lincomep + lrpmg + lcarpcap,
-#'   random = ~ 1, family = Gamma("log"), data = Gasoline, ti = year,
-#'   control = mssm_control(N_part = 1000L, n_threads = 1L))
+#'   library(mssm)
+#'   ll_func <- mssm(
+#'     fixed = lgaspcar ~ factor(country) + lincomep + lrpmg + lcarpcap,
+#'     random = ~ 1, family = Gamma("log"), data = Gasoline, ti = year,
+#'     control = mssm_control(N_part = 1000L, n_threads = 1L))
 #'
-#' # run particle filter
-#' cfix <- c(0.612, -0.015, 0.214, 0.048, -0.013, -0.016, -0.022, 0.047,
-#'           -0.046, 0.007, -0.001, 0.008, -0.117, 0.075, 0.048, -0.054, 0.017,
-#'           0.228, 0.077, -0.056, -0.139)
-#' pf <- ll_func$pf_filter(
-#'   cfix = cfix, Q = as.matrix(2.163e-05), F. = as.matrix(0.9792),
-#'   disp = 0.000291)
+#'   # run particle filter
+#'   cfix <- c(0.612, -0.015, 0.214, 0.048, -0.013, -0.016, -0.022, 0.047,
+#'             -0.046, 0.007, -0.001, 0.008, -0.117, 0.075, 0.048, -0.054, 0.017,
+#'             0.228, 0.077, -0.056, -0.139)
+#'   pf <- ll_func$pf_filter(
+#'     cfix = cfix, Q = as.matrix(2.163e-05), F. = as.matrix(0.9792),
+#'     disp = 0.000291)
 #'
-#' # plot predicted values and prediction intervals
-#' plot(pf)
-#' plot(pf, qs = c(.01, .99))
-#' pf <- ll_func$smoother(pf)
-#' plot(pf, which_weights = "smooth")
+#'   # plot predicted values and prediction intervals
+#'   plot(pf)
+#'   plot(pf, qs = c(.01, .99))
+#'   pf <- ll_func$smoother(pf)
+#'   plot(pf, which_weights = "smooth")
 #' }
-#'
 plot.mssm <- function(x, y, qs = c(.05, .95), do_plot = TRUE,
                       which_weights = c("filter", "smooth"), ...){
   stopifnot(inherits(x, "mssm"), qs[2] > qs[1], all(qs > 0, qs < 1),
@@ -116,6 +115,29 @@ plot.mssm <- function(x, y, qs = c(.05, .95), do_plot = TRUE,
 #' @return
 #' The plotted x-values, y-values, and maximum possible effective sample
 #' size.
+#'
+#' @examples
+#' if(require(Ecdat)){
+#'   # load data and fit glm to get some parameters to use in an illustration
+#'   data("Gasoline", package = "Ecdat")
+#'   glm_fit <- glm(lgaspcar ~ factor(country) + lincomep + lrpmg + lcarpcap,
+#'                  Gamma("log"), Gasoline)
+#'
+#'   # get object to run particle filter
+#'   library(mssm)
+#'   ll_func <- mssm(
+#'     fixed = formula(glm_fit), random = ~ 1, family = Gamma("log"),
+#'     data = Gasoline, ti = year, control = mssm_control(
+#'       N_part = 1000L, n_threads = 1L))
+#'
+#'   # run particle filter
+#'   pf <- ll_func$pf_filter(
+#'     cfix = coef(glm_fit), disp = summary(glm_fit)$dispersion,
+#'     F. = as.matrix(.0001), Q = as.matrix(.0001^2))
+#'
+#'   # plot effective samples sizes
+#'   plot(get_ess(pf))
+#' }
 #'
 #' @importFrom graphics plot abline par
 #' @method plot mssmEss

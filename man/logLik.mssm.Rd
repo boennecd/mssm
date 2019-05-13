@@ -26,3 +26,31 @@ analysis).
 Function to extract the log-likelihood from a \code{mssm} or
 \code{mssmLaplace} object.
 }
+\examples{
+if(require(Ecdat)){
+ # load data and fit glm to get starting values
+ data("Gasoline", package = "Ecdat")
+ glm_fit <- glm(lgaspcar ~ factor(country) + lincomep + lrpmg + lcarpcap,
+                Gamma("log"), Gasoline)
+
+ # get object to perform estimation
+ library(mssm)
+ ll_func <- mssm(
+   fixed = formula(glm_fit), random = ~ 1, family = Gamma("log"),
+   data = Gasoline, ti = year, control = mssm_control(
+     N_part = 1000L, n_threads = 1L))
+
+ # fit model with time-varying intercept with Laplace approximation
+ disp <- summary(glm_fit)$dispersion
+ laplace <- ll_func$Laplace(
+   cfix = coef(glm_fit), disp = disp, F. = diag(.5, 1), Q = diag(1))
+
+ # run particle filter
+ pf <- ll_func$pf_filter(
+   cfix = laplace$cfix, disp = laplace$disp, F. = laplace$F., Q = laplace$Q)
+
+ # compare approximate log-likelihoods
+ print(logLik(pf))
+ print(logLik(laplace))
+}
+}

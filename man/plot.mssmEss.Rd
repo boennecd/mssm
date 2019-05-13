@@ -20,3 +20,27 @@ size.
 \description{
 Plots the effective sample sizes.
 }
+\examples{
+if(require(Ecdat)){
+  # load data and fit glm to get some parameters to use in an illustration
+  data("Gasoline", package = "Ecdat")
+  glm_fit <- glm(lgaspcar ~ factor(country) + lincomep + lrpmg + lcarpcap,
+                 Gamma("log"), Gasoline)
+
+  # get object to run particle filter
+  library(mssm)
+  ll_func <- mssm(
+    fixed = formula(glm_fit), random = ~ 1, family = Gamma("log"),
+    data = Gasoline, ti = year, control = mssm_control(
+      N_part = 1000L, n_threads = 1L))
+
+  # run particle filter
+  pf <- ll_func$pf_filter(
+    cfix = coef(glm_fit), disp = summary(glm_fit)$dispersion,
+    F. = as.matrix(.0001), Q = as.matrix(.0001^2))
+
+  # plot effective samples sizes
+  plot(get_ess(pf))
+}
+
+}
