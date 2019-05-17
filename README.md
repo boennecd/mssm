@@ -204,7 +204,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   1.886   0.013   0.475
+    ##   1.886   0.043   0.479
 
 ``` r
 # returns the log-likelihood approximation
@@ -356,7 +356,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   1.931   0.042   0.487
+    ##   2.026   0.030   0.501
 
 ![](man/figures/README-comp_boot-1.png)
 
@@ -437,6 +437,13 @@ sta$Q
     ## (Intercept)      0.2996 0.1251
     ## Z                0.1251 0.4940
 
+<!--
+library(knitr)
+opts_knit$set(output.dir = ".")
+opts_chunk$set(cache.path = paste0(
+    file.path("README_cache", "markdown_github"), .Platform$file.sep))
+load_cache("sgd")
+-->
 ``` r
 # use stochastic gradient descent with averaging
 set.seed(25164416)
@@ -548,6 +555,13 @@ resa$cfix
 
 We may want to use more particles towards the end when we estimate the parameters. To do, we use the approximation described in the next section at the final estimates that we arrived at before.
 
+<!--
+library(knitr)
+opts_knit$set(output.dir = ".")
+opts_chunk$set(cache.path = paste0(
+    file.path("README_cache", "markdown_github"), .Platform$file.sep))
+load_cache("cont_est")
+-->
 ``` r
 ll_func <- mssm(
   fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
@@ -805,6 +819,13 @@ print(mean(ll_compare$ll_no_approx), digits = 6)
 
 Next, we look at approximating the observed information matrix with the method suggested by Poyiadjis, Doucet, and Singh (2011).
 
+<!--
+library(knitr)
+opts_knit$set(output.dir = ".")
+opts_chunk$set(cache.path = paste0(
+    file.path("README_cache", "markdown_github"), .Platform$file.sep))
+load_cache("apprx_obs_info")
+-->
 ``` r
 ll_func <- mssm(
   fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
@@ -845,11 +866,11 @@ get_grad_n_obs_info <- function(object){
     any(sapply(c("^Gamma", "^gaussian"), grepl, x = object$family))
   
   # get quantities for each particle
-  quants <- tail(object$pf_output, 1L)[[1L]]$stats
-  ws     <- tail(object$pf_output, 1L)[[1L]]$ws_normalized
+  quants <-     tail(object$pf_output, 1L)[[1L]]$stats
+  ws     <- exp(tail(object$pf_output, 1L)[[1L]]$ws_normalized)
 
   # get mean estimates
-  meas <- colSums(t(quants) * drop(exp(ws)))
+  meas <- colSums(t(quants) * drop(ws))
 
   # separate out the different components. Start with the gradient
   idx <- dim_fix + dim_rng + has_dispersion
@@ -857,11 +878,15 @@ get_grad_n_obs_info <- function(object){
   dim_names <- names(grad)
 
   # then the observed information matrix
-  hess <- matrix(
+  I1 <- matrix(
     meas[-(1:idx)], dim_fix + dim_rng + has_dispersion, 
     dimnames = list(dim_names, dim_names))
+  
+  I2 <- matrix(0., nrow(I1), ncol(I1))
+  for(i in seq_along(ws))
+    I2 <- I2 + ws[i] * tcrossprod(quants[1:idx, i])
 
-  list(grad = grad, hess = hess)
+  list(grad = grad, obs_info = tcrossprod(grad) - I1 - I2)
 }
 
 # use function
@@ -886,21 +911,21 @@ out$grad
 
 ``` r
 # approximate standard errors
-(ses <- sqrt(diag(solve(-out$hess))))
+(ses <- sqrt(diag(solve(out$obs_info))))
 ```
 
     ##               (Intercept)                        X1 
-    ##                   0.04335                   0.02815 
+    ##                   0.04356                   0.02815 
     ##                        X2                         Z 
-    ##                   0.02920                   0.08726 
+    ##                   0.02920                   0.08821 
     ## F:(Intercept).(Intercept)           F:Z.(Intercept) 
-    ##                   0.06735                   0.09063 
+    ##                   0.06735                   0.09064 
     ##           F:(Intercept).Z                     F:Z.Z 
     ##                   0.03282                   0.04166 
     ## Q:(Intercept).(Intercept)           Q:Z.(Intercept) 
-    ##                   0.03626                   0.03959 
+    ##                   0.03632                   0.03966 
     ##                     Q:Z.Z 
-    ##                   0.07007
+    ##                   0.07011
 
 ``` r
 # look at output for parameters in the observational equation. First, compare 
@@ -924,7 +949,7 @@ rbind(
     ## true              -1.00000 0.20000 0.5000 -1.00000
     ## glm               -0.55576 0.20237 0.5160 -0.91216
     ## mssm              -0.97624 0.21398 0.5248 -0.90299
-    ## standard error     0.04335 0.02815 0.0292  0.08726
+    ## standard error     0.04356 0.02815 0.0292  0.08821
 
 ``` r
 # next look at parameters in state equation. First four are for F.
@@ -937,7 +962,7 @@ rbind(
     ##                F:(Intercept).(Intercept) F:Z.(Intercept) F:(Intercept).Z
     ## true                             0.50000        0.100000        0.000000
     ## mssm                             0.50166        0.005557       -0.001767
-    ## standard error                   0.06735        0.090633        0.032823
+    ## standard error                   0.06735        0.090636        0.032824
     ##                  F:Z.Z
     ## true           0.80000
     ## mssm           0.80039
@@ -954,7 +979,7 @@ rbind(
     ##                Q:(Intercept).(Intercept) Q:Z.(Intercept)   Q:Z.Z
     ## true                             0.25000         0.10000 0.49000
     ## mssm                             0.30411         0.12420 0.49659
-    ## standard error                   0.03626         0.03959 0.07007
+    ## standard error                   0.03632         0.03966 0.07011
 
 Supported Families
 ------------------

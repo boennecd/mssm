@@ -547,6 +547,14 @@ sta
 sta$Q
 ```
 
+<!--
+library(knitr)
+opts_knit$set(output.dir = ".")
+opts_chunk$set(cache.path = paste0(
+    file.path("README_cache", "markdown_github"), .Platform$file.sep))
+load_cache("sgd")
+-->
+
 ```{r sgd, cache = 1, dependson = "laplace"}
 # use stochastic gradient descent with averaging
 set.seed(25164416)
@@ -589,6 +597,14 @@ resa$cfix
 We may want to use more particles towards the end when we estimate the 
 parameters. To do, we use the approximation described in the next section 
 at the final estimates that we arrived at before. 
+
+<!--
+library(knitr)
+opts_knit$set(output.dir = ".")
+opts_chunk$set(cache.path = paste0(
+    file.path("README_cache", "markdown_github"), .Platform$file.sep))
+load_cache("cont_est")
+-->
 
 ```{r cont_est, cache = 1, dependson = "use_sgd"}
 ll_func <- mssm(
@@ -790,6 +806,14 @@ print(mean(ll_compare$ll_no_approx), digits = 6)
 Next, we look at approximating the observed information matrix with the method 
 suggested by @Poyiadjis11.
 
+<!--
+library(knitr)
+opts_knit$set(output.dir = ".")
+opts_chunk$set(cache.path = paste0(
+    file.path("README_cache", "markdown_github"), .Platform$file.sep))
+load_cache("apprx_obs_info")
+-->
+
 ```{r apprx_obs_info, cache = 1, dependson=c("use_sgd", "cont_est")}
 ll_func <- mssm(
   fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
@@ -829,11 +853,11 @@ get_grad_n_obs_info <- function(object){
     any(sapply(c("^Gamma", "^gaussian"), grepl, x = object$family))
   
   # get quantities for each particle
-  quants <- tail(object$pf_output, 1L)[[1L]]$stats
-  ws     <- tail(object$pf_output, 1L)[[1L]]$ws_normalized
+  quants <-     tail(object$pf_output, 1L)[[1L]]$stats
+  ws     <- exp(tail(object$pf_output, 1L)[[1L]]$ws_normalized)
 
   # get mean estimates
-  meas <- colSums(t(quants) * drop(exp(ws)))
+  meas <- colSums(t(quants) * drop(ws))
 
   # separate out the different components. Start with the gradient
   idx <- dim_fix + dim_rng + has_dispersion
@@ -841,11 +865,15 @@ get_grad_n_obs_info <- function(object){
   dim_names <- names(grad)
 
   # then the observed information matrix
-  hess <- matrix(
+  I1 <- matrix(
     meas[-(1:idx)], dim_fix + dim_rng + has_dispersion, 
     dimnames = list(dim_names, dim_names))
+  
+  I2 <- matrix(0., nrow(I1), ncol(I1))
+  for(i in seq_along(ws))
+    I2 <- I2 + ws[i] * tcrossprod(quants[1:idx, i])
 
-  list(grad = grad, hess = hess)
+  list(grad = grad, obs_info = tcrossprod(grad) - I1 - I2)
 }
 
 # use function
@@ -855,7 +883,7 @@ out <- get_grad_n_obs_info(mssm_obs_info)
 out$grad
 
 # approximate standard errors
-(ses <- sqrt(diag(solve(-out$hess))))
+(ses <- sqrt(diag(solve(out$obs_info))))
 
 # look at output for parameters in the observational equation. First, compare 
 # with glm's standard errors

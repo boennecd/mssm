@@ -351,9 +351,23 @@ mssm <- function(
 #' element for the dispersion parameter if the family has a dispersion
 #' parameter.
 #'
-#' If an approximation of the observed information matrix is requested then
-#' it's components are given after the gradient elements in the
-#' \code{stats} object.
+#' If the Hessian is requested then the \eqn{\tilde \beta_n^{(i)}}s
+#' in Poyiadjis et al. (2011) are returned after the gradient elements. These
+#' can be used to approximate the observed information matrix. That is,
+#' using that the approximation of the observed information matrix is
+#'
+#' \deqn{\tilde S_n\tilde S_n^\top - \sum_{i = 1}^n
+#'    \tilde W_n^{(i)}(\tilde\alpha_n^{(i)}\tilde\alpha_n^{(i)\top} +
+#'    \tilde \beta_n^{(i)}),
+#'    \qquad \tilde S_n = \sum_{i=1}^n \tilde W_n^{(i)}\tilde\alpha_n^{(i)}}
+#'
+#' as in Poyiadjis et al. (2011). See the README for an example.
+#'
+#' @references
+#' Poyiadjis, G., Doucet, A. and Singh, S. S. (2011) Particle Approximations of
+#' the Score and Observed Information Matrix in State Space Models with
+#' Application to Parameter Estimation. \emph{Biometrika}, \strong{98(1)},
+#' 65--80.
 #'
 #' @seealso
 #' \code{\link{mssm}}.
