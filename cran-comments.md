@@ -59,3 +59,8 @@ I have added small executable examples to all manual pages.
 > \donttest{}, or unwrap the examples if they are executable in < 5 sec.
 
 I have removed the `\dontrun{}`s from the manual pages. 
+
+## Second Resubmission
+I wrote to Anthony Williams. He is the only author of the original 
+`src/thread_pool.h` file and has licensed it under Boost Software License 
+1.0. Thus, the `Authors@R` is correct.
