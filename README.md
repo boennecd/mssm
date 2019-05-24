@@ -3,6 +3,8 @@ Multivariate State Space Models
 ===============================
 
 [![Build Status on Travis](https://travis-ci.org/boennecd/mssm.svg?branch=master,osx)](https://travis-ci.org/boennecd/mssm)
+[![](https://www.r-pkg.org/badges/version/mssm)](https://www.r-pkg.org/badges/version/mssm)
+[![CRAN RStudio mirror downloads](http://cranlogs.r-pkg.org/badges/mssm)](http://cran.rstudio.com/web/packages/mssm/index.html)
 
 This package provides methods to estimate models of the form
 
@@ -14,10 +16,16 @@ This package provides methods to estimate models of the form
 
 where ![g](https://chart.googleapis.com/chart?cht=tx&chl=g "g") is simple distribution, we observe ![t=1,\\dots,T](https://chart.googleapis.com/chart?cht=tx&chl=t%3D1%2C%5Cdots%2CT "t=1,\dots,T") periods, and ![I\_t](https://chart.googleapis.com/chart?cht=tx&chl=I_t "I_t"), ![y\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=y_%7Bit%7D "y_{it}"), ![\\vec x\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20x_%7Bit%7D "\vec x_{it}"), and ![\\vec z\_{it}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20z_%7Bit%7D "\vec z_{it}") are known. What is multivariate is ![\\vec y\_t = \\{y\_{it}\\}\_{i\\in I\_t}](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20y_t%20%3D%20%5C%7By_%7Bit%7D%5C%7D_%7Bi%5Cin%20I_t%7D "\vec y_t = \{y_{it}\}_{i\in I_t}") (though, ![\\vec \\beta\_t](https://chart.googleapis.com/chart?cht=tx&chl=%5Cvec%20%5Cbeta_t "\vec \beta_t") can also be multivariate) and this package is written to scale well in the cardinality of ![I\_t](https://chart.googleapis.com/chart?cht=tx&chl=I_t "I_t"). The package uses independent particle filters as suggested by Lin et al. (2005). This particular type of filter can be used in the method suggested by Poyiadjis, Doucet, and Singh (2011). I will show an example of how to use the package through the rest of the document and highlight some implementation details.
 
-The package is not on CRAN but it can be installed from Github e.g., by calling
+The package can be installed from Github e.g., by calling
 
 ``` r
 devtools::install_github("boennecd/mssm")
+```
+
+or from CRAN by calling 
+
+``` r
+installed.packages("mssm")
 ```
 
 Table of Contents
