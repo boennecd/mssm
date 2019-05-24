@@ -2,9 +2,7 @@
 Multivariate State Space Models
 ===============================
 
-[![Build Status on Travis](https://travis-ci.org/boennecd/mssm.svg?branch=master,osx)](https://travis-ci.org/boennecd/mssm)
-[![](https://www.r-pkg.org/badges/version/mssm)](https://www.r-pkg.org/badges/version/mssm)
-[![CRAN RStudio mirror downloads](http://cranlogs.r-pkg.org/badges/mssm)](http://cran.rstudio.com/web/packages/mssm/index.html)
+[![Build Status on Travis](https://travis-ci.org/boennecd/mssm.svg?branch=master,osx)](https://travis-ci.org/boennecd/mssm) [![](https://www.r-pkg.org/badges/version/mssm)](https://www.r-pkg.org/badges/version/mssm) [![CRAN RStudio mirror downloads](http://cranlogs.r-pkg.org/badges/mssm)](http://cran.rstudio.com/web/packages/mssm/index.html)
 
 This package provides methods to estimate models of the form
 
@@ -22,10 +20,10 @@ The package can be installed from Github e.g., by calling
 devtools::install_github("boennecd/mssm")
 ```
 
-or from CRAN by calling 
+or from CRAN by calling
 
 ``` r
-installed.packages("mssm")
+install.packages("mssm")
 ```
 
 Table of Contents
@@ -212,7 +210,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   1.886   0.043   0.479
+    ##   2.071   0.013   0.524
 
 ``` r
 # returns the log-likelihood approximation
@@ -364,7 +362,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   2.026   0.030   0.501
+    ##   2.145   0.018   0.535
 
 ![](man/figures/README-comp_boot-1.png)
 

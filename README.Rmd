@@ -50,7 +50,7 @@ devtools::install_github("boennecd/mssm")
 or from CRAN by calling 
 
 ```{r cran_inst, eval = FALSE}
-installed.packages("mssm")
+install.packages("mssm")
 ```
 
 
