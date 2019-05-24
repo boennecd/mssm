@@ -9,6 +9,8 @@ nocite: |
 
 # Multivariate State Space Models
 [![Build Status on Travis](https://travis-ci.org/boennecd/mssm.svg?branch=master,osx)](https://travis-ci.org/boennecd/mssm)
+[![](https://www.r-pkg.org/badges/version/mssm)](https://www.r-pkg.org/badges/version/mssm)
+[![CRAN RStudio mirror downloads](http://cranlogs.r-pkg.org/badges/mssm)](http://cran.rstudio.com/web/packages/mssm/index.html)
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
@@ -38,11 +40,17 @@ can be used in the method suggested by @Poyiadjis11. I will show an example
 of how to use the package through the rest of the document and highlight some 
 implementation details. 
 
-The package is not on CRAN but it can be installed from Github e.g., by 
+The package can be installed from Github e.g., by 
 calling
 
-```{r eval = FALSE}
+```{r github_dl, eval = FALSE}
 devtools::install_github("boennecd/mssm")
+```
+
+or from CRAN by calling 
+
+```{r cran_inst, eval = FALSE}
+installed.packages("mssm")
 ```
 
 
