@@ -210,7 +210,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   2.275   0.022   0.582
+    ##   1.812   0.026   0.476
 
 ``` r
 # returns the log-likelihood approximation
@@ -362,7 +362,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   2.228   0.057   0.571
+    ##   1.972   0.011   0.490
 
 ![](man/figures/README-comp_boot-1.png)
 
@@ -397,7 +397,7 @@ system.time(
     ## Mode approxmation failed at least once
 
     ##    user  system elapsed 
-    ##  27.423   0.585   6.639
+    ##  27.203   0.536   6.692
 
 ``` r
 # the function returns an object with the estimated parameters and  
@@ -460,7 +460,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 264.088   1.559  60.876
+    ## 212.198   1.331  49.104
 
 ``` r
 # use Adam algorithm instead
@@ -472,7 +472,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 225.923   1.362  52.257
+    ## 209.052   1.358  48.496
 
 A plot of the approximate log-likelihoods at each iteration is shown below along with the final estimates.
 
@@ -583,7 +583,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##  3040.4    26.2   672.0
+    ##  2878.9    23.2   634.6
 
 ``` r
 plot(res_final$logLik, type = "l", ylab = "log-likelihood approximation")
@@ -654,11 +654,11 @@ local({
 
     ## Unit: milliseconds
     ##  expr     min      lq    mean  median      uq     max neval
-    ##   100   67.03   69.46   70.39   71.88   72.06   72.24     3
-    ##   200  139.53  139.93  144.33  140.33  146.73  153.14     3
-    ##   400  378.69  393.77  403.73  408.86  416.24  423.63     3
-    ##   800 1054.68 1065.89 1079.50 1077.10 1091.90 1106.71     3
-    ##  1600 3417.77 3559.24 3653.73 3700.71 3771.71 3842.70     3
+    ##   100   68.88   72.13   75.57   75.37   78.92   82.47     3
+    ##   200  129.27  141.90  149.55  154.53  159.69  164.84     3
+    ##   400  404.68  412.07  415.49  419.47  420.90  422.32     3
+    ##   800 1029.99 1109.39 1149.03 1188.80 1208.55 1228.30     3
+    ##  1600 3387.65 3429.32 3457.94 3470.99 3493.08 3515.17     3
 
 A solution is to use the dual k-d tree method I cover later. The computational complexity is ![\\mathcal{O}(N \\log N)](https://latex.codecogs.com/svg.latex?%5Cmathcal%7BO%7D%28N%20%5Clog%20N%29 "\mathcal{O}(N \log N)") for this method which is somewhat indicated by the run times shown below.
 
@@ -695,12 +695,12 @@ local({
 
     ## Unit: milliseconds
     ##   expr    min     lq   mean median     uq    max neval
-    ##    100  105.2  108.4  110.0  111.7  112.4  113.1     3
-    ##    200  197.6  201.9  210.9  206.3  217.5  228.8     3
-    ##    400  411.5  419.8  430.7  428.0  440.2  452.5     3
-    ##    800  843.9  850.3  855.5  856.7  861.3  865.9     3
-    ##   1600 1532.9 1600.8 1666.4 1668.7 1733.2 1797.7     3
-    ##  12800 8485.8 8563.2 8590.6 8640.6 8643.0 8645.4     3
+    ##    100  112.1  118.1  123.8  124.1  129.6  135.0     3
+    ##    200  205.5  225.7  238.9  245.9  255.6  265.4     3
+    ##    400  407.3  418.0  443.3  428.7  461.2  493.8     3
+    ##    800  845.1  875.4  898.9  905.7  925.8  945.9     3
+    ##   1600 1537.7 1555.8 1571.8 1573.8 1588.8 1603.8     3
+    ##  12800 8160.8 8161.0 8269.1 8161.3 8323.3 8485.3     3
 
 The `aprx_eps` controls the size of the error. To be precise about what this value does then we need to some notation for the complete likelihood (the likelihood where we observe ![\\vec\\beta\_1,\\dots,\\vec\\beta\_T](https://latex.codecogs.com/svg.latex?%5Cvec%5Cbeta_1%2C%5Cdots%2C%5Cvec%5Cbeta_T "\vec\beta_1,\dots,\vec\beta_T")s). This is
 
@@ -847,7 +847,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##  349.47    1.43   76.01
+    ## 327.563   1.297  71.051
 
 We define a function below to get the approximate gradient and approximate observed information matrix from the returned object. Then we compare the output to the GLM we estimated and to the true parameters.
 
@@ -1082,10 +1082,10 @@ microbenchmark::microbenchmark(
 
     ## Unit: milliseconds
     ##         expr     min      lq    mean  median      uq     max neval
-    ##  dual tree 1  108.16  111.88  117.78  114.84  122.41  141.27    10
-    ##  dual tree 4   43.01   49.26   49.92   50.74   51.59   52.45    10
-    ##      naive 1 3427.21 3518.42 3604.04 3570.39 3635.91 3891.05    10
-    ##      naive 4 1029.27 1162.26 1227.41 1209.31 1248.88 1586.08    10
+    ##  dual tree 1  110.13  112.64  166.98  116.79  241.55  330.79    10
+    ##  dual tree 4   41.16   41.33   49.36   50.73   53.68   63.35    10
+    ##      naive 1 3312.61 3342.68 3638.94 3434.74 3547.45 5565.56    10
+    ##      naive 4  909.17 1018.03 1113.10 1079.78 1129.06 1592.45    10
 
 ``` r
 # The functions return the un-normalized log weights. We first compare
@@ -1166,20 +1166,20 @@ meds
 ```
 
     ##          method
-    ## N         Dual-tree      Naive Dual-tree 1
-    ##   384      0.001365  0.0008318    0.003265
-    ##   768      0.002684  0.0041390    0.006397
-    ##   1536     0.005228  0.0157515    0.011550
-    ##   3072     0.010133  0.0539967    0.027241
-    ##   6144     0.021763  0.1832133    0.051753
-    ##   12288    0.039704  0.7137595    0.100299
-    ##   24576    0.062140  2.6771194    0.175375
-    ##   49152    0.115722 10.9796716    0.347602
-    ##   98304    0.227879         NA          NA
-    ##   196608   0.450209         NA          NA
-    ##   393216   0.913649         NA          NA
-    ##   786432   1.844256         NA          NA
-    ##   1572864  4.057902         NA          NA
+    ## N         Dual-tree     Naive Dual-tree 1
+    ##   384      0.001656  0.001729    0.003219
+    ##   768      0.002904  0.004090    0.006349
+    ##   1536     0.005031  0.009342    0.011293
+    ##   3072     0.009151  0.037434    0.022862
+    ##   6144     0.019268  0.150112    0.047924
+    ##   12288    0.037420  0.635375    0.094008
+    ##   24576    0.063480  2.676045    0.175921
+    ##   49152    0.120780 10.544569    0.335214
+    ##   98304    0.224966        NA          NA
+    ##   196608   0.463704        NA          NA
+    ##   393216   0.887116        NA          NA
+    ##   786432   1.870536        NA          NA
+    ##   1572864  3.845212        NA          NA
 
 ``` r
 par(mar = c(5, 4, 1, 1))
