@@ -1,6 +1,8 @@
 library(testthat)
 library(mssm)
 
+suppressWarnings(RNGversion("3.5.0"))
+
 #####
 # override defaults
 formals(expect_known_value)$update <- FALSE

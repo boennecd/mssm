@@ -23,13 +23,13 @@ public:
   particle_cloud& operator=(const particle_cloud&) = delete;
   particle_cloud(particle_cloud&&) = default;
 
-  const arma::uword N_particles() const {
+  arma::uword N_particles() const {
     return particles.n_cols;
   }
-  const arma::uword dim_particle() const {
+  arma::uword dim_particle() const {
     return particles.n_rows;
   }
-  const arma::uword dim_stats() const {
+  arma::uword dim_stats() const {
     return stats.n_rows;
   }
 

@@ -144,6 +144,9 @@ public:
   virtual void comp_stats_state_state
     (const double*, const double*, const double, double*, const comp_out)
     const = 0;
+
+  /* returns the normalization constant */
+  virtual double get_log_norm_const() const = 0;
 };
 
 inline void check_input_mv_log_density_state
@@ -215,6 +218,10 @@ public:
   (const double*, const double*, const double, double*, const comp_out)
   const override final {
     throw logic_error("not implemented");
+  }
+
+  double get_log_norm_const() const override final {
+    return norm_const_log;
   }
 
   /* cdist overrides */
@@ -298,6 +305,10 @@ public:
    const override final
   {
     throw logic_error("not implemented");
+  }
+
+  double get_log_norm_const() const override final {
+    return norm_const_log;
   }
 
   /* proposal_dist overrides */
@@ -416,6 +427,10 @@ public:
   (const double *x, const double *y, const double log_w, double *stat,
    const comp_out what) const override final;
 
+  double get_log_norm_const() const override final {
+    return norm_const_log;
+  }
+
   /* cdist overrides */
   arma::uword state_dim() const override {
     return dim;
@@ -477,12 +492,10 @@ class mv_tdist : public cdist, public trans_obj, public proposal_dist {
   const std::unique_ptr<arma::vec> mu;
   const arma::uword dim;
   const double nu;
-  static double set_const
-    (const double nu, const double dim, const chol_decomp &chol_){
+  const double norm_const_log = ([&]{
     return std::lgamma((dim + nu) * .5) - lgamma(nu * .5) -
       std::log(nu * M_PI) * dim * .5 - .5 * chol_.log_det();
-  }
-  const double norm_const_log = set_const(nu, dim, chol_);
+  })();
 
   static double check_nu(const double nu){
 #ifdef MSSM_DEBUG
@@ -537,6 +550,10 @@ public:
   const override final
   {
     throw logic_error("not implemented");
+  }
+
+  double get_log_norm_const() const override final {
+    return norm_const_log;
   }
 
   /* proposal_dist overrides */

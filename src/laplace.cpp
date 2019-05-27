@@ -265,7 +265,7 @@ namespace {
       }
 
       if(!do_hess)
-        return { params, ll };
+        return { params, ll, false };
 
       /* use step halving. First, find direction. Then perform maximization */
       const arma::vec direction = ([&] {

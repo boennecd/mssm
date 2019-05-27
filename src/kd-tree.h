@@ -2,6 +2,7 @@
 #define KD_TREE_H
 #include "arma.h"
 #include "thread_pool.h"
+#include <array>
 
 #ifdef MSSM_DEBUG
 #include <iostream>

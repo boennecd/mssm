@@ -59,7 +59,6 @@ public:
     const std::string&, cvec&, control_obj&&);
   problem_data(const problem_data&) = delete;
   problem_data& operator=(const problem_data&) = delete;
-  problem_data(problem_data&&) = default;
 
   /* returns an object to compute the conditional distribution of the
    * observed outcome at a given time given a state vector */

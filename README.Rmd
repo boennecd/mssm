@@ -1,7 +1,7 @@
 ---
 output:
   github_document:
-    pandoc_args: --webtex=https://chart.googleapis.com/chart?cht=tx&chl=
+    pandoc_args: --webtex=https://latex.codecogs.com/svg.latex?
 bibliography: README.bib
 nocite: |
   @Polyak92

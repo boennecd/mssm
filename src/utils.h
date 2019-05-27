@@ -104,7 +104,7 @@ public:
   const arma::mat& get_inv() const;
 
   /* returns the log determinant */
-  const double log_det() const {
+  double log_det() const {
     double out = 0.;
     for(arma::uword i = 0; i < chol_.n_cols; ++i)
       out += 2. * std::log(chol_(i, i));
