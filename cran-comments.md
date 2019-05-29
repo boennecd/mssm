@@ -6,10 +6,10 @@
 * win-builder (devel and release)
 * Local Ubuntu 18.04 with R 3.5.2 and with clang 6.0.0 with ASAN and 
   UBSAN checks
-* `rhub::check_for_cran()`
+* `rhub::check_for_cran()` and `rhub::check_on_macos()`
  
 ## R CMD check results
-This submission is mainly to fix the compilation problem with clang on some 
+This submission is mainly to fix the compilation errors with clang on some 
 platforms.
 
 I got the following WARNING on some environments (not local)

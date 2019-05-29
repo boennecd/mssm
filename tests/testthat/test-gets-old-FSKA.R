@@ -39,5 +39,12 @@ test_that("we get the same KD-tree", {
   t2 <- test_KD_note(X, 10L)
   expect_equal(t1, t2)
 
+  # we cannot directly test `t1`s indices' order as they may differ within
+  # each node as the C++ partial sorting algorithm yields all but one element
+  # in an unspecified. Thus, we have to sort them within each leaf
+  leaf <- unlist(mapply(rep, x = seq_along(t1$n_elems), times = t1$n_elems))
+  stopifnot(length(leaf) == n)
+  t1$indices <- unlist(tapply(t1$indices, leaf, sort))
+
   expect_known_value(t1, "KD-tree.RDS")
 })
