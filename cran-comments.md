@@ -37,3 +37,6 @@ from libcurl. I also got the following on some environments (not local)
 but the urls are valid. I do not know why some servers would get a 403.
 
 There is a NOTE about the size of the package on most platforms.
+
+## Resubmission
+I now use a CRAN URL in canonical form.

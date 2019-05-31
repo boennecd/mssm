@@ -2,7 +2,7 @@
 Multivariate State Space Models
 ===============================
 
-[![Build Status on Travis](https://travis-ci.org/boennecd/mssm.svg?branch=master,osx)](https://travis-ci.org/boennecd/mssm) [![](https://www.r-pkg.org/badges/version/mssm)](https://www.r-pkg.org/badges/version/mssm) [![CRAN RStudio mirror downloads](http://cranlogs.r-pkg.org/badges/mssm)](http://cran.rstudio.com/web/packages/mssm/index.html)
+[![Build Status on Travis](https://travis-ci.org/boennecd/mssm.svg?branch=master,osx)](https://travis-ci.org/boennecd/mssm) [![](https://www.r-pkg.org/badges/version/mssm)](https://www.r-pkg.org/badges/version/mssm) [![CRAN RStudio mirror downloads](https://cranlogs.r-pkg.org/badges/mssm)](https://cran.r-project.org/package=mssm)
 
 This package provides methods to estimate models of the form
 
@@ -210,7 +210,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   1.812   0.026   0.476
+    ##   1.944   0.014   0.494
 
 ``` r
 # returns the log-likelihood approximation
@@ -362,7 +362,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   1.972   0.011   0.490
+    ##   2.268   0.048   0.576
 
 ![](man/figures/README-comp_boot-1.png)
 
@@ -1467,10 +1467,10 @@ References
 
 Gray, Alexander G., and Andrew W. Moore. 2003. “Rapid Evaluation of Multiple Density Models.” In *AISTATS*.
 
-Klaas, Mike, Mark Briers, Nando de Freitas, Arnaud Doucet, Simon Maskell, and Dustin Lang. 2006. “Fast Particle Smoothing: If I Had a Million Particles.” In *Proceedings of the 23rd International Conference on Machine Learning*, 481–88. ICML ’06. New York, NY, USA: ACM. <http://doi.acm.org/10.1145/1143844.1143905>.
+Klaas, Mike, Mark Briers, Nando de Freitas, Arnaud Doucet, Simon Maskell, and Dustin Lang. 2006. “Fast Particle Smoothing: If I Had a Million Particles.” In *Proceedings of the 23rd International Conference on Machine Learning*, 481–88. ICML ’06. New York, NY, USA: ACM. <https://doi.acm.org/10.1145/1143844.1143905>.
 
-Lin, Ming T, Junni L Zhang, Qiansheng Cheng, and Rong Chen. 2005. “Independent Particle Filters.” *Journal of the American Statistical Association* 100 (472). Taylor & Francis: 1412–21. doi:[10.1198/016214505000000349](https://doi.org/10.1198/016214505000000349).
+Lin, Ming T, Junni L Zhang, Qiansheng Cheng, and Rong Chen. 2005. “Independent Particle Filters.” *Journal of the American Statistical Association* 100 (472). Taylor & Francis: 1412–21. <https://doi.org/10.1198/016214505000000349>.
 
-Polyak, B., and A. Juditsky. 1992. “Acceleration of Stochastic Approximation by Averaging.” *SIAM Journal on Control and Optimization* 30 (4): 838–55. doi:[10.1137/0330046](https://doi.org/10.1137/0330046).
+Polyak, B., and A. Juditsky. 1992. “Acceleration of Stochastic Approximation by Averaging.” *SIAM Journal on Control and Optimization* 30 (4): 838–55. <https://doi.org/10.1137/0330046>.
 
-Poyiadjis, George, Arnaud Doucet, and Sumeetpal S. Singh. 2011. “Particle Approximations of the Score and Observed Information Matrix in State Space Models with Application to Parameter Estimation.” *Biometrika* 98 (1). Biometrika Trust: 65–80. <http://www.jstor.org/stable/29777165>.
+Poyiadjis, George, Arnaud Doucet, and Sumeetpal S. Singh. 2011. “Particle Approximations of the Score and Observed Information Matrix in State Space Models with Application to Parameter Estimation.” *Biometrika* 98 (1). Biometrika Trust: 65–80. <https://www.jstor.org/stable/29777165>.
