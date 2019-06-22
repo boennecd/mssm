@@ -43,10 +43,26 @@ std::vector<particle_cloud> PF
     if(trace > 0){
       Rprintf("Effective sample size at %4d: %12.1f\n", i + 1L, ess);
 
-      if(new_cloud.get_cloud_mean().n_elem < 20L)
+      const arma::vec cloud_mean = new_cloud.get_cloud_mean();
+      if(cloud_mean.n_elem < 20L or trace > 2)
         Rcpp::Rcout << "cloud mean: " << new_cloud.get_cloud_mean().t();
-      if(new_cloud.get_stats_mean().n_elem < 20L)
-        Rcpp::Rcout << "stats mean: " << new_cloud.get_stats_mean().t();
+      arma::vec stats_mean = new_cloud.get_stats_mean();
+      if(prob.ctrl.what_stat != log_densty and (
+          stats_mean.n_elem < 20L or trace > 2)){
+        const unsigned grad_dim =
+          get_grad_dim(stats_mean.n_elem, prob.ctrl.what_stat);
+
+        arma::vec grad(stats_mean.memptr(), grad_dim, false);
+        Rcpp::Rcout << "Stats mean (gradient):\n" << grad.t();
+
+        if(prob.ctrl.what_stat == Hessian){
+          arma::mat hess
+            (stats_mean.memptr() + grad_dim, grad_dim, grad_dim, false);
+          Rcpp::Rcout << "Stats mean (Hessian):\n" << hess;
+
+        }
+
+      }
 
       Rcpp::Rcout << "log-likelihood contribution is: "
                   << arma::mean(new_cloud.ws) << '\n';

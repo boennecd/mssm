@@ -76,8 +76,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // pf_filter
-Rcpp::List pf_filter(const arma::vec& Y, const arma::vec& cfix, const arma::vec& ws, const arma::vec& offsets, const arma::vec& disp, const arma::mat& X, const arma::mat& Z, const arma::uvec& time_indices_elems, const arma::uvec& time_indices_len, const arma::mat& F, const arma::mat& Q, const arma::mat& Q0, const std::string& fam, const arma::vec& mu0, const arma::uword n_threads, const double nu, const double covar_fac, const double ftol_rel, const arma::uword N_part, const std::string& what, const std::string& which_sampler, const std::string& which_ll_cp, const unsigned int trace, const arma::uword KD_N_max, const double aprx_eps);
-RcppExport SEXP _mssm_pf_filter(SEXP YSEXP, SEXP cfixSEXP, SEXP wsSEXP, SEXP offsetsSEXP, SEXP dispSEXP, SEXP XSEXP, SEXP ZSEXP, SEXP time_indices_elemsSEXP, SEXP time_indices_lenSEXP, SEXP FSEXP, SEXP QSEXP, SEXP Q0SEXP, SEXP famSEXP, SEXP mu0SEXP, SEXP n_threadsSEXP, SEXP nuSEXP, SEXP covar_facSEXP, SEXP ftol_relSEXP, SEXP N_partSEXP, SEXP whatSEXP, SEXP which_samplerSEXP, SEXP which_ll_cpSEXP, SEXP traceSEXP, SEXP KD_N_maxSEXP, SEXP aprx_epsSEXP) {
+Rcpp::List pf_filter(const arma::vec& Y, const arma::vec& cfix, const arma::vec& ws, const arma::vec& offsets, const arma::vec& disp, const arma::mat& X, const arma::mat& Z, const arma::uvec& time_indices_elems, const arma::uvec& time_indices_len, const arma::mat& F, const arma::mat& Q, const arma::mat& Q0, const std::string& fam, const arma::vec& mu0, const arma::uword n_threads, const double nu, const double covar_fac, const double ftol_rel, const arma::uword N_part, const std::string& what, const std::string& which_sampler, const std::string& which_ll_cp, const unsigned int trace, const arma::uword KD_N_max, const double aprx_eps, const bool use_antithetic);
+RcppExport SEXP _mssm_pf_filter(SEXP YSEXP, SEXP cfixSEXP, SEXP wsSEXP, SEXP offsetsSEXP, SEXP dispSEXP, SEXP XSEXP, SEXP ZSEXP, SEXP time_indices_elemsSEXP, SEXP time_indices_lenSEXP, SEXP FSEXP, SEXP QSEXP, SEXP Q0SEXP, SEXP famSEXP, SEXP mu0SEXP, SEXP n_threadsSEXP, SEXP nuSEXP, SEXP covar_facSEXP, SEXP ftol_relSEXP, SEXP N_partSEXP, SEXP whatSEXP, SEXP which_samplerSEXP, SEXP which_ll_cpSEXP, SEXP traceSEXP, SEXP KD_N_maxSEXP, SEXP aprx_epsSEXP, SEXP use_antitheticSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -106,7 +106,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const unsigned int >::type trace(traceSEXP);
     Rcpp::traits::input_parameter< const arma::uword >::type KD_N_max(KD_N_maxSEXP);
     Rcpp::traits::input_parameter< const double >::type aprx_eps(aprx_epsSEXP);
-    rcpp_result_gen = Rcpp::wrap(pf_filter(Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, which_sampler, which_ll_cp, trace, KD_N_max, aprx_eps));
+    Rcpp::traits::input_parameter< const bool >::type use_antithetic(use_antitheticSEXP);
+    rcpp_result_gen = Rcpp::wrap(pf_filter(Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, which_sampler, which_ll_cp, trace, KD_N_max, aprx_eps, use_antithetic));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -150,8 +151,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // smoother_cpp
-Rcpp::List smoother_cpp(const arma::vec& Y, const arma::vec& cfix, const arma::vec& ws, const arma::vec& offsets, const arma::vec& disp, const arma::mat& X, const arma::mat& Z, const arma::uvec& time_indices_elems, const arma::uvec& time_indices_len, const arma::mat& F, const arma::mat& Q, const arma::mat& Q0, const std::string& fam, const arma::vec& mu0, const arma::uword n_threads, const double nu, const double covar_fac, const double ftol_rel, const arma::uword N_part, const std::string& what, const unsigned int trace, const arma::uword KD_N_max, const double aprx_eps, const std::string& which_ll_cp, const Rcpp::List pf_output);
-RcppExport SEXP _mssm_smoother_cpp(SEXP YSEXP, SEXP cfixSEXP, SEXP wsSEXP, SEXP offsetsSEXP, SEXP dispSEXP, SEXP XSEXP, SEXP ZSEXP, SEXP time_indices_elemsSEXP, SEXP time_indices_lenSEXP, SEXP FSEXP, SEXP QSEXP, SEXP Q0SEXP, SEXP famSEXP, SEXP mu0SEXP, SEXP n_threadsSEXP, SEXP nuSEXP, SEXP covar_facSEXP, SEXP ftol_relSEXP, SEXP N_partSEXP, SEXP whatSEXP, SEXP traceSEXP, SEXP KD_N_maxSEXP, SEXP aprx_epsSEXP, SEXP which_ll_cpSEXP, SEXP pf_outputSEXP) {
+Rcpp::List smoother_cpp(const arma::vec& Y, const arma::vec& cfix, const arma::vec& ws, const arma::vec& offsets, const arma::vec& disp, const arma::mat& X, const arma::mat& Z, const arma::uvec& time_indices_elems, const arma::uvec& time_indices_len, const arma::mat& F, const arma::mat& Q, const arma::mat& Q0, const std::string& fam, const arma::vec& mu0, const arma::uword n_threads, const double nu, const double covar_fac, const double ftol_rel, const arma::uword N_part, const std::string& what, const unsigned int trace, const arma::uword KD_N_max, const double aprx_eps, const std::string& which_ll_cp, const Rcpp::List pf_output, const bool use_antithetic);
+RcppExport SEXP _mssm_smoother_cpp(SEXP YSEXP, SEXP cfixSEXP, SEXP wsSEXP, SEXP offsetsSEXP, SEXP dispSEXP, SEXP XSEXP, SEXP ZSEXP, SEXP time_indices_elemsSEXP, SEXP time_indices_lenSEXP, SEXP FSEXP, SEXP QSEXP, SEXP Q0SEXP, SEXP famSEXP, SEXP mu0SEXP, SEXP n_threadsSEXP, SEXP nuSEXP, SEXP covar_facSEXP, SEXP ftol_relSEXP, SEXP N_partSEXP, SEXP whatSEXP, SEXP traceSEXP, SEXP KD_N_maxSEXP, SEXP aprx_epsSEXP, SEXP which_ll_cpSEXP, SEXP pf_outputSEXP, SEXP use_antitheticSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -180,7 +181,22 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const double >::type aprx_eps(aprx_epsSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type which_ll_cp(which_ll_cpSEXP);
     Rcpp::traits::input_parameter< const Rcpp::List >::type pf_output(pf_outputSEXP);
-    rcpp_result_gen = Rcpp::wrap(smoother_cpp(Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, trace, KD_N_max, aprx_eps, which_ll_cp, pf_output));
+    Rcpp::traits::input_parameter< const bool >::type use_antithetic(use_antitheticSEXP);
+    rcpp_result_gen = Rcpp::wrap(smoother_cpp(Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, trace, KD_N_max, aprx_eps, which_ll_cp, pf_output, use_antithetic));
+    return rcpp_result_gen;
+END_RCPP
+}
+// t_dist_antithe_test
+arma::mat t_dist_antithe_test(const unsigned n_sims, const arma::mat& Q, const arma::vec& mu, const double nu);
+RcppExport SEXP _mssm_t_dist_antithe_test(SEXP n_simsSEXP, SEXP QSEXP, SEXP muSEXP, SEXP nuSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const unsigned >::type n_sims(n_simsSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type Q(QSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< const double >::type nu(nuSEXP);
+    rcpp_result_gen = Rcpp::wrap(t_dist_antithe_test(n_sims, Q, mu, nu));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -205,9 +221,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_mssm_FSKA", (DL_FUNC) &_mssm_FSKA, 6},
     {"_mssm_sample_mv_normal", (DL_FUNC) &_mssm_sample_mv_normal, 3},
     {"_mssm_sample_mv_tdist", (DL_FUNC) &_mssm_sample_mv_tdist, 4},
-    {"_mssm_pf_filter", (DL_FUNC) &_mssm_pf_filter, 25},
+    {"_mssm_pf_filter", (DL_FUNC) &_mssm_pf_filter, 26},
     {"_mssm_run_Laplace_aprx", (DL_FUNC) &_mssm_run_Laplace_aprx, 29},
-    {"_mssm_smoother_cpp", (DL_FUNC) &_mssm_smoother_cpp, 25},
+    {"_mssm_smoother_cpp", (DL_FUNC) &_mssm_smoother_cpp, 26},
+    {"_mssm_t_dist_antithe_test", (DL_FUNC) &_mssm_t_dist_antithe_test, 4},
     {"_mssm_get_Q0", (DL_FUNC) &_mssm_get_Q0, 2},
     {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 0},
     {NULL, NULL, 0}

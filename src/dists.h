@@ -32,7 +32,7 @@ inline arma::uword get_grad_dim(const arma::uword stat_dim, const comp_out what)
     if(x - round(x) >= std::numeric_limits<double>::epsilon())
       throw std::runtime_error("invalid dimension in 'get_grad_dim'");
 #endif
-    return std::round(x);
+    return std::lround(x);
   }
 
   return 0L;
@@ -113,6 +113,9 @@ public:
 
   /* samples states and places them in input */
   virtual void sample(arma::mat&) const = 0;
+  /* samples states and places them in input with three additional antithetic
+   * variables (one location balanced and two scale balanced) */
+  virtual void sample_anti(arma::mat&) const = 0;
   /* returns the log density of the proposal distribution */
   virtual double log_prop_dens(const arma::vec&) const = 0;
 };
@@ -313,6 +316,10 @@ public:
 
   /* proposal_dist overrides */
   void sample(arma::mat&) const override;
+
+  void sample_anti(arma::mat&) const override {
+    throw std::runtime_error("mv_norm::sample_anti() not implemented");
+  }
 
   double log_prop_dens(const arma::vec &x) const override {
     return log_density_state(x, nullptr, nullptr, log_densty);
@@ -558,6 +565,8 @@ public:
 
   /* proposal_dist overrides */
   void sample(arma::mat&) const override;
+
+  void sample_anti(arma::mat&) const override;
 
   double log_prop_dens(const arma::vec &x) const override {
     return log_density_state(x, nullptr, nullptr, log_densty);

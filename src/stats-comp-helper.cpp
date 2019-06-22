@@ -133,12 +133,12 @@ private:
         &C_L, &obs_grad_dim, &D_ONE, dg, &I_ONE,
         hess_obs, &grad_dim);
 
-    /* next, we do the two outer products*/
+    /* next, we do the two outer products to the upper right block*/
     F77_CALL(dsyr2)(
         &C_L, &obs_grad_dim, &D_ONE, dg, &I_ONE, grad_obs, &I_ONE,
         hess_obs, &grad_dim);
 
-    /* then the outer product in the lower diagonal matrix */
+    /* then the outer product in the lower left block matrix */
     F77_CALL(dger)(
       &dstat.grad_dim, &obs_grad_dim, &D_ONE, grad_state, &I_ONE,
       dg, &I_ONE, hess_cross, &grad_dim);

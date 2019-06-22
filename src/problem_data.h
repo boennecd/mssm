@@ -17,11 +17,12 @@ public:
   const unsigned int trace;
   const arma::uword KD_N_min;
   const double aprx_eps;
+  const bool use_antithetic;
 
   control_obj
     (const arma::uword, const double, const double, const double,
      const arma::uword, const std::string&, const unsigned int,
-     const arma::uword, const double);
+     const arma::uword, const double, const bool);
   control_obj& operator=(const control_obj&) = delete;
   control_obj(const control_obj&) = delete;
   control_obj(control_obj&&) = default;

@@ -169,7 +169,8 @@ inline std::unique_ptr<problem_data> get_problem_data
    const arma::mat &Q0, const std::string &fam, const arma::vec &mu0,
    const arma::uword n_threads, const double nu, const double covar_fac,
    const double ftol_rel, const arma::uword N_part, const std::string &what,
-   const unsigned int trace, const arma::uword KD_N_max, const double aprx_eps){
+   const unsigned int trace, const arma::uword KD_N_max, const double aprx_eps,
+   const bool use_antithetic){
   /* create vector with time indices */
   const std::vector<arma::uvec> time_indices = ([&]{
     std::vector<arma::uvec> indices;
@@ -191,7 +192,7 @@ inline std::unique_ptr<problem_data> get_problem_data
 
   /* setup problem data object */
   control_obj ctrl(n_threads, nu, covar_fac, ftol_rel, N_part, what, trace,
-                   KD_N_max, aprx_eps);
+                   KD_N_max, aprx_eps, use_antithetic);
   std::unique_ptr<problem_data> out(new problem_data(
       Y, cfix, ws, offsets, disp, X, Z, std::move(time_indices), F, Q, Q0,
       fam, mu0, std::move(ctrl)));
@@ -209,12 +210,13 @@ Rcpp::List pf_filter
    const arma::uword n_threads, const double nu, const double covar_fac,
    const double ftol_rel, const arma::uword N_part, const std::string &what,
    const std::string &which_sampler, const std::string &which_ll_cp,
-   const unsigned int trace, const arma::uword KD_N_max, const double aprx_eps)
+   const unsigned int trace, const arma::uword KD_N_max, const double aprx_eps,
+   const bool use_antithetic)
 {
   std::unique_ptr<problem_data> dat = get_problem_data(
     Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len,
     F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part,
-    what, trace, KD_N_max, aprx_eps);
+    what, trace, KD_N_max, aprx_eps, use_antithetic);
 
   /* setup sampler */
   const std::unique_ptr<sampler> sampler_ = ([&]{
@@ -276,7 +278,7 @@ Rcpp::List run_Laplace_aprx
   std::unique_ptr<problem_data> dat = get_problem_data(
     Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len,
     F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what,
-    trace, KD_N_max, aprx_eps);
+    trace, KD_N_max, aprx_eps, false);
 
   auto result = Laplace_aprx(*dat, ftol_abs, la_ftol_rel, ftol_abs_inner,
                              la_ftol_rel_inner, maxeval, maxeval_inner);
@@ -301,12 +303,13 @@ Rcpp::List smoother_cpp
    const arma::uword n_threads, const double nu, const double covar_fac,
    const double ftol_rel, const arma::uword N_part, const std::string &what,
    const unsigned int trace, const arma::uword KD_N_max, const double aprx_eps,
-   const std::string &which_ll_cp, const Rcpp::List pf_output){
+   const std::string &which_ll_cp, const Rcpp::List pf_output,
+   const bool use_antithetic){
   /* setup problem data */
   std::unique_ptr<problem_data> dat = get_problem_data(
     Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len,
     F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what,
-    trace, KD_N_max, aprx_eps);
+    trace, KD_N_max, aprx_eps, use_antithetic);
 
   /* make list of particles and weights */
   const unsigned n_periods = pf_output.size();
@@ -345,4 +348,17 @@ Rcpp::List smoother_cpp
 
   throw std::invalid_argument(
       "'which_ll_cp' '" + which_ll_cp + "' not implemented");
+}
+
+/* exported to test the samples */
+// [[Rcpp::export]]
+arma::mat t_dist_antithe_test
+  (const unsigned n_sims, const arma::mat &Q, const arma::vec &mu,
+   const double nu){
+  mv_tdist tdist(Q, mu, nu);
+
+  arma::mat out(Q.n_cols, n_sims);
+  tdist.sample_anti(out);
+
+  return out;
 }

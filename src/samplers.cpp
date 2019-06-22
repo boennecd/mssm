@@ -52,7 +52,11 @@ inline particle_cloud sample_util
   if(prob.ctrl.trace > 1L)
     print_before_sampling(&dist);
 
-  dist.sample(out.particles);
+  if(prob.ctrl.use_antithetic)
+    dist.sample_anti(out.particles);
+  else
+    dist.sample     (out.particles);
+
   double *w;
   arma::uword i;
   for(i = 0, w = out.ws.begin(); i < prob.ctrl.N_part; ++i, ++w)

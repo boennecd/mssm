@@ -31,6 +31,7 @@ Table of Contents
 
 -   [Poisson Example](#poisson-example)
     -   [Log-Likelihood Approximations](#log-likelihood-approximations)
+    -   [Antithetic Variables](#antithetic-variables)
     -   [Parameter Estimation](#parameter-estimation)
     -   [Faster Approximation](#faster-approximation)
     -   [Approximate Observed Information Matrix](#approximate-observed-information-matrix)
@@ -210,7 +211,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##   1.944   0.014   0.494
+    ##   1.953   0.025   0.499
 
 ``` r
 # returns the log-likelihood approximation
@@ -362,7 +363,7 @@ local({
 ```
 
     ##    user  system elapsed 
-    ##   2.268   0.048   0.576
+    ##   1.893   0.029   0.481
 
 ![](man/figures/README-comp_boot-1.png)
 
@@ -377,6 +378,98 @@ logLik(mssm_glm)
 
     ## 'log Lik.' -7485 (df=11)
 
+### Antithetic Variables
+
+One way to reduce the variance of the Monte Carlo estimate is to use [antithetic variables](https://en.wikipedia.org/wiki/Antithetic_variates). Two types of antithetic variables are implemented as in Durbin and Koopman (1997). That is, one balanced for location and two balanced for scale. This is currently only implemented with a t-distribution as the proposal distribution.
+
+We start by giving some details on the locations balanced variable. Suppose we use a t-distribution with ![\\nu](https://latex.codecogs.com/svg.latex?%5Cnu "\nu") degrees of freedom, a ![d](https://latex.codecogs.com/svg.latex?d "d") dimensional mean of ![\\mu](https://latex.codecogs.com/svg.latex?%5Cmu "\mu") and a scale matrix ![\\Sigma](https://latex.codecogs.com/svg.latex?%5CSigma "\Sigma"). We can then generate a sample by setting
+
+![\\begin{aligned}  \\vec x &= \\vec\\mu + C \\frac{\\vec z}{\\sqrt{a / \\nu}} & \\Sigma &= CC^\\top \\\\ \\vec z &\\sim N(\\vec 0, I) & a &\\sim \\chi^2\_\\nu \\end{aligned}](https://latex.codecogs.com/svg.latex?%5Cbegin%7Baligned%7D%20%20%5Cvec%20x%20%26%3D%20%5Cvec%5Cmu%20%2B%20C%20%5Cfrac%7B%5Cvec%20z%7D%7B%5Csqrt%7Ba%20%2F%20%5Cnu%7D%7D%20%26%20%5CSigma%20%26%3D%20CC%5E%5Ctop%20%5C%5C%20%5Cvec%20z%20%26%5Csim%20N%28%5Cvec%200%2C%20I%29%20%26%20a%20%26%5Csim%20%5Cchi%5E2_%5Cnu%20%5Cend%7Baligned%7D "\begin{aligned}  \vec x &= \vec\mu + C \frac{\vec z}{\sqrt{a / \nu}} & \Sigma &= CC^\top \\ \vec z &\sim N(\vec 0, I) & a &\sim \chi^2_\nu \end{aligned}")
+
+Then the location balanced variable is
+
+![\\widehat{\\vec x} = \\vec\\mu - C \\frac{\\vec z}{\\sqrt{a / \\nu}}](https://latex.codecogs.com/svg.latex?%5Cwidehat%7B%5Cvec%20x%7D%20%3D%20%5Cvec%5Cmu%20-%20C%20%5Cfrac%7B%5Cvec%20z%7D%7B%5Csqrt%7Ba%20%2F%20%5Cnu%7D%7D "\widehat{\vec x} = \vec\mu - C \frac{\vec z}{\sqrt{a / \nu}}")
+
+For the scaled balanced variables we use that
+
+![u = \\frac{\\vec z^\\top\\vec z/ d}{a / \\nu} \\sim F(d, \\nu)](https://latex.codecogs.com/svg.latex?u%20%3D%20%5Cfrac%7B%5Cvec%20z%5E%5Ctop%5Cvec%20z%2F%20d%7D%7Ba%20%2F%20%5Cnu%7D%20%5Csim%20F%28d%2C%20%5Cnu%29 "u = \frac{\vec z^\top\vec z/ d}{a / \nu} \sim F(d, \nu)")
+
+We then define the cumulative distribution function
+
+![k = P(U \\leq u) = Q(u)](https://latex.codecogs.com/svg.latex?k%20%3D%20P%28U%20%5Cleq%20u%29%20%3D%20Q%28u%29 "k = P(U \leq u) = Q(u)")
+
+and set
+
+![u' = Q^{-1}(1 - k)](https://latex.codecogs.com/svg.latex?u%27%20%3D%20Q%5E%7B-1%7D%281%20-%20k%29 "u' = Q^{-1}(1 - k)")
+
+Then the two scaled balanced variables are
+
+![\\begin{aligned} \\widetilde{\\vec x}\_1 &= \\vec\\mu + \\sqrt{u'/u} \\cdot C \\frac{\\vec z}{\\sqrt{a / \\nu}} \\\\ \\widetilde{\\vec x}\_2 &= \\vec\\mu - \\sqrt{u'/u} \\cdot C \\frac{\\vec z}{\\sqrt{a / \\nu}} \\end{aligned}](https://latex.codecogs.com/svg.latex?%5Cbegin%7Baligned%7D%20%5Cwidetilde%7B%5Cvec%20x%7D_1%20%26%3D%20%5Cvec%5Cmu%20%2B%20%5Csqrt%7Bu%27%2Fu%7D%20%5Ccdot%20C%20%5Cfrac%7B%5Cvec%20z%7D%7B%5Csqrt%7Ba%20%2F%20%5Cnu%7D%7D%20%5C%5C%20%5Cwidetilde%7B%5Cvec%20x%7D_2%20%26%3D%20%5Cvec%5Cmu%20-%20%5Csqrt%7Bu%27%2Fu%7D%20%5Ccdot%20C%20%5Cfrac%7B%5Cvec%20z%7D%7B%5Csqrt%7Ba%20%2F%20%5Cnu%7D%7D%20%5Cend%7Baligned%7D "\begin{aligned} \widetilde{\vec x}_1 &= \vec\mu + \sqrt{u'/u} \cdot C \frac{\vec z}{\sqrt{a / \nu}} \\ \widetilde{\vec x}_2 &= \vec\mu - \sqrt{u'/u} \cdot C \frac{\vec z}{\sqrt{a / \nu}} \end{aligned}")
+
+We will illustrate the reduction in variance of the log-likelihood estimate. To do so, we run the particle filter with and without antithetic variables multiple times below to get an estimate of the error of the approximation.
+
+``` r
+set.seed(12769550)
+compare_anti <- local({
+  ll_func_no_anti <- mssm(
+    fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
+    random = ~ Z, ti = time_idx, control = mssm_control(
+      n_threads = 5L, N_part = 500L, what = "log_density")) 
+  
+  ll_func_anti <- mssm(
+    fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
+    random = ~ Z, ti = time_idx, control = mssm_control(
+      n_threads = 5L, N_part = 500L, what = "log_density", 
+      use_antithetic = TRUE)) 
+  
+  no_anti <- replicate(
+    100, {
+      ti <- system.time(x <- logLik(ll_func_no_anti$pf_filter(
+        cfix = cfix, disp = numeric(), F. = F., Q = Q, seed = NULL)))
+      list(ti = ti, x = x)
+    }, simplify = FALSE)
+  w_anti  <- replicate(
+    100, {
+      ti <- system.time(x <- logLik(ll_func_anti$pf_filter(
+        cfix = cfix, disp = numeric(), F. = F., Q = Q, seed = NULL)))
+      list(ti = ti, x = x)
+    }, simplify = FALSE)
+  
+  list(no_anti = no_anti, w_anti = w_anti)
+})
+```
+
+The mean estimate of the log-likelihood and standard error of the estimate is shown below with and without antithetic variables.
+
+``` r
+sapply(compare_anti, function(x){ 
+  x <- sapply(x, "[[", "x")
+  c(mean = mean(x), se = sd(x) / sqrt(length(x)))
+})
+```
+
+    ##          no_anti     w_anti
+    ## mean -5864.42610 -5864.3495
+    ## se       0.05163     0.0298
+
+Using antithetic variables is slower. Below we show summary statistics for the elapsed time without using antithetic variables and with antithetic variables.
+
+``` r
+sapply(compare_anti, function(x){ 
+  x <- sapply(x, "[[", "ti")
+  z <- x[c("elapsed"), ]
+  c(mean = mean(z), quantile(z, c(.5, .25, .75, 0, 1)))
+})
+```
+
+    ##      no_anti w_anti
+    ## mean  0.4878 0.5402
+    ## 50%   0.4810 0.5340
+    ## 25%   0.4695 0.5207
+    ## 75%   0.4993 0.5553
+    ## 0%    0.4400 0.4910
+    ## 100%  0.5740 0.6560
+
 ### Parameter Estimation
 
 We will need to estimate the parameters for real applications. We could do this e.g., with a Monte Carlo expectation-maximization algorithm or by using a Monte Carlo approximation of the gradient. Currently, the latter is only available and the user will have to write a custom function to perform the estimation. I will provide an example below. The `sgd` function is not a part of the package. Instead the package provides a way to approximate the gradient and allows the user to perform subsequent maximization (e.g., with constraints or penalties). The definition of the `sgd` is given at the end of this file as it is somewhat long. We start by using a Laplace approximation to get the starting values.
@@ -386,7 +479,7 @@ We will need to estimate the parameters for real applications. We could do this 
 ll_func <- mssm(  
   fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
   random = ~ Z, ti = time_idx, control = mssm_control(
-    n_threads = 5L, N_part = 200L, what = "gradient"))
+    n_threads = 5L, N_part = 200L, what = "gradient", use_antithetic = TRUE))
 
 # use Laplace approximation to get starting values
 system.time(
@@ -397,7 +490,7 @@ system.time(
     ## Mode approxmation failed at least once
 
     ##    user  system elapsed 
-    ##  27.203   0.536   6.692
+    ##  31.220   0.636   7.832
 
 ``` r
 # the function returns an object with the estimated parameters and  
@@ -408,7 +501,7 @@ sta
     ## 
     ## Call:  mssm(fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
     ##     random = ~Z, ti = time_idx, control = mssm_control(n_threads = 5L, 
-    ##         N_part = 200L, what = "gradient"))
+    ##         N_part = 200L, what = "gradient", use_antithetic = TRUE))
     ## 
     ## Family is 'poisson' with link 'log'.
     ## Parameters are estimated with a Laplace approximation.
@@ -460,7 +553,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 212.198   1.331  49.104
+    ## 227.520   1.236  53.674
 
 ``` r
 # use Adam algorithm instead
@@ -472,15 +565,15 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 209.052   1.358  48.496
+    ## 227.604   1.283  53.607
 
-A plot of the approximate log-likelihoods at each iteration is shown below along with the final estimates.
+Plots of the approximate log-likelihoods at each iteration is shown below along with the final estimates.
 
 ``` r
 print(tail(res$logLik), digits = 6) # final log-likelihood approximations
 ```
 
-    ## [1] -5862.03 -5861.98 -5861.53 -5862.08 -5862.73 -5860.91
+    ## [1] -5862.05 -5861.92 -5861.79 -5861.78 -5861.54 -5861.59
 
 ``` r
 par(mar = c(5, 4, 1, 1))
@@ -501,29 +594,29 @@ res$F.
 ```
 
     ##             (Intercept)         Z
-    ## (Intercept)    0.496207 -0.002271
-    ## Z             -0.001027  0.799034
+    ## (Intercept)   0.4957314 -0.001611
+    ## Z            -0.0007354  0.799463
 
 ``` r
 res$Q
 ```
 
     ##             (Intercept)      Z
-    ## (Intercept)      0.3042 0.1248
-    ## Z                0.1248 0.4978
+    ## (Intercept)      0.3031 0.1243
+    ## Z                0.1243 0.4970
 
 ``` r
 res$cfix
 ```
 
-    ## [1] -0.9795  0.2139  0.5242 -0.8881
+    ## [1] -0.9740  0.2137  0.5240 -0.8984
 
 ``` r
 # compare with output from Adam algorithm
 print(tail(resa$logLik), digits = 6) # final log-likelihood approximations
 ```
 
-    ## [1] -5862.03 -5862.00 -5861.56 -5862.11 -5862.76 -5860.94
+    ## [1] -5862.07 -5861.94 -5861.81 -5861.79 -5861.56 -5861.65
 
 ``` r
 plot(resa$logLik, type = "l", ylab = "log-likelihood approximation")
@@ -542,22 +635,22 @@ resa$F.
 ```
 
     ##             (Intercept)         Z
-    ## (Intercept)    0.499589 -0.003025
-    ## Z              0.006927  0.796342
+    ## (Intercept)   0.4931484 -0.002659
+    ## Z             0.0001808  0.800192
 
 ``` r
 resa$Q
 ```
 
     ##             (Intercept)      Z
-    ## (Intercept)      0.3063 0.1275
-    ## Z                0.1275 0.4968
+    ## (Intercept)      0.3069 0.1300
+    ## Z                0.1300 0.4987
 
 ``` r
 resa$cfix
 ```
 
-    ## [1] -0.9783  0.2141  0.5221 -0.8868
+    ## [1] -0.9840  0.2136  0.5245 -0.9396
 
 We may want to use more particles towards the end when we estimate the parameters. To do, we use the approximation described in the next section at the final estimates that we arrived at before.
 
@@ -573,7 +666,7 @@ ll_func <- mssm(
   fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
   random = ~ Z, ti = time_idx, control = mssm_control(
     n_threads = 5L, N_part = 10000L, what = "gradient",
-    which_ll_cp = "KD", aprx_eps = .01))
+    which_ll_cp = "KD", aprx_eps = .01, use_antithetic = TRUE))
 
 set.seed(25164416)
 system.time( 
@@ -583,7 +676,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ##  2878.9    23.2   634.6
+    ## 2962.58   24.67  674.59
 
 ``` r
 plot(res_final$logLik, type = "l", ylab = "log-likelihood approximation")
@@ -602,22 +695,22 @@ res_final$F.
 ```
 
     ##             (Intercept)         Z
-    ## (Intercept)    0.501657 -0.001767
-    ## Z              0.005557  0.800387
+    ## (Intercept)    0.502139 -0.002061
+    ## Z              0.007066  0.799001
 
 ``` r
 res_final$Q
 ```
 
     ##             (Intercept)      Z
-    ## (Intercept)      0.3041 0.1242
-    ## Z                0.1242 0.4966
+    ## (Intercept)      0.3032 0.1228
+    ## Z                0.1228 0.4969
 
 ``` r
 res_final$cfix
 ```
 
-    ## [1] -0.9762  0.2140  0.5248 -0.9030
+    ## [1] -0.9784  0.2136  0.5245 -0.9187
 
 ### Faster Approximation
 
@@ -631,7 +724,8 @@ local({
     ll_func <- mssm(
       fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
       random = ~ Z, ti = time_idx, control = mssm_control(
-        n_threads = 5L, N_part = N, what = "log_density"))
+        n_threads = 5L, N_part = N, what = "log_density", 
+        use_antithetic = TRUE))
     function()
       ll_func$pf_filter(
         cfix = coef(glm_fit), disp = numeric(), F. = diag(1e-8, 2), 
@@ -653,12 +747,12 @@ local({
 ```
 
     ## Unit: milliseconds
-    ##  expr     min      lq    mean  median      uq     max neval
-    ##   100   68.88   72.13   75.57   75.37   78.92   82.47     3
-    ##   200  129.27  141.90  149.55  154.53  159.69  164.84     3
-    ##   400  404.68  412.07  415.49  419.47  420.90  422.32     3
-    ##   800 1029.99 1109.39 1149.03 1188.80 1208.55 1228.30     3
-    ##  1600 3387.65 3429.32 3457.94 3470.99 3493.08 3515.17     3
+    ##  expr     min     lq    mean  median      uq     max neval
+    ##   100   70.94   73.1   76.41   75.27   79.14   83.01     3
+    ##   200  154.47  161.1  170.10  167.65  177.91  188.17     3
+    ##   400  414.10  426.7  437.21  439.39  448.76  458.12     3
+    ##   800 1158.73 1178.2 1190.54 1197.58 1206.44 1215.30     3
+    ##  1600 3725.94 3992.7 4091.91 4259.44 4274.90 4290.35     3
 
 A solution is to use the dual k-d tree method I cover later. The computational complexity is ![\\mathcal{O}(N \\log N)](https://latex.codecogs.com/svg.latex?%5Cmathcal%7BO%7D%28N%20%5Clog%20N%29 "\mathcal{O}(N \log N)") for this method which is somewhat indicated by the run times shown below.
 
@@ -671,7 +765,8 @@ local({
       fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
       random = ~ Z, ti = time_idx, control = mssm_control(
         n_threads = 5L, N_part = N, what = "log_density", 
-        which_ll_cp = "KD", KD_N_max = 6L, aprx_eps = 1e-2))
+        which_ll_cp = "KD", KD_N_max = 6L, aprx_eps = 1e-2, 
+        use_antithetic = TRUE))
     function()
       ll_func$pf_filter(
         cfix = coef(glm_fit), disp = numeric(), F. = diag(1e-8, 2), 
@@ -694,13 +789,13 @@ local({
 ```
 
     ## Unit: milliseconds
-    ##   expr    min     lq   mean median     uq    max neval
-    ##    100  112.1  118.1  123.8  124.1  129.6  135.0     3
-    ##    200  205.5  225.7  238.9  245.9  255.6  265.4     3
-    ##    400  407.3  418.0  443.3  428.7  461.2  493.8     3
-    ##    800  845.1  875.4  898.9  905.7  925.8  945.9     3
-    ##   1600 1537.7 1555.8 1571.8 1573.8 1588.8 1603.8     3
-    ##  12800 8160.8 8161.0 8269.1 8161.3 8323.3 8485.3     3
+    ##   expr     min      lq    mean  median      uq     max neval
+    ##    100   114.8   117.0   119.6   119.3   122.0   124.7     3
+    ##    200   218.6   226.1   233.0   233.6   240.2   246.7     3
+    ##    400   445.1   446.6   469.7   448.2   482.0   515.8     3
+    ##    800   882.1   921.9   941.4   961.8   971.1   980.5     3
+    ##   1600  1853.1  1869.0  1912.4  1884.9  1942.0  1999.1     3
+    ##  12800 10065.3 10155.4 10330.7 10245.5 10463.4 10681.2     3
 
 The `aprx_eps` controls the size of the error. To be precise about what this value does then we need to some notation for the complete likelihood (the likelihood where we observe ![\\vec\\beta\_1,\\dots,\\vec\\beta\_T](https://latex.codecogs.com/svg.latex?%5Cvec%5Cbeta_1%2C%5Cdots%2C%5Cvec%5Cbeta_T "\vec\beta_1,\dots,\vec\beta_T")s). This is
 
@@ -721,7 +816,7 @@ ll_compare <- local({
       fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
       random = ~ Z, ti = time_idx, control = mssm_control(
         n_threads = 5L, N_part = N_use, what = "log_density", 
-        seed = seed))
+        seed = seed, use_antithetic = TRUE))
     
     logLik(ll_func$pf_filter(
       cfix = cfix, disp = numeric(), F. = F., Q = Q))
@@ -734,7 +829,7 @@ ll_compare <- local({
       random = ~ Z, ti = time_idx, control = mssm_control(
         n_threads = 5L, N_part = N_use, what = "log_density", 
         KD_N_max = 6L, aprx_eps = 1e-2, seed = seed, 
-        which_ll_cp = "KD"))
+        which_ll_cp = "KD", use_antithetic = TRUE))
     
     logLik(ll_func$pf_filter(
       cfix = cfix, disp = numeric(), F. = F., Q = Q))
@@ -771,10 +866,10 @@ with(ll_compare, t.test(ll_no_approx, ll_approx))
     ##  Welch Two Sample t-test
     ## 
     ## data:  ll_no_approx and ll_approx
-    ## t = -8.9, df = 398, p-value <2e-16
+    ## t = -14, df = 398, p-value <2e-16
     ## alternative hypothesis: true difference in means is not equal to 0
     ## 95 percent confidence interval:
-    ##  -0.5457 -0.3479
+    ##  -0.5129 -0.3847
     ## sample estimates:
     ## mean of x mean of y 
     ##     -5864     -5864
@@ -790,7 +885,7 @@ ll_approx <- sapply(1:10, function(seed){
     random = ~ Z, ti = time_idx, control = mssm_control(
       n_threads = 5L, N_part = N_use, what = "log_density", 
       KD_N_max = 100L, aprx_eps = 1e-2, seed = seed, 
-      which_ll_cp = "KD"))
+      which_ll_cp = "KD", use_antithetic = TRUE))
   
   logLik(ll_func$pf_filter(
     cfix = cfix, disp = numeric(), F. = F., Q = Q))
@@ -800,26 +895,26 @@ ll_approx <- sapply(1:10, function(seed){
 sd(ll_approx)
 ```
 
-    ## [1] 0.1091
+    ## [1] 0.07152
 
 ``` r
 print(mean(ll_approx), digits = 6)
 ```
 
-    ## [1] -5863.97
+    ## [1] -5864
 
 ``` r
 # compare sd with 
 sd(ll_compare$ll_no_approx)
 ```
 
-    ## [1] 0.5033
+    ## [1] 0.3263
 
 ``` r
 print(mean(ll_compare$ll_no_approx), digits = 6)
 ```
 
-    ## [1] -5864.42
+    ## [1] -5864.33
 
 ### Approximate Observed Information Matrix
 
@@ -837,7 +932,7 @@ ll_func <- mssm(
   fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
   random = ~ Z, ti = time_idx, control = mssm_control(
     n_threads = 5L, N_part = 10000L, what = "Hessian",
-    which_ll_cp = "KD", aprx_eps = .01))
+    which_ll_cp = "KD", aprx_eps = .01, use_antithetic = TRUE))
 
 set.seed(46658529)
 system.time(
@@ -847,7 +942,7 @@ system.time(
 ```
 
     ##    user  system elapsed 
-    ## 327.563   1.297  71.051
+    ## 352.638   1.183  77.434
 
 We define a function below to get the approximate gradient and approximate observed information matrix from the returned object. Then we compare the output to the GLM we estimated and to the true parameters.
 
@@ -903,17 +998,17 @@ out$grad
 ```
 
     ##               (Intercept)                        X1 
-    ##                    0.1857                   -0.3223 
+    ##                  0.211341                  0.283541 
     ##                        X2                         Z 
-    ##                   -0.2646                   -0.4061 
+    ##                  0.154870                  0.037114 
     ## F:(Intercept).(Intercept)           F:Z.(Intercept) 
-    ##                   -0.0172                   -0.4134 
+    ##                  0.080264                 -0.236594 
     ##           F:(Intercept).Z                     F:Z.Z 
-    ##                   -0.3479                   -0.4440 
+    ##                 -0.002054                  0.410972 
     ## Q:(Intercept).(Intercept)           Q:Z.(Intercept) 
-    ##                    0.1637                   -1.2525 
+    ##                 -0.361656                  0.654905 
     ##                     Q:Z.Z 
-    ##                    0.4210
+    ##                 -0.186215
 
 ``` r
 # approximate standard errors
@@ -921,17 +1016,17 @@ out$grad
 ```
 
     ##               (Intercept)                        X1 
-    ##                   0.04356                   0.02815 
+    ##                   0.04401                   0.02815 
     ##                        X2                         Z 
-    ##                   0.02920                   0.08821 
+    ##                   0.02920                   0.08919 
     ## F:(Intercept).(Intercept)           F:Z.(Intercept) 
-    ##                   0.06735                   0.09064 
+    ##                   0.06737                   0.09086 
     ##           F:(Intercept).Z                     F:Z.Z 
-    ##                   0.03282                   0.04166 
+    ##                   0.03278                   0.04176 
     ## Q:(Intercept).(Intercept)           Q:Z.(Intercept) 
-    ##                   0.03632                   0.03966 
+    ##                   0.03625                   0.03951 
     ##                     Q:Z.Z 
-    ##                   0.07011
+    ##                   0.07010
 
 ``` r
 # look at output for parameters in the observational equation. First, compare 
@@ -954,8 +1049,8 @@ rbind(
     ##                (Intercept)      X1     X2        Z
     ## true              -1.00000 0.20000 0.5000 -1.00000
     ## glm               -0.55576 0.20237 0.5160 -0.91216
-    ## mssm              -0.97624 0.21398 0.5248 -0.90299
-    ## standard error     0.04356 0.02815 0.0292  0.08821
+    ## mssm              -0.97837 0.21359 0.5245 -0.91867
+    ## standard error     0.04401 0.02815 0.0292  0.08919
 
 ``` r
 # next look at parameters in state equation. First four are for F.
@@ -967,12 +1062,12 @@ rbind(
 
     ##                F:(Intercept).(Intercept) F:Z.(Intercept) F:(Intercept).Z
     ## true                             0.50000        0.100000        0.000000
-    ## mssm                             0.50166        0.005557       -0.001767
-    ## standard error                   0.06735        0.090636        0.032824
+    ## mssm                             0.50214        0.007066       -0.002061
+    ## standard error                   0.06737        0.090857        0.032778
     ##                  F:Z.Z
     ## true           0.80000
-    ## mssm           0.80039
-    ## standard error 0.04166
+    ## mssm           0.79900
+    ## standard error 0.04176
 
 ``` r
 # next three are w.r.t. the lower diagonal part of Q
@@ -982,10 +1077,10 @@ rbind(
   `standard error` = ses[9:11])
 ```
 
-    ##                Q:(Intercept).(Intercept) Q:Z.(Intercept)   Q:Z.Z
-    ## true                             0.25000         0.10000 0.49000
-    ## mssm                             0.30411         0.12420 0.49659
-    ## standard error                   0.03632         0.03966 0.07011
+    ##                Q:(Intercept).(Intercept) Q:Z.(Intercept)  Q:Z.Z
+    ## true                             0.25000         0.10000 0.4900
+    ## mssm                             0.30322         0.12282 0.4969
+    ## standard error                   0.03625         0.03951 0.0701
 
 Supported Families
 ------------------
@@ -1082,10 +1177,10 @@ microbenchmark::microbenchmark(
 
     ## Unit: milliseconds
     ##         expr     min      lq    mean  median      uq     max neval
-    ##  dual tree 1  110.13  112.64  166.98  116.79  241.55  330.79    10
-    ##  dual tree 4   41.16   41.33   49.36   50.73   53.68   63.35    10
-    ##      naive 1 3312.61 3342.68 3638.94 3434.74 3547.45 5565.56    10
-    ##      naive 4  909.17 1018.03 1113.10 1079.78 1129.06 1592.45    10
+    ##  dual tree 1  112.12  112.77  121.69  119.38  127.57  139.54    10
+    ##  dual tree 4   41.12   42.56   48.37   48.99   51.88   59.57    10
+    ##      naive 1 3287.33 3322.92 3373.87 3358.19 3375.58 3648.55    10
+    ##      naive 4  907.88  919.46 1000.37  963.58 1015.60 1219.05    10
 
 ``` r
 # The functions return the un-normalized log weights. We first compare
@@ -1166,20 +1261,20 @@ meds
 ```
 
     ##          method
-    ## N         Dual-tree     Naive Dual-tree 1
-    ##   384      0.001656  0.001729    0.003219
-    ##   768      0.002904  0.004090    0.006349
-    ##   1536     0.005031  0.009342    0.011293
-    ##   3072     0.009151  0.037434    0.022862
-    ##   6144     0.019268  0.150112    0.047924
-    ##   12288    0.037420  0.635375    0.094008
-    ##   24576    0.063480  2.676045    0.175921
-    ##   49152    0.120780 10.544569    0.335214
-    ##   98304    0.224966        NA          NA
-    ##   196608   0.463704        NA          NA
-    ##   393216   0.887116        NA          NA
-    ##   786432   1.870536        NA          NA
-    ##   1572864  3.845212        NA          NA
+    ## N         Dual-tree      Naive Dual-tree 1
+    ##   384      0.001544  0.0007307    0.003253
+    ##   768      0.002791  0.0029314    0.007089
+    ##   1536     0.004998  0.0095003    0.011291
+    ##   3072     0.009352  0.0391667    0.022944
+    ##   6144     0.020934  0.1659243    0.049897
+    ##   12288    0.037683  0.6763331    0.097656
+    ##   24576    0.063514  2.6204397    0.178018
+    ##   49152    0.118862 11.1092993    0.342616
+    ##   98304    0.242272         NA          NA
+    ##   196608   0.455448         NA          NA
+    ##   393216   0.922857         NA          NA
+    ##   786432   1.831984         NA          NA
+    ##   1572864  3.993110         NA          NA
 
 ``` r
 par(mar = c(5, 4, 1, 1))
@@ -1464,6 +1559,8 @@ adam <- function(
 
 References
 ----------
+
+Durbin, J., and S. J. Koopman. 1997. “Monte Carlo Maximum Likelihood Estimation for Non-Gaussian State Space Models.” *Biometrika* 84 (3). \[Oxford University Press, Biometrika Trust\]: 669–84. <http://www.jstor.org/stable/2337587>.
 
 Gray, Alexander G., and Andrew W. Moore. 2003. “Rapid Evaluation of Multiple Density Models.” In *AISTATS*.
 

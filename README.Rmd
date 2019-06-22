@@ -251,6 +251,97 @@ mssm_glm <- ll_func$pf_filter(
 logLik(mssm_glm)
 ```
 
+### Antithetic Variables
+
+One way to reduce the variance of the Monte Carlo estimate is to use 
+[antithetic variables](https://en.wikipedia.org/wiki/Antithetic_variates). 
+Two types of antithetic variables are implemented as in @Durbin97. 
+That is, one balanced for location and two balanced for scale. This is currently 
+only implemented with a t-distribution as the proposal distribution. 
+
+We start by giving some details on the locations balanced variable. Suppose 
+we use a t-distribution with $\nu$ degrees of freedom, a $d$ dimensional mean 
+of $\mu$ and a scale matrix $\Sigma$. We can then generate a sample by setting
+
+$$\begin{aligned}  \vec x &= \vec\mu + C \frac{\vec z}{\sqrt{a / \nu}} & \Sigma &= CC^\top \\ \vec z &\sim N(\vec 0, I) & a &\sim \chi^2_\nu \end{aligned}$$
+
+Then the location balanced variable is
+
+$$\widehat{\vec x} = \vec\mu - C \frac{\vec z}{\sqrt{a / \nu}}$$
+
+For the scaled balanced variables we use that 
+
+$$u = \frac{\vec z^\top\vec z/ d}{a / \nu} \sim F(d, \nu)$$
+
+We then define the cumulative distribution function
+
+$$k = P(U \leq u) = Q(u)$$
+
+and set 
+
+$$u' = Q^{-1}(1 - k)$$
+
+Then the two scaled balanced variables are
+
+$$\begin{aligned} \widetilde{\vec x}_1 &= \vec\mu + \sqrt{u'/u} \cdot C \frac{\vec z}{\sqrt{a / \nu}} \\ \widetilde{\vec x}_2 &= \vec\mu - \sqrt{u'/u} \cdot C \frac{\vec z}{\sqrt{a / \nu}} \end{aligned}$$
+
+We will illustrate the reduction in variance of the log-likelihood estimate. 
+To do so, we run the particle filter with and without antithetic variables
+multiple times below
+to get an estimate of the error of the approximation.
+
+```{r anti_ex, cache = 1}
+set.seed(12769550)
+compare_anti <- local({
+  ll_func_no_anti <- mssm(
+    fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
+    random = ~ Z, ti = time_idx, control = mssm_control(
+      n_threads = 5L, N_part = 500L, what = "log_density")) 
+  
+  ll_func_anti <- mssm(
+    fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
+    random = ~ Z, ti = time_idx, control = mssm_control(
+      n_threads = 5L, N_part = 500L, what = "log_density", 
+      use_antithetic = TRUE)) 
+  
+  no_anti <- replicate(
+    100, {
+      ti <- system.time(x <- logLik(ll_func_no_anti$pf_filter(
+        cfix = cfix, disp = numeric(), F. = F., Q = Q, seed = NULL)))
+      list(ti = ti, x = x)
+    }, simplify = FALSE)
+  w_anti  <- replicate(
+    100, {
+      ti <- system.time(x <- logLik(ll_func_anti$pf_filter(
+        cfix = cfix, disp = numeric(), F. = F., Q = Q, seed = NULL)))
+      list(ti = ti, x = x)
+    }, simplify = FALSE)
+  
+  list(no_anti = no_anti, w_anti = w_anti)
+})
+```
+
+The mean estimate of the log-likelihood and standard error of the estimate is
+shown below with and without antithetic variables.
+
+```{r show_anti_ex}
+sapply(compare_anti, function(x){ 
+  x <- sapply(x, "[[", "x")
+  c(mean = mean(x), se = sd(x) / sqrt(length(x)))
+})
+```
+
+Using antithetic variables is slower. Below we show summary statistics for the 
+elapsed time without using antithetic variables and with antithetic variables.
+
+```{r run_anti_ex}
+sapply(compare_anti, function(x){ 
+  x <- sapply(x, "[[", "ti")
+  z <- x[c("elapsed"), ]
+  c(mean = mean(z), quantile(z, c(.5, .25, .75, 0, 1)))
+})
+```
+
 ### Parameter Estimation
 
 We will need to estimate the parameters for real applications. We could do 
@@ -540,7 +631,7 @@ adam <- function(
 ll_func <- mssm(  
   fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
   random = ~ Z, ti = time_idx, control = mssm_control(
-    n_threads = 5L, N_part = 200L, what = "gradient"))
+    n_threads = 5L, N_part = 200L, what = "gradient", use_antithetic = TRUE))
 
 # use Laplace approximation to get starting values
 system.time(
@@ -579,7 +670,7 @@ system.time(
     lr = .01, n_it = 50L))
 ```
 
-A plot of the approximate log-likelihoods at each iteration is shown below 
+Plots of the approximate log-likelihoods at each iteration is shown below 
 along with the final estimates. 
 
 ```{r show_use_sgd, fig.height = .fig_height_small}
@@ -619,7 +710,7 @@ ll_func <- mssm(
   fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
   random = ~ Z, ti = time_idx, control = mssm_control(
     n_threads = 5L, N_part = 10000L, what = "gradient",
-    which_ll_cp = "KD", aprx_eps = .01))
+    which_ll_cp = "KD", aprx_eps = .01, use_antithetic = TRUE))
 
 set.seed(25164416)
 system.time( 
@@ -654,7 +745,8 @@ local({
     ll_func <- mssm(
       fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
       random = ~ Z, ti = time_idx, control = mssm_control(
-        n_threads = 5L, N_part = N, what = "log_density"))
+        n_threads = 5L, N_part = N, what = "log_density", 
+        use_antithetic = TRUE))
     function()
       ll_func$pf_filter(
         cfix = coef(glm_fit), disp = numeric(), F. = diag(1e-8, 2), 
@@ -688,7 +780,8 @@ local({
       fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat, 
       random = ~ Z, ti = time_idx, control = mssm_control(
         n_threads = 5L, N_part = N, what = "log_density", 
-        which_ll_cp = "KD", KD_N_max = 6L, aprx_eps = 1e-2))
+        which_ll_cp = "KD", KD_N_max = 6L, aprx_eps = 1e-2, 
+        use_antithetic = TRUE))
     function()
       ll_func$pf_filter(
         cfix = coef(glm_fit), disp = numeric(), F. = diag(1e-8, 2), 
@@ -741,7 +834,7 @@ ll_compare <- local({
       fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
       random = ~ Z, ti = time_idx, control = mssm_control(
         n_threads = 5L, N_part = N_use, what = "log_density", 
-        seed = seed))
+        seed = seed, use_antithetic = TRUE))
     
     logLik(ll_func$pf_filter(
       cfix = cfix, disp = numeric(), F. = F., Q = Q))
@@ -754,7 +847,7 @@ ll_compare <- local({
       random = ~ Z, ti = time_idx, control = mssm_control(
         n_threads = 5L, N_part = N_use, what = "log_density", 
         KD_N_max = 6L, aprx_eps = 1e-2, seed = seed, 
-        which_ll_cp = "KD"))
+        which_ll_cp = "KD", use_antithetic = TRUE))
     
     logLik(ll_func$pf_filter(
       cfix = cfix, disp = numeric(), F. = F., Q = Q))
@@ -794,7 +887,7 @@ ll_approx <- sapply(1:10, function(seed){
     random = ~ Z, ti = time_idx, control = mssm_control(
       n_threads = 5L, N_part = N_use, what = "log_density", 
       KD_N_max = 100L, aprx_eps = 1e-2, seed = seed, 
-      which_ll_cp = "KD"))
+      which_ll_cp = "KD", use_antithetic = TRUE))
   
   logLik(ll_func$pf_filter(
     cfix = cfix, disp = numeric(), F. = F., Q = Q))
@@ -827,7 +920,7 @@ ll_func <- mssm(
   fixed = y ~ X1 + X2 + Z, family = poisson(), data = dat,
   random = ~ Z, ti = time_idx, control = mssm_control(
     n_threads = 5L, N_part = 10000L, what = "Hessian",
-    which_ll_cp = "KD", aprx_eps = .01))
+    which_ll_cp = "KD", aprx_eps = .01, use_antithetic = TRUE))
 
 set.seed(46658529)
 system.time(

@@ -21,16 +21,20 @@ sample_mv_tdist <- function(N, Q, mu, nu) {
     .Call(`_mssm_sample_mv_tdist`, N, Q, mu, nu)
 }
 
-pf_filter <- function(Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, which_sampler, which_ll_cp, trace, KD_N_max, aprx_eps) {
-    .Call(`_mssm_pf_filter`, Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, which_sampler, which_ll_cp, trace, KD_N_max, aprx_eps)
+pf_filter <- function(Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, which_sampler, which_ll_cp, trace, KD_N_max, aprx_eps, use_antithetic) {
+    .Call(`_mssm_pf_filter`, Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, which_sampler, which_ll_cp, trace, KD_N_max, aprx_eps, use_antithetic)
 }
 
 run_Laplace_aprx <- function(Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, trace, KD_N_max, aprx_eps, ftol_abs, la_ftol_rel, ftol_abs_inner, la_ftol_rel_inner, maxeval, maxeval_inner) {
     .Call(`_mssm_run_Laplace_aprx`, Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, trace, KD_N_max, aprx_eps, ftol_abs, la_ftol_rel, ftol_abs_inner, la_ftol_rel_inner, maxeval, maxeval_inner)
 }
 
-smoother_cpp <- function(Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, trace, KD_N_max, aprx_eps, which_ll_cp, pf_output) {
-    .Call(`_mssm_smoother_cpp`, Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, trace, KD_N_max, aprx_eps, which_ll_cp, pf_output)
+smoother_cpp <- function(Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, trace, KD_N_max, aprx_eps, which_ll_cp, pf_output, use_antithetic) {
+    .Call(`_mssm_smoother_cpp`, Y, cfix, ws, offsets, disp, X, Z, time_indices_elems, time_indices_len, F, Q, Q0, fam, mu0, n_threads, nu, covar_fac, ftol_rel, N_part, what, trace, KD_N_max, aprx_eps, which_ll_cp, pf_output, use_antithetic)
+}
+
+t_dist_antithe_test <- function(n_sims, Q, mu, nu) {
+    .Call(`_mssm_t_dist_antithe_test`, n_sims, Q, mu, nu)
 }
 
 .get_Q0 <- function(Qmat, Fmat) {

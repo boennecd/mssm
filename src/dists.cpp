@@ -32,6 +32,7 @@ void mv_tdist::sample(arma::mat &out) const {
 
   /* sample standard normal distributed variables */
   for(auto &x : out)
+    /* TODO: slow to make multiple calls? */
     x = norm_rand();
 
   /* account for covariance matrix */
@@ -47,6 +48,83 @@ void mv_tdist::sample(arma::mat &out) const {
   /* add mean */
   if(mu)
     out.each_col() += *mu;
+}
+
+void mv_tdist::sample_anti(arma::mat &out) const {
+#ifdef MSSM_DEBUG
+  if(out.n_rows != dim)
+    throw invalid_argument("'out' and 'dim' does not match");
+#endif
+
+  /* handle odd numbers */
+  const unsigned start = ([&]{
+    const unsigned resid = out.n_cols % 4L;
+    if(resid > 0){
+      arma::mat dum(out.memptr(), out.n_rows, resid, false);
+      sample(dum);
+    }
+
+    return resid;
+  })();
+
+  if(start == out.n_cols)
+    return;
+
+  /* handle set of four samples without accounting for scale or location */
+  const std::size_t
+    nc = out.n_cols, n_samp = (nc - start) / 4L;
+  Rcpp::NumericVector chis = Rcpp::rchisq(n_samp, nu);
+  const double n_vars = out.n_rows;
+  for(auto &x : chis)
+    x /= nu;
+
+  const double *ci = &chis[0];
+  for(std::size_t i = start; i < nc; i += 4L, ++ci){
+    arma::vec first_sample(out.colptr(i), out.n_rows, false);
+    for(auto &x : first_sample)
+      /* TODO: slow to make multiple calls? */
+      x = norm_rand();
+
+    /* compute intermediaries */
+    const double u = ([&]{
+      double out = 0;
+      for(auto z : first_sample)
+        out += z * z;
+      out /= n_vars;
+      out /= *ci;
+
+      return out;
+    })();
+    const double
+      k  = R::pf(u    , n_vars, nu, 1, 0),
+      up = R::qf(1 - k, n_vars, nu, 1, 0);
+
+    /* orignal variable */
+    const double chi_sqrt = std::sqrt(*ci);
+    out.col(i) /= chi_sqrt;
+
+    /* location balanced antithetic variable */
+    out.col(i + 1) = -out.col(i);
+
+    /* scale balanced antithetic variable */
+    const double scale_fac = std::sqrt(up / u);
+    out.col(i + 2) = scale_fac * out.col(i);
+    out.col(i + 3) = scale_fac * out.col(i + 1);
+  }
+
+  /* handle scale and location */
+  if(start != 0){
+    arma::mat dum(out.memptr() + out.n_rows * start,
+                  out.n_rows, out.n_cols - start, false, true);
+    chol_.mult(dum);
+    if(mu)
+      dum.each_col() += *mu;
+
+  } else {
+    chol_.mult(out);
+    if(mu)
+      out.each_col() += *mu;
+  }
 }
 
 void mv_norm_reg::comp_stats_state_state

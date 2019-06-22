@@ -336,3 +336,18 @@ test_that("gets the same with binomial data with weights", {
   out <- prep_for_test(out)
   expect_known_value(out, "binomial-logit-grouped-w-weights.RDS")
 })
+
+test_that("gets the same with antithetic variables", {
+  ctrl <- mssm_control(N_part = 100L, n_threads = 1L, seed = 26545947,
+                       use_antithetic = TRUE)
+
+  ll_func <- mssm(
+    fixed = y ~ x + Z, random = ~ Z, family = poisson("log"),
+    data = poisson_log$data, ti = time_idx)
+
+  out <- with(
+    poisson_log, ll_func$pf_filter(
+      cfix = cfix, disp = numeric(), F. = F., Q = Q))
+  out <- prep_for_test(out)
+  expect_known_value(out, "poisson-w-anti.RDS")
+})
