@@ -23,14 +23,14 @@ public:
     (std::vector<arma::uword>&, const hyper_rectangle&);
 };
 
-KD_note get_KD_tree
+KD_node get_KD_tree
   (const arma::mat &X, const arma::uword N_min, thread_pool &pool){
   std::unique_ptr<std::vector<arma::uword> > idx_in;
 
   std::vector<std::future<void> > futures;
   std::mutex lc;
 
-  auto out = KD_note(X, N_min, std::move(idx_in), nullptr, 0L, nullptr, pool,
+  auto out = KD_node(X, N_min, std::move(idx_in), nullptr, 0L, nullptr, pool,
                      futures, lc);
 
   out.set_depth();
@@ -38,7 +38,7 @@ KD_note get_KD_tree
   return out;
 }
 
-KD_note::KD_note(
+KD_node::KD_node(
   const arma::mat &X, const arma::uword N_min, idx_ptr &&idx_in_r,
   row_order *order, const arma::uword depth, const hyper_rectangle *rect,
   thread_pool &pool, std::vector<std::future<void> > &futures,
@@ -89,7 +89,7 @@ KD_note::KD_note(
 
       /* set left and right child */
       auto get_worker =
-        [&](std::unique_ptr<KD_note> &ptr, idx_ptr &&indices,
+        [&](std::unique_ptr<KD_node> &ptr, idx_ptr &&indices,
             hyper_rectangle new_rect) {
           return set_child {
             ptr, std::move(indices), new_rect, X, N_min, order, depth, pool,
@@ -185,7 +185,7 @@ row_order::index_partition row_order::get_split(
     return out;
   }
 
-const std::vector<arma::uword>& KD_note::get_indices() const {
+const std::vector<arma::uword>& KD_node::get_indices() const {
 #ifdef MSSM_DEBUG
   if(!is_leaf())
     throw domain_error("'get_indices' called on non-leaf");
@@ -193,7 +193,7 @@ const std::vector<arma::uword>& KD_note::get_indices() const {
   return *idx;
 }
 
-std::vector<arma::uword> KD_note::get_indices_parent(){
+std::vector<arma::uword> KD_node::get_indices_parent(){
   if(is_leaf())
     return get_indices();
 
@@ -203,7 +203,7 @@ std::vector<arma::uword> KD_note::get_indices_parent(){
   return out;
 }
 
-void KD_note::get_indices_parent(arma::uword *out){
+void KD_node::get_indices_parent(arma::uword *out){
   if(is_leaf()){
     memcpy(out, idx->data(), sizeof(arma::uword) * idx->size());
     return;
@@ -213,7 +213,7 @@ void KD_note::get_indices_parent(arma::uword *out){
   right->get_indices_parent(out + left->n_elem);
 }
 
-std::vector<const KD_note*> KD_note::get_leafs() const {
+std::vector<const KD_node*> KD_node::get_leafs() const {
   if(is_leaf())
     return { this };
 
@@ -226,25 +226,25 @@ std::vector<const KD_note*> KD_note::get_leafs() const {
   return out;
 }
 
-const KD_note& KD_note::get_left() const {
+const KD_node& KD_node::get_left() const {
 #ifdef MSSM_DEBUG
   if(!left)
-    throw domain_error("get_*_node called on leaf note");
+    throw domain_error("get_*_node called on leaf node");
 #endif
 
   return *left;
 }
 
-const KD_note& KD_note::get_right() const {
+const KD_node& KD_node::get_right() const {
 #ifdef MSSM_DEBUG
   if(!right)
-    throw domain_error("get_*_node called on leaf note");
+    throw domain_error("get_*_node called on leaf node");
 #endif
 
   return *right;
 }
 
-void KD_note::set_indices(arma::uvec &new_idx) {
+void KD_node::set_indices(arma::uvec &new_idx) {
 #ifdef MSSM_DEBUG
   if(new_idx.n_elem != n_elem)
     throw invalid_argument("indices length do not match with node size");

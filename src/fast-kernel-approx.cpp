@@ -5,6 +5,7 @@
 #include "utils.h"
 #include <functional>
 #include "misc.h"
+#include <list>
 
 #ifdef MSSM_PROF
 #include "profile.h"
@@ -15,7 +16,7 @@ static constexpr unsigned int max_futures_clear = max_futures / 3L;
 
 template<bool has_extra>
 using get_X_root_output =
-  std::tuple<std::unique_ptr<KD_note>, std::unique_ptr<source_node<has_extra > >,
+  std::tuple<std::unique_ptr<KD_node>, std::unique_ptr<source_node<has_extra > >,
              arma::uvec>;
 
 /* the function computes the k-d tree and permutate the input matrix
@@ -30,7 +31,7 @@ get_X_root_output<has_extra> get_X_root
   auto &snode = std::get<1>(out);
   auto &old_idx = std::get<2>(out);
 
-  node.reset(new KD_note(get_KD_tree(X, N_min, pool)));
+  node.reset(new KD_node(get_KD_tree(X, N_min, pool)));
 
   /* make permutation to get original order */
   arma::uvec new_idx = node->get_indices_parent();
@@ -53,7 +54,7 @@ get_X_root_output<has_extra> get_X_root
 }
 
 using get_Y_root_output =
-  std::tuple<std::unique_ptr<KD_note>, std::unique_ptr<query_node>,
+  std::tuple<std::unique_ptr<KD_node>, std::unique_ptr<query_node>,
              arma::uvec>;
 
 /* the function computes the k-d tree and permutate the input matrix.
@@ -68,7 +69,7 @@ get_Y_root_output get_Y_root
   auto &snode = std::get<1L>(out);
   auto &old_idx = std::get<2>(out);
 
-  node.reset(new KD_note(get_KD_tree(Y, N_min, pool)));
+  node.reset(new KD_node(get_KD_tree(Y, N_min, pool)));
 
   /* make permutation to get original order */
   arma::uvec new_idx = node->get_indices_parent();
@@ -338,6 +339,14 @@ struct  comp_all {
 
 template<bool has_extra>
 struct comp_weights {
+private:
+  struct task_objs {
+    const source_node<has_extra> &X;
+    const query_node &Y;
+  };
+  mutable std::list<task_objs> tasks = std::list<task_objs>();
+
+public:
   arma::vec &log_weights;
   const arma::mat &X;
   const arma::vec &ws_log;
@@ -350,10 +359,30 @@ struct comp_weights {
   arma::mat *Y_extra;
   FSKA_cpp_xtra_func &extra_func;
 
+  comp_weights
+    (arma::vec &log_weights, const arma::mat &X, const arma::vec &ws_log,
+     const arma::mat &Y, const double eps, const trans_obj &kernel,
+     thread_pool &pool, std::list<std::future<void> > &futures,
+     arma::mat *X_extra, arma::mat *Y_extra, FSKA_cpp_xtra_func &extra_func):
+    log_weights(log_weights), X(X), ws_log(ws_log), Y(Y), eps(eps),
+    kernel(kernel), pool(pool), futures(futures), X_extra(X_extra),
+    Y_extra(Y_extra), extra_func(extra_func) { }
+
   template<bool is_main_thread>
   void do_work
   (const source_node<has_extra> &X_node, const query_node &Y_node) const
   {
+    if(is_main_thread)
+      tasks.push_back(task_objs({ X_node, Y_node }));
+
+    do {
+    const source_node<has_extra> &xn =
+      is_main_thread ? tasks.front().X : X_node;
+    const query_node &yn =
+      is_main_thread ? tasks.front().Y : Y_node;
+    if(is_main_thread)
+      tasks.pop_front();
+
     /* check if we need to clear futures. TODO: avoid the use of list here? */
     if(is_main_thread and futures.size() > max_futures){
       std::size_t n_earsed = 0L;
@@ -372,7 +401,6 @@ struct comp_weights {
 
           } else {
             ++it;
-            std::this_thread::yield();
 
           }
         }
@@ -382,62 +410,80 @@ struct comp_weights {
     /* check if we should finish the rest in another thread */
     static constexpr arma::uword stop_n_elem = 50L;
     if(is_main_thread and
-         X_node.node.n_elem < stop_n_elem and
-         Y_node.node.n_elem < stop_n_elem){
+         xn.node.n_elem < stop_n_elem and
+         yn.node.n_elem < stop_n_elem){
       futures.push_back(
         pool.submit(std::bind(
             &comp_weights<has_extra>::do_work<false>, std::ref(*this),
-            std::cref(X_node), std::cref(Y_node))));
-      return;
+            std::cref(xn), std::cref(yn))));
+      continue;
     }
 
-    auto log_dens = kernel(Y_node.borders, X_node.borders);
+    auto log_dens = kernel(yn.borders, xn.borders);
     double k_min = std::exp(log_dens[0L]), k_max = std::exp(log_dens[1L]);
-    if(X_node.weight *
+    if(xn.weight *
        (k_max - k_min) / ((k_max + k_min) / 2. + 1e-16) < 2. * eps){
       comp_w_centroid<has_extra> task =
         {
-          log_weights, X_node, Y_node,
+          log_weights, xn, yn,
           Y, kernel, pool.thread_count < 2L, Y_extra, extra_func
         };
-      if(is_main_thread)
+      if(is_main_thread){
         futures.push_back(pool.submit(std::move(task)));
-      else
-        task();
+        continue;
 
-      return;
+      } else {
+        task();
+        return;
+
+      }
     }
 
-    if(X_node.node.is_leaf() and Y_node.node.is_leaf()){
+    if(xn.node.is_leaf() and yn.node.is_leaf()){
       comp_all<has_extra> task = {
-        log_weights, X_node, Y_node,
+        log_weights, xn, yn,
         X, ws_log, Y, kernel,
         pool.thread_count < 2L, X_extra, Y_extra, extra_func
       };
-      if(is_main_thread)
+      if(is_main_thread){
         futures.push_back(pool.submit(std::move(task)));
-      else
+        continue;
+
+      } else {
         task();
-      return;
+        return;
+
+      }
     }
 
-    if(!X_node.node.is_leaf() and  Y_node.node.is_leaf()){
-      do_work<is_main_thread>(*X_node.left ,  Y_node      );
-      do_work<is_main_thread>(*X_node.right,  Y_node      );
+    auto new_work = [&]
+      (const source_node<has_extra> &x, const query_node &y){
+      if(is_main_thread)
+        tasks.push_back(task_objs({ x, y }));
+      else
+        do_work<is_main_thread>(x, y);
+    };
 
-      return;
+    if(!xn.node.is_leaf() and  yn.node.is_leaf()){
+      new_work(*xn.left ,  yn      );
+      new_work(*xn.right,  yn      );
+
+      if(!is_main_thread)
+        return;
     }
-    if( X_node.node.is_leaf() and !Y_node.node.is_leaf()){
-      do_work<is_main_thread>( X_node      , *Y_node.left );
-      do_work<is_main_thread>( X_node      , *Y_node.right);
+    if( xn.node.is_leaf() and !yn.node.is_leaf()){
+      new_work( xn      , *yn.left );
+      new_work( xn      , *yn.right);
 
-      return;
+      if(!is_main_thread)
+        return;
     }
 
-    do_work<is_main_thread>(  *X_node.left , *Y_node.left );
-    do_work<is_main_thread>(  *X_node.left , *Y_node.right);
-    do_work<is_main_thread>(  *X_node.right, *Y_node.left );
-    do_work<is_main_thread>(  *X_node.right, *Y_node.right);
+    new_work(  *xn.left , *yn.left );
+    new_work(  *xn.left , *yn.right);
+    new_work(  *xn.right, *yn.left );
+    new_work(  *xn.right, *yn.right);
+    } while (is_main_thread and !tasks.empty());
   }
 };
 
@@ -523,7 +569,7 @@ template FSKA_cpp_permutation FSKA_cpp<false>(
 
 template<bool has_extra>
 std::unique_ptr<const source_node<has_extra> > set_child
-  (const arma::mat &X, const arma::vec &ws, const KD_note &node,
+  (const arma::mat &X, const arma::vec &ws, const KD_node &node,
    const arma::mat *extra, const bool is_left)
 {
   typedef std::unique_ptr<const source_node<has_extra> > ptr_out;
@@ -624,7 +670,7 @@ std::unique_ptr<arma::vec> set_extra
 
 template<bool has_extra>
 source_node<has_extra>::source_node
-  (const arma::mat &X, const arma::vec &ws, const KD_note &node,
+  (const arma::mat &X, const arma::vec &ws, const KD_node &node,
    const arma::mat *extra):
   node(node), left(set_child<has_extra>(X, ws, node, extra, true)),
   right(set_child<has_extra>(X, ws, node, extra, false)),
@@ -637,7 +683,7 @@ template class source_node<true >;
 template class source_node<false>;
 
 inline std::unique_ptr<const query_node> set_child_query
-  (const arma::mat &X, const KD_note &node, const bool is_left)
+  (const arma::mat &X, const KD_node &node, const bool is_left)
 {
   if(node.is_leaf())
     return std::unique_ptr<query_node>();
@@ -648,7 +694,7 @@ inline std::unique_ptr<const query_node> set_child_query
     new query_node(X, node.get_right()));
 }
 
-query_node::query_node(const arma::mat &Y, const KD_note &node):
+query_node::query_node(const arma::mat &Y, const KD_node &node):
   node(node), left(set_child_query(Y, node, true)),
   right(set_child_query(Y, node, false)), borders(set_borders(*this, Y)),
   idx_mutex(new std::mutex()) { }

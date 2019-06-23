@@ -10,28 +10,28 @@ context("Test KD-tree") {
     thread_pool pool(1L);
 
     {
-      KD_note note = get_KD_tree(X, 10L, pool);
-      expect_true(note.is_leaf());
+      KD_node node = get_KD_tree(X, 10L, pool);
+      expect_true(node.is_leaf());
     }
     {
-      KD_note note = get_KD_tree(X, 4L, pool);
-      expect_true(note.is_leaf());
+      KD_node node = get_KD_tree(X, 4L, pool);
+      expect_true(node.is_leaf());
     }
     {
-      KD_note note = get_KD_tree(X, 3L, pool);
-      expect_true(!note.is_leaf());
-      auto leafs = note.get_leafs();
+      KD_node node = get_KD_tree(X, 3L, pool);
+      expect_true(!node.is_leaf());
+      auto leafs = node.get_leafs();
       expect_true(leafs.size() == 2L);
 
       {
-        auto &left = note.get_left();
+        auto &left = node.get_left();
         std::vector<arma::uword> idx = left.get_indices();
         std::sort(idx.begin(), idx.end());
         std::array<arma::uword, 2L> expected = {1L, 2L};
         expect_true(is_all_equal(idx, expected));
       }
       {
-        auto &right = note.get_right();
+        auto &right = node.get_right();
         std::vector<arma::uword> idx = right.get_indices();
         std::sort(idx.begin(), idx.end());
         std::array<arma::uword, 2L> expected = {0L, 3L};

@@ -21,3 +21,8 @@ NULL
 #' The package is still under development and the API and results of the
 #' methods may change.
 NULL
+
+release_questions <- function() {
+  c(
+    "Have you run the tests without defining 'USE_THREAD_LOCAL'")
+}

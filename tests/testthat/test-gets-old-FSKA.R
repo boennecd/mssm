@@ -35,8 +35,8 @@ test_that("we get the same KD-tree", {
   p <- 4L
   X <- matrix(rnorm(n * p), nrow = p)
 
-  t1 <- test_KD_note(X, 10L)
-  t2 <- test_KD_note(X, 10L)
+  t1 <- test_KD_node(X, 10L)
+  t2 <- test_KD_node(X, 10L)
   expect_equal(t1, t2)
 
   # we cannot directly test `t1`s indices' order as they may differ within

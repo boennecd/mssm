@@ -32,11 +32,11 @@ public:
 
 class row_order;
 
-class KD_note {
+class KD_node {
   using idx_ptr = std::unique_ptr<std::vector<arma::uword> >;
   std::unique_ptr<std::vector<arma::uword> > idx;
-  std::unique_ptr<KD_note> left;
-  std::unique_ptr<KD_note> right;
+  std::unique_ptr<KD_node> left;
+  std::unique_ptr<KD_node> right;
   arma::uword depth;
 public:
   const arma::uword n_elem;
@@ -46,9 +46,9 @@ public:
   const std::vector<arma::uword> &get_indices() const;
   std::vector<arma::uword> get_indices_parent();
   void set_indices(arma::uvec&);
-  std::vector<const KD_note*> get_leafs() const;
-  const KD_note& get_left () const;
-  const KD_note& get_right() const;
+  std::vector<const KD_node*> get_leafs() const;
+  const KD_node& get_left () const;
+  const KD_node& get_right() const;
   /* assumes 'set_depth' has been called */
   arma::uword get_depth() const {
     return depth;
@@ -69,13 +69,13 @@ public:
     return right->get_end();
   }
 
-  KD_note(KD_note&&) = default;
+  KD_node(KD_node&&) = default;
 
-  friend KD_note get_KD_tree(
+  friend KD_node get_KD_tree(
       const arma::mat&, const arma::uword, thread_pool&);
 
 private:
-  KD_note(const arma::mat&, const arma::uword, idx_ptr&&, row_order*,
+  KD_node(const arma::mat&, const arma::uword, idx_ptr&&, row_order*,
           const arma::uword, const hyper_rectangle*,
           thread_pool&, std::vector<std::future<void> >&, std::mutex&);
 
@@ -83,7 +83,7 @@ private:
 
   /* util class used in constructor */
   struct set_child {
-    std::unique_ptr<KD_note> &ptr;
+    std::unique_ptr<KD_node> &ptr;
     idx_ptr indices;
     hyper_rectangle child_rect;
     const arma::mat &X;
@@ -96,7 +96,7 @@ private:
 
     void operator()()
     {
-      ptr.reset(new KD_note(
+      ptr.reset(new KD_node(
           X, N_min, std::move(indices), order, depth + 1L, &child_rect,
           pool, futures, lc));
     }
@@ -115,6 +115,6 @@ private:
   }
 };
 
-KD_note get_KD_tree(const arma::mat&, const arma::uword, thread_pool&);
+KD_node get_KD_tree(const arma::mat&, const arma::uword, thread_pool&);
 
 #endif

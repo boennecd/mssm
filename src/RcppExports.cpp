@@ -6,15 +6,15 @@
 
 using namespace Rcpp;
 
-// test_KD_note
-Rcpp::List test_KD_note(const arma::mat& X, const arma::uword N_min);
-RcppExport SEXP _mssm_test_KD_note(SEXP XSEXP, SEXP N_minSEXP) {
+// test_KD_node
+Rcpp::List test_KD_node(const arma::mat& X, const arma::uword N_min);
+RcppExport SEXP _mssm_test_KD_node(SEXP XSEXP, SEXP N_minSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
     Rcpp::traits::input_parameter< const arma::uword >::type N_min(N_minSEXP);
-    rcpp_result_gen = Rcpp::wrap(test_KD_note(X, N_min));
+    rcpp_result_gen = Rcpp::wrap(test_KD_node(X, N_min));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -216,7 +216,7 @@ END_RCPP
 RcppExport SEXP run_testthat_tests();
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_mssm_test_KD_note", (DL_FUNC) &_mssm_test_KD_note, 2},
+    {"_mssm_test_KD_node", (DL_FUNC) &_mssm_test_KD_node, 2},
     {"_mssm_naive", (DL_FUNC) &_mssm_naive, 4},
     {"_mssm_FSKA", (DL_FUNC) &_mssm_FSKA, 6},
     {"_mssm_sample_mv_normal", (DL_FUNC) &_mssm_sample_mv_normal, 3},

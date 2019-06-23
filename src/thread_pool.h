@@ -104,10 +104,9 @@ public:
         value = std::move(*old_head->data);
         return true;
 
-      } else{
-        return false;
-
       }
+
+      return false;
    }
 
    void push(T new_value)
@@ -128,8 +127,18 @@ class join_threads
 {
   std::vector<std::thread>& threads;
 public:
-  explicit join_threads(std::vector<std::thread>& threads_);
-  ~join_threads();
+  explicit join_threads(std::vector<std::thread>& threads_):
+    threads(threads_)
+  {}
+
+  ~join_threads()
+  {
+    for(unsigned long i=0;i<threads.size();++i)
+    {
+      if(threads[i].joinable())
+        threads[i].join();
+    }
+  }
 };
 
 // Listing 9.2
@@ -174,44 +183,141 @@ public:
   function_wrapper& operator=(const function_wrapper&)=delete;
 };
 
-// Listing 9.2:
+// Listing 9.7
+class work_stealing_queue
+{
+private:
+  typedef function_wrapper data_type;
+  std::deque<data_type> the_queue;
+  mutable std::mutex the_mutex;
+
+public:
+  void push(data_type data)
+  {
+    std::lock_guard<std::mutex> lock(the_mutex);
+    the_queue.push_front(std::move(data));
+  }
+
+  bool empty() const
+  {
+    std::lock_guard<std::mutex> lock(the_mutex);
+    return the_queue.empty();
+  }
+
+  bool try_pop(data_type& res)
+  {
+    std::lock_guard<std::mutex> lock(the_mutex);
+    if(the_queue.empty())
+    {
+      return false;
+    }
+
+    res=std::move(the_queue.front());
+    the_queue.pop_front();
+    return true;
+  }
+
+  bool try_steal(data_type& res)
+  {
+    std::lock_guard<std::mutex> lock(the_mutex);
+    if(the_queue.empty())
+    {
+      return false;
+    }
+
+    res=std::move(the_queue.back());
+    the_queue.pop_back();
+    return true;
+  }
+};
+
+// ~ listing 9.2 and 9.8
 class thread_pool
 {
+  std::atomic_bool done;
+  std::atomic_ulong n_private;
+#ifdef USE_THREAD_LOCAL
+  std::vector<std::unique_ptr<work_stealing_queue > > queues;
+#endif
   thread_safe_queue<function_wrapper> work_queue;
-  std::condition_variable cv;
-  std::mutex mu;
 
-  void worker_thread()
+  std::mutex mu;
+  std::condition_variable cv;
+
+  std::vector<std::thread> threads;
+  join_threads joiner;
+
+#ifdef USE_THREAD_LOCAL
+  static thread_local work_stealing_queue* local_work_queue;
+  static thread_local unsigned my_index;
+#endif
+
+  bool try_pop_task(function_wrapper &task){
+#ifdef USE_THREAD_LOCAL
+
+    /* check shared queue */
+    if(work_queue.try_pop(task))
+      return true;
+
+    if(n_private > 0L)
+      /* check own queues */
+      if(local_work_queue->try_pop(task)){
+        n_private--;
+        return true;
+      }
+
+    /* check other queues */
+    if(n_private > 0L)
+      for(unsigned i=0;i<queues.size();++i)
+      {
+        unsigned const index=(my_index + i + 1) % queues.size();
+        if(queues[index]->try_steal(task)){
+          n_private--;
+          return true;
+        }
+      }
+
+    return false;
+
+#endif
+    /* check shared pool */
+    return work_queue.try_pop(task);
+
+  }
+
+  void worker_thread(const unsigned my_index_)
   {
+#ifdef USE_THREAD_LOCAL
+    my_index = my_index_;
+    local_work_queue = queues[my_index].get();
+#endif
+
     for(;;){
       function_wrapper task;
 
-      bool got_task = work_queue.try_pop(task);
+      bool got_task = try_pop_task(task);
       if(!got_task){
         std::unique_lock<std::mutex> lk(mu);
-        cv.wait(lk, [&]{ return work_queue.try_pop(task) or done; });
+        cv.wait(lk, [&]{ return done or try_pop_task(task); });
 
-        if(done and !task.has_value())
+        if(done)
           return;
+        if(!task.has_value())
+          continue;
       }
 
       task();
     }
   }
 
-  // From listing 9.1
-  std::atomic_bool done;
-  std::vector<std::thread> threads;
-  join_threads joiner;
-
 public:
   // Added
   unsigned const thread_count;
   const bool has_threads = thread_count > 1L;
 
-  template<typename FunctionType>
+  template<bool use_local = false, typename FunctionType>
   std::future<typename std::result_of<FunctionType()>::type>
-  submit(FunctionType f)
+  submit(FunctionType f, const unsigned task_num = 0)
   {
     typedef typename std::result_of<FunctionType()>::type result_type;
 
@@ -223,7 +329,12 @@ public:
 
     }
 
-    work_queue.push(std::move(task));
+    if(use_local){
+      queues[task_num % queues.size()]->push(std::move(task));
+      ++n_private;
+    } else
+      work_queue.push(std::move(task));
+
     {
       std::unique_lock<std::mutex> lk(mu);
       cv.notify_one();
@@ -233,28 +344,28 @@ public:
 
   // From listing 9.2
   thread_pool(unsigned const n_threads = 1):
-    done(false),
-    joiner(threads),
-    thread_count(n_threads)
+    done(false), n_private(0L), joiner(threads), thread_count(n_threads)
   {
     if(!has_threads)
       return;
 
-    // Moved to private member
-    //unsigned const thread_count=std::thread::hardware_concurrency();
     try
     {
-      for(unsigned i=0;i<thread_count;++i)
-      {
+#ifdef USE_THREAD_LOCAL
+      for(unsigned i = 0; i < thread_count; ++i)
+        queues.push_back(std::unique_ptr<work_stealing_queue>(
+            new work_stealing_queue));
+#endif
+
+      for(unsigned i = 0; i < thread_count; ++i)
         threads.push_back(
-          std::thread(&thread_pool::worker_thread,this));
-      }
+          std::thread(&thread_pool::worker_thread, this, i));
     }
     catch(...)
     {
       {
         std::unique_lock<std::mutex> lk(mu);
-        done=true;
+        done = true;
       }
       cv.notify_all();
       throw;
@@ -267,7 +378,7 @@ public:
   {
     {
       std::unique_lock<std::mutex> lk(mu);
-      done=true;
+      done = true;
     }
     cv.notify_all();
   }
