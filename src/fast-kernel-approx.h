@@ -8,6 +8,7 @@ template<bool has_extra = false>
 class source_node {
 public:
   const KD_note &node;
+  const bool is_leaf = node.is_leaf();
   const std::unique_ptr<const source_node<has_extra> > left;
   const std::unique_ptr<const source_node<has_extra> > right;
   const arma::vec centroid;
@@ -24,6 +25,7 @@ public:
 class query_node {
 public:
   const KD_note &node;
+  const bool is_leaf = node.is_leaf();
   const std::unique_ptr<const query_node> left;
   const std::unique_ptr<const query_node> right;
   const hyper_rectangle borders;

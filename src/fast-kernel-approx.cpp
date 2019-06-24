@@ -181,7 +181,7 @@ struct comp_w_centroid {
     while(yi > -1){
       const query_node* this_node = *yip;
 
-      if(this_node->node.is_leaf()){
+      if(this_node->is_leaf){
         const arma::uword
         this_start = this_node->node.get_start(),
           this_end   = this_node->node.get_end();
@@ -226,7 +226,7 @@ struct  comp_all {
 
   void operator()(){
 #ifdef MSSM_DEBUG
-    if(!X_node.node.is_leaf() or !Y_node.node.is_leaf())
+    if(!X_node.is_leaf or !Y_node.is_leaf)
       throw std::domain_error(
           "comp_all called with non-leafs");
 #endif
@@ -408,7 +408,7 @@ struct comp_weights {
       return;
     }
 
-    if(X_node.node.is_leaf() and Y_node.node.is_leaf()){
+    if(X_node.is_leaf and Y_node.is_leaf){
       comp_all<has_extra> task = {
         log_weights, X_node, Y_node,
         X, ws_log, Y, kernel,
@@ -421,13 +421,13 @@ struct comp_weights {
       return;
     }
 
-    if(!X_node.node.is_leaf() and  Y_node.node.is_leaf()){
+    if(!X_node.is_leaf and  Y_node.is_leaf){
       do_work<is_main_thread>(*X_node.left ,  Y_node      );
       do_work<is_main_thread>(*X_node.right,  Y_node      );
 
       return;
     }
-    if( X_node.node.is_leaf() and !Y_node.node.is_leaf()){
+    if( X_node.is_leaf and !Y_node.is_leaf){
       do_work<is_main_thread>( X_node      , *Y_node.left );
       do_work<is_main_thread>( X_node      , *Y_node.right);
 
@@ -540,7 +540,7 @@ template<bool has_extra>
 arma::vec set_centroid
   (const source_node<has_extra> &snode, const arma::mat &X, const arma::vec &ws)
 {
-  if(snode.node.is_leaf()){
+  if(snode.is_leaf){
     arma::vec centroid(X.n_rows, arma::fill::zeros);
     const auto &indices = snode.node.get_indices();
     double sum_w = 0.;
@@ -563,7 +563,7 @@ arma::vec set_centroid
 template<bool has_extra>
 double set_weight(const source_node<has_extra> &snode, const arma::vec &ws)
 {
-  if(snode.node.is_leaf()){
+  if(snode.is_leaf){
     const auto &indices = snode.node.get_indices();
     double weight = 0.;
     for(auto idx : indices)
@@ -577,7 +577,7 @@ double set_weight(const source_node<has_extra> &snode, const arma::vec &ws)
 
 template<class T>
 hyper_rectangle set_borders(const T &snode, const arma::mat &X){
-  if(snode.node.is_leaf())
+  if(snode.is_leaf)
     return hyper_rectangle(X, snode.node.get_indices());
 
   return hyper_rectangle(snode.left->borders, snode.right->borders);
@@ -601,7 +601,7 @@ std::unique_ptr<arma::vec> set_extra
   ptr_out out(new arma::vec(extra->n_rows, arma::fill::none));
   arma::vec &xtr = *out;
 
-  if(snode.node.is_leaf()){
+  if(snode.is_leaf){
     xtr.zeros();
     const auto &indices = snode.node.get_indices();
     double sum_w = 0.;
