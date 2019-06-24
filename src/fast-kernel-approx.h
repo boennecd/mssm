@@ -28,8 +28,9 @@ public:
   const std::unique_ptr<const query_node> right;
   const hyper_rectangle borders;
   const std::unique_ptr<std::mutex> idx_mutex;
+  const unsigned idx;
 
-  query_node(const arma::mat&, const KD_node&);
+  query_node(const arma::mat&, const KD_node&, const unsigned);
 };
 
 struct FSKA_cpp_permutation {

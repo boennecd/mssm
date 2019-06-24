@@ -85,7 +85,7 @@ get_Y_root_output get_Y_root
   if(has_extra)
     *xtra = xtra->cols(new_idx);
 
-  snode.reset(new query_node(Y, *node));
+  snode.reset(new query_node(Y, *node, 0L));
 
   return out;
 }
@@ -204,8 +204,8 @@ struct comp_w_centroid {
 
       }
 
-      *   yip  = this_node->right.get();
-      *(++yip) = this_node->left.get();
+      *(++yip  ) = this_node->left.get();
+      *(yip - 1) = this_node->right.get();
       ++yi;
     }
   }
@@ -339,13 +339,6 @@ struct  comp_all {
 
 template<bool has_extra>
 struct comp_weights {
-private:
-  struct task_objs {
-    const source_node<has_extra> &X;
-    const query_node &Y;
-  };
-  mutable std::list<task_objs> tasks = std::list<task_objs>();
-
 public:
   arma::vec &log_weights;
   const arma::mat &X;
@@ -358,30 +351,25 @@ public:
   arma::mat *X_extra;
   arma::mat *Y_extra;
   FSKA_cpp_xtra_func &extra_func;
+  const unsigned task_denum;
 
   comp_weights
     (arma::vec &log_weights, const arma::mat &X, const arma::vec &ws_log,
      const arma::mat &Y, const double eps, const trans_obj &kernel,
      thread_pool &pool, std::list<std::future<void> > &futures,
-     arma::mat *X_extra, arma::mat *Y_extra, FSKA_cpp_xtra_func &extra_func):
+     arma::mat *X_extra, arma::mat *Y_extra, FSKA_cpp_xtra_func &extra_func,
+     const unsigned n_leafs):
     log_weights(log_weights), X(X), ws_log(ws_log), Y(Y), eps(eps),
     kernel(kernel), pool(pool), futures(futures), X_extra(X_extra),
-    Y_extra(Y_extra), extra_func(extra_func) { }
+    Y_extra(Y_extra), extra_func(extra_func),
+    task_denum(std::min(1000L, n_leafs / pool.thread_count + 1L)) { }
 
   template<bool is_main_thread>
   void do_work
   (const source_node<has_extra> &X_node, const query_node &Y_node) const
   {
-    if(is_main_thread)
-      tasks.push_back(task_objs({ X_node, Y_node }));
-
-    do {
-    const source_node<has_extra> &xn =
-      is_main_thread ? tasks.front().X : X_node;
-    const query_node &yn =
-      is_main_thread ? tasks.front().Y : Y_node;
-    if(is_main_thread)
-      tasks.pop_front();
+    const source_node<has_extra> &xn = X_node;
+    const query_node &yn = Y_node;
 
     /* check if we need to clear futures. TODO: avoid the use of list here? */
     if(is_main_thread and futures.size() > max_futures){
@@ -413,10 +401,11 @@ public:
          xn.node.n_elem < stop_n_elem and
          yn.node.n_elem < stop_n_elem){
       futures.push_back(
-        pool.submit(std::bind(
+        pool.submit<true>(std::bind(
             &comp_weights<has_extra>::do_work<false>, std::ref(*this),
-            std::cref(xn), std::cref(yn))));
-      continue;
+            std::cref(xn), std::cref(yn)),
+            yn.idx / task_denum));
+      return;
     }
 
     auto log_dens = kernel(yn.borders, xn.borders);
@@ -428,15 +417,13 @@ public:
           log_weights, xn, yn,
           Y, kernel, pool.thread_count < 2L, Y_extra, extra_func
         };
-      if(is_main_thread){
-        futures.push_back(pool.submit(std::move(task)));
-        continue;
-
-      } else {
+      if(is_main_thread)
+        futures.push_back(pool.submit<true>(
+            std::move(task), yn.idx / task_denum));
+      else
         task();
-        return;
 
-      }
+      return;
     }
 
     if(xn.node.is_leaf() and yn.node.is_leaf()){
@@ -445,23 +432,19 @@ public:
         X, ws_log, Y, kernel,
         pool.thread_count < 2L, X_extra, Y_extra, extra_func
       };
-      if(is_main_thread){
-        futures.push_back(pool.submit(std::move(task)));
-        continue;
+      if(is_main_thread)
+        futures.push_back(pool.submit<true>(
+            std::move(task), yn.idx / task_denum));
 
-      } else {
+      else
         task();
-        return;
 
-      }
+      return;
     }
 
     auto new_work = [&]
       (const source_node<has_extra> &x, const query_node &y){
-      if(is_main_thread)
-        tasks.push_back(task_objs({ x, y }));
-      else
-        do_work<is_main_thread>(x, y);
+      do_work<is_main_thread>(x, y);
     };
 
     if(!xn.node.is_leaf() and  yn.node.is_leaf()){
@@ -483,7 +466,6 @@ public:
     new_work(  *xn.left , *yn.right);
     new_work(  *xn.right, *yn.left );
     new_work(  *xn.right, *yn.right);
-    } while (is_main_thread and !tasks.empty());
   }
 };
 
@@ -513,7 +495,7 @@ FSKA_cpp_permutation FSKA_cpp(
 #endif
 
 #ifdef MSSM_PROF
-  // profiler prof("FSKA_cpp");
+  profiler prof("FSKA_cpp");
 #endif
 
   /* transform X and Y before doing any computation */
@@ -538,7 +520,7 @@ FSKA_cpp_permutation FSKA_cpp(
    * must not get destructed due to a 'this' pointer used in the function... */
   comp_weights<has_extra> worker {
     log_weights, X, ws_log, Y, eps,
-    kernel, pool, futures, X_extra, Y_extra, extra_func };
+    kernel, pool, futures, X_extra, Y_extra, extra_func, Y_root_query.idx };
   worker.template do_work<true>(X_root_source, Y_root_query);
 
   while(!futures.empty()){
@@ -683,18 +665,24 @@ template class source_node<true >;
 template class source_node<false>;
 
 inline std::unique_ptr<const query_node> set_child_query
-  (const arma::mat &X, const KD_node &node, const bool is_left)
+  (const arma::mat &X, const KD_node &node, const bool is_left,
+   const unsigned counter)
 {
   if(node.is_leaf())
     return std::unique_ptr<query_node>();
   if(is_left)
     return std::unique_ptr<query_node>(
-      new query_node(X, node.get_left ()));
+      new query_node(X, node.get_left (), counter));
   return std::unique_ptr<query_node>(
-    new query_node(X, node.get_right()));
+    new query_node(X, node.get_right(), counter));
 }
 
-query_node::query_node(const arma::mat &Y, const KD_node &node):
-  node(node), left(set_child_query(Y, node, true)),
-  right(set_child_query(Y, node, false)), borders(set_borders(*this, Y)),
-  idx_mutex(new std::mutex()) { }
+query_node::query_node
+  (const arma::mat &Y, const KD_node &node, const unsigned counter):
+  node(node), left(set_child_query(Y, node, true, counter)),
+  right(set_child_query(
+      Y, node, false, node.is_leaf() ? counter /* does not matter  */ :
+          left->idx)),
+  borders(set_borders(*this, Y)), idx_mutex(new std::mutex()),
+  idx(node.is_leaf() ? counter + 1 : right->idx)
+  { }

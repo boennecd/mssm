@@ -54,7 +54,7 @@ class thread_safe_queue
 private:
    struct node
    {
-      std::shared_ptr<T> data;
+      std::unique_ptr<T> data;
       std::unique_ptr<node> next;
    };
 
@@ -90,33 +90,39 @@ public:
    thread_safe_queue(const thread_safe_queue& other) = delete;
    thread_safe_queue& operator=(const thread_safe_queue& other) = delete;
 
-   std::shared_ptr<T> try_pop()
+   std::unique_ptr<T> try_pop()
    {
       std::unique_ptr<node> old_head = pop_head();
-      return old_head ? old_head->data : std::shared_ptr<T>();
+      return old_head ? std::move(old_head->data) : std::unique_ptr<T>();
    }
 
    // Added
    bool try_pop(T& value)
    {
-      std::unique_ptr<node> old_head = pop_head();
-      if(old_head){
-        value = std::move(*old_head->data);
-        return true;
-
+      std::unique_ptr<node> old_head;
+      {
+        std::lock_guard<std::mutex> head_lock(head_mutex);
+        if (head.get() == get_tail())
+          return false;
+        old_head = std::move(head);
+        head = std::move(old_head->next);
       }
 
-      return false;
+      value = std::move(*old_head->data);
+      return true;
+   }
+
+   bool try_steal(T& value){
+     return try_pop(value);
    }
 
    void push(T new_value)
    {
-      std::shared_ptr<T> new_data(
-         std::make_shared<T>(std::move(new_value)));
+      std::unique_ptr<T> new_data(new T(std::move(new_value)));
       std::unique_ptr<node> p(new node);
       node* const new_tail = p.get();
       std::lock_guard<std::mutex> tail_lock(tail_mutex);
-      tail->data = new_data;
+      tail->data = std::move(new_data);
       tail->next = std::move(p);
       tail = new_tail;
    }
@@ -234,12 +240,13 @@ public:
 // ~ listing 9.2 and 9.8
 class thread_pool
 {
+  using queues_class = thread_safe_queue<function_wrapper>;
+
   std::atomic_bool done;
-  std::atomic_ulong n_private;
 #ifdef USE_THREAD_LOCAL
-  std::vector<std::unique_ptr<work_stealing_queue > > queues;
+  std::vector<std::unique_ptr<queues_class > > queues;
 #endif
-  thread_safe_queue<function_wrapper> work_queue;
+  queues_class work_queue;
 
   std::mutex mu;
   std::condition_variable cv;
@@ -248,34 +255,28 @@ class thread_pool
   join_threads joiner;
 
 #ifdef USE_THREAD_LOCAL
-  static thread_local work_stealing_queue* local_work_queue;
+  static thread_local queues_class* local_work_queue;
   static thread_local unsigned my_index;
 #endif
 
   bool try_pop_task(function_wrapper &task){
 #ifdef USE_THREAD_LOCAL
+    /* check own queues */
+    if(local_work_queue->try_pop(task))
+      return true;
 
     /* check shared queue */
     if(work_queue.try_pop(task))
       return true;
 
-    if(n_private > 0L)
-      /* check own queues */
-      if(local_work_queue->try_pop(task)){
-        n_private--;
+    /* check other queues */
+    for(unsigned i=0;i<queues.size();++i)
+    {
+      unsigned const index= (my_index + i + 1) % queues.size();
+      if(queues[index]->try_steal(task)){
         return true;
       }
-
-    /* check other queues */
-    if(n_private > 0L)
-      for(unsigned i=0;i<queues.size();++i)
-      {
-        unsigned const index=(my_index + i + 1) % queues.size();
-        if(queues[index]->try_steal(task)){
-          n_private--;
-          return true;
-        }
-      }
+    }
 
     return false;
 
@@ -329,10 +330,9 @@ public:
 
     }
 
-    if(use_local){
+    if(use_local)
       queues[task_num % queues.size()]->push(std::move(task));
-      ++n_private;
-    } else
+    else
       work_queue.push(std::move(task));
 
     {
@@ -344,7 +344,7 @@ public:
 
   // From listing 9.2
   thread_pool(unsigned const n_threads = 1):
-    done(false), n_private(0L), joiner(threads), thread_count(n_threads)
+    done(false), joiner(threads), thread_count(n_threads)
   {
     if(!has_threads)
       return;
@@ -353,8 +353,8 @@ public:
     {
 #ifdef USE_THREAD_LOCAL
       for(unsigned i = 0; i < thread_count; ++i)
-        queues.push_back(std::unique_ptr<work_stealing_queue>(
-            new work_stealing_queue));
+        queues.push_back(std::unique_ptr<queues_class>(
+            new queues_class));
 #endif
 
       for(unsigned i = 0; i < thread_count; ++i)
