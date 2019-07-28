@@ -131,12 +131,12 @@ private:
      * \nabla g \nabla g^\top */
     F77_CALL(dsyr)(
         &C_L, &obs_grad_dim, &D_ONE, dg, &I_ONE,
-        hess_obs, &grad_dim);
+        hess_obs, &grad_dim, 1);
 
     /* next, we do the two outer products to the upper right block*/
     F77_CALL(dsyr2)(
         &C_L, &obs_grad_dim, &D_ONE, dg, &I_ONE, grad_obs, &I_ONE,
-        hess_obs, &grad_dim);
+        hess_obs, &grad_dim, 1);
 
     /* then the outer product in the lower left block matrix */
     F77_CALL(dger)(
@@ -158,7 +158,7 @@ private:
     /* subtract outer product of gradient from the Hessian */
     F77_CALL(dsyr)(
         &C_L, &grad_dim, &D_M_ONE, stats, &I_ONE,
-        stats + grad_dim, &grad_dim);
+        stats + grad_dim, &grad_dim, 1);
 
     /* copy upper half to lower half. TODO: do this in a smarter way */
     {
@@ -223,7 +223,7 @@ private:
     F77_CALL(dsyr)(
         &C_L, &grad_dim,
         &D_ONE, stat_out, &I_ONE,
-        stat_out + grad_dim, &grad_dim);
+        stat_out + grad_dim, &grad_dim, 1);
 
     /* add terms */
     const double weight = std::exp(log_weight);

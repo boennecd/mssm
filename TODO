@@ -1,4 +1,2 @@
 Test that method works when there are time points with no observations
 Make better Laplace approximation implementation
-There are some redundant computations in the approximations of the 
-observed information matrix

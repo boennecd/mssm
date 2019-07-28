@@ -49,9 +49,12 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE, n_threads){
 
   func_out_org <- func_out
   func_out <- prep_for_test(func_out)
+  is_gaussian_log <-
+  eps_use <- if(label == "gaussian-log") .Machine$double.eps^(1/5) else
+    .Machine$double.eps^(1/2)
   expect_known_value(
     func_out[mssm_ele_to_check], paste0("mssm-", label, ".RDS"),
-    label = label)
+    label = label, tolerance = eps_use)
 
   # test only the first smoothed particle weights
   smoother_no_approx <- func$smoother(func_out_org)
@@ -59,7 +62,7 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE, n_threads){
   expect_known_value(
     sapply(head(smoother_no_approx$pf_output, 1L), "[[",
            "ws_normalized_smooth"), paste0("mssm-smooth-", label, ".RDS"),
-    label = label)
+    label = label, tolerance = eps_use)
 
   # take a few iterations of laplace approximation
   lpa <- func$Laplace(
@@ -92,7 +95,7 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE, n_threads){
   expect_known_value(
     lapply(func_out_grad$pf_output, "[[", "stats"),
     paste0("mssm-gradient-", label, ".RDS"),
-    label = label)
+    label = label, tolerance = eps_use)
 
   if(alway_hess || dir.exists("local-tests-res")){
     f <- paste0("mssm-hess-", label, ".RDS")
@@ -141,7 +144,7 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE, n_threads){
   func_out <- prep_for_test(func_out)
   expect_known_value(
     func_out[mssm_ele_to_check], label = label,
-    paste0("mssm-", label, "-kd.RDS"))
+    paste0("mssm-", label, "-kd.RDS"), tolerance = eps_use)
 
   #####
   # w/ larger epsilon
@@ -161,7 +164,7 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE, n_threads){
   func_out <- prep_for_test(func_out)
   expect_known_value(
     func_out[mssm_ele_to_check], label = label,
-    paste0("mssm-", label, "-kd-large-eps.RDS"))
+    paste0("mssm-", label, "-kd-large-eps.RDS"), tolerance = eps_use)
 
   # test only the first smoothed particle weights
   smoother_eps_large <- func$smoother(func_out_org)
@@ -169,7 +172,7 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE, n_threads){
   expect_known_value(
     sapply(head(smoother_eps_large$pf_output, 1L), "[[",
            "ws_normalized_smooth"), paste0("mssm-smooth-", label, "-kd-.RDS"),
-    label = label)
+    label = label, tolerance = eps_use)
 
   if(alway_hess || dir.exists("local-tests-res")){
     f <- paste0("mssm-hess-", label, "-kd-large-eps.RDS")
@@ -190,7 +193,8 @@ get_test_expr <- function(data, label, family, alway_hess = FALSE, n_threads){
 
     func_out_hess$control["n_threads"] <- NULL
     expect_known_value(
-      func_out_hess[mssm_ele_to_check], f, label = label)
+      func_out_hess[mssm_ele_to_check], f, label = label,
+      tolerance = eps_use)
 
     # test that we get the same as with the gradient call
     t1 <- tail(func_out_hess$pf_output, 1L)[[1L]]

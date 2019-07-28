@@ -25,7 +25,7 @@ inline void solve_half_(const arma::mat &chol_, arma::mat &X,
   char trans = transpose ? 'T' : 'N';
   F77_CALL(dtrsm)(
       &C_L, &C_U, &trans, &C_N, &m, &n, &D_one, chol_.begin(), &m, X.begin(),
-      &m);
+      &m, 1, 1, 1, 1);
 }
 
 void chol_decomp::solve_half(arma::mat &X, const bool transpose) const {
@@ -62,7 +62,7 @@ void chol_decomp::mult_half(arma::mat &Z, const bool transpose) const
 
   F77_CALL(dtrmm)(
     &C_L, &C_U, &trans, &C_N, &m, &n, &D_one, chol_.memptr(), &m,
-    Z.memptr(), &m);
+    Z.memptr(), &m, 1, 1, 1, 1);
 }
 
 void chol_decomp::mult_half(arma::vec &z, const bool transpose) const
@@ -76,7 +76,7 @@ void chol_decomp::mult_half(arma::vec &z, const bool transpose) const
 
   F77_CALL(dtrmm)(
       &C_L, &C_U, &trans, &C_N, &m, &I_one, &D_one, chol_.memptr(), &m,
-      z.memptr(), &m);
+      z.memptr(), &m, 1, 1, 1, 1);
 }
 
 arma::mat chol_decomp::mult_half
@@ -104,7 +104,7 @@ void chol_decomp::solve(arma::mat &out) const
 
   int n = chol_.n_cols, nrhs = out.n_cols, info;
   F77_CALL(dpotrs)(&C_U, &n, &nrhs, chol_.memptr(), &n, out.memptr(),
-                   &n, &info);
+                   &n, &info, 1);
   if(info != 0)
     throw std::runtime_error("'dpotrs' failed with info " +
                              std::to_string(info));
@@ -154,7 +154,7 @@ void arma_dsyr(arma::mat &A, const arma::vec &x, const double alpha)
 #endif
 
   F77_CALL(dsyr)(
-    &C_U, &n, &alpha, x.memptr(), &I_one, A.memptr(), &n);
+    &C_U, &n, &alpha, x.memptr(), &I_one, A.memptr(), &n, 1);
 }
 
 void arma_dsyr(arma::mat &A, const arma::vec &x, const double alpha,
@@ -171,7 +171,7 @@ void arma_dsyr(arma::mat &A, const arma::vec &x, const double alpha,
 #endif
 
   F77_CALL(dsyr)(
-      &C_U, &n, &alpha, x.memptr(), &I_one, A.memptr(), &lda);
+      &C_U, &n, &alpha, x.memptr(), &I_one, A.memptr(), &lda, 1);
 }
 
 const arma::mat& LU_fact::get_LU() const
@@ -209,7 +209,7 @@ void LU_fact::solve(arma::mat &Z) const {
   int info;
   F77_CALL(dgetrs)(
     &C_N, &n, &nrhs, LU->memptr(), &m, ipiv.get(), Z.memptr(),
-    &n, &info);
+    &n, &info, 1);
 
   check_dgetrs_info(info);
 }
@@ -224,7 +224,7 @@ void LU_fact::solve(arma::vec &z) const {
   int info;
   F77_CALL(dgetrs)(
       &C_N, &n, &I_one, LU->memptr(), &m, ipiv.get(), z.memptr(),
-      &n, &info);
+      &n, &info, 1);
 
   check_dgetrs_info(info);
 }
@@ -287,7 +287,7 @@ arma::vec sym_band_mat::mult(const double *x) const {
   arma::vec out(dim, arma::fill::zeros);
   F77_CALL(dsbmv)(
       &C_U, &dim, &ku, &D_one, mem.get(), &ku1, x, &I_one,
-      &D_zero, out.memptr(), &I_one);
+      &D_zero, out.memptr(), &I_one, 1);
 
       return out;
 }
@@ -357,7 +357,7 @@ arma::vec sym_band_mat::solve(const arma::vec &x, int &info) const {
   }
 
   F77_CALL(dpbtrs)(
-    &C_U, &dim, &ku, &I_one, cp.get(), &ku1, out.memptr(), &dim, &info);
+    &C_U, &dim, &ku, &I_one, cp.get(), &ku1, out.memptr(), &dim, &info, 1);
 
   return out;
 }

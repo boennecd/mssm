@@ -1,18 +1,18 @@
 ## Test environments
 * Ubuntu 18.04 LTS with gcc 8.3.0
   R version 3.6.0
-* Ubuntu 14.04.5 LTS (on travis-ci with codename: trusty)
+* Ubuntu 16.04 LTS (on travis-ci)
   R version 3.6.0
 * win-builder (devel and release)
 * Local Ubuntu 18.04 with R 3.5.2 and with clang 6.0.0 with ASAN and 
   UBSAN checks
-* `rhub::check_for_cran()` and `rhub::check_on_macos()`
+* `rhub::check_for_cran()`, `rhub::check_on_solaris`, and 
+  `rhub::check_on_macos()`
  
 ## R CMD check results
-This submission is mainly to fix the compilation errors with clang on some 
-platforms.
+There were no ERRORs or WARNINGs.
 
-I got the following WARNING on some environments (not local)
+I got the following NOTE on some environments (not local)
 
 > Found the following (possibly) invalid DOIs:
 >  DOI: 10.1093/biomet/asq062
@@ -21,7 +21,7 @@ I got the following WARNING on some environments (not local)
 >    	SSL read: error:00000000:lib(0):func(0):reason(0), errno 104
 >    Message: Error
 
-The doi do seem valid so I am not sure why the servers get an error code 56
+The doi do seem valid so I am not sure why I an error code 56
 from libcurl. I also got the following on some environments (not local)
 
 > Found the following (possibly) invalid URLs:
@@ -29,14 +29,11 @@ from libcurl. I also got the following on some environments (not local)
 >    From: README.md
 >    Status: 403
 >    Message: Forbidden
->  URL: http://www.jstor.org/stable/29777165
+>   URL: http://www.jstor.org/stable/29777165
 >    From: README.md
 >    Status: 403
 >    Message: Forbidden
 
-but the urls are valid. I do not know why some servers would get a 403.
+but the urls are valid. I do not know why.
 
-There is a NOTE about the size of the package on most platforms.
-
-## Resubmission
-I now use a CRAN URL in canonical form.
+There is a NOTE about the size of the package on some platforms.
