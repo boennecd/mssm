@@ -26,13 +26,13 @@ extern "C" {
       const double *y, const int *incy,
       double *a, const int *lda);
   void F77_NAME(daxpy)(
-      const int *n, const double *alpha,
+      const int *n, const double *da,
       const double *dx, const int *incx,
       double *dy, const int *incy);
   void F77_NAME(dgetrs)(
-      const char *trans, const int *n, const int *nrhs,
-      const double *a, const int *lda, const int *ipiv,
-      double *b, const int *ldb, int *info,
+      const char* trans, const int* n, const int* nrhs,
+      const double* a, const int* lda, const int* ipiv,
+      double* b, const int* ldb, int* info,
       size_t);
   void F77_NAME(dtrmm)(
       const char *side, const char *uplo, const char *transa,
@@ -40,11 +40,6 @@ extern "C" {
       const double *alpha, const double *a, const int *lda,
       double *b, const int *ldb,
       size_t, size_t, size_t, size_t);
-  void F77_NAME(dger)(
-        const int *m, const int *n, const double *alpha,
-        const double *x, const int *incx,
-        const double *y, const int *incy,
-        double *a, const int *lda);
   void F77_NAME(dsyr2)(
       const char *uplo, const int *n, const double *alpha,
       const double *x, const int *incx,

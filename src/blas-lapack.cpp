@@ -2,15 +2,15 @@
 
 extern "C" {
   void F77_NAME(dgetrf)
-    (const int *m, const int *n, double *a, const int *lda,
-     int *ipiv, int *info);
-
+    (const int* m, const int* n, double* a, const int* lda,
+     int* ipiv, int* info);
   void F77_NAME(dpbtrf)
     (const char* uplo, const int* n, const int* kd,
      double* ab, const int* ldab, int* info,
      size_t);
   void F77_NAME(dpotri)
-    (char *uplo, int *n, double *a, int *lda, int *info,
+    (const char* uplo, const int* n,
+     double* a, const int* lda, int* info,
      size_t);
 }
 

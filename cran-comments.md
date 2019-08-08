@@ -8,6 +8,14 @@
   UBSAN checks
 * `rhub::check_for_cran()`, `rhub::check_on_solaris`, and 
   `rhub::check_on_macos()`
+  
+## Resubmission
+This is a resubmission. In this version I have:
+
+* Changed the `char` pointer to a `const char` pointer in the declaration of 
+  the `dpotri` Fortran function. 
+  
+Sorry for the late resubmission. I have been traveling.
  
 ## R CMD check results
 There were no ERRORs or WARNINGs.
