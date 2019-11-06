@@ -1,3 +1,4 @@
 # TODO: regarding USE_THREAD_LOCAL then we only need not to include it for 32-bit
+PKG_CPPFLAGS = -DUSE_FC_LEN_T
 CXX_STD = CXX11
 PKG_LIBS = $(LAPACK_LIBS) $(BLAS_LIBS) $(FLIBS)

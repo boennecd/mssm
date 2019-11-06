@@ -182,10 +182,10 @@ void mv_norm_reg::comp_stats_state_state
   {
     /* compute result */
     std::fill(pwork_mem, pwork_mem + nm_sq, 0.);
-    F77_CALL(dger)(
+    dger(
         &nm, &nm, &w_half, yv.memptr(), &I_ONE, yv.memptr(), &I_ONE,
         pwork_mem, &nm);
-    F77_CALL(daxpy)(
+    daxpy(
         &nm_sq, &w_half_neg, chol_.get_inv().memptr(), &I_ONE, pwork_mem,
         &I_ONE);
     D_mult_left(dim, 1L, 1., stat + nm_sq, nm_lw, pwork_mem);
@@ -197,7 +197,7 @@ void mv_norm_reg::comp_stats_state_state
   F.solve(xv);         /* get original x */
   double * const D_f_begin = stat;
 
-  F77_CALL(dger)(
+  dger(
       &nm, &nm, &w, yv.memptr(), &I_ONE, xv.memptr(), &I_ONE,
       D_f_begin, &nm);
 
@@ -239,7 +239,7 @@ void mv_norm_reg::comp_stats_state_state
   /* compute upper left block */
   {
     kron_arg.zeros();
-    F77_CALL(dger)(
+    dger(
       &nm, &nm, &D_M_ONE, xv.memptr(), &I_ONE, xv.memptr(), &I_ONE,
       kron_arg.memptr(), &nm);
     kron_res = arma::kron(kron_arg, chol_.get_inv());
@@ -250,7 +250,7 @@ void mv_norm_reg::comp_stats_state_state
   /* compute lower left block */
   {
     kron_arg.zeros();
-    F77_CALL(dger)(
+    dger(
         &nm, &nm, &D_M_ONE, yv.memptr(), &I_ONE, xv.memptr(), &I_ONE,
         kron_arg.memptr(), &nm);
     kron_res = arma::kron(kron_arg, chol_.get_inv());
@@ -264,7 +264,7 @@ void mv_norm_reg::comp_stats_state_state
   /* compute lower right block */
   {
     kron_arg.zeros();
-    F77_CALL(dger)(
+    dger(
         &nm, &nm, &D_M_ONE, yv.memptr(), &I_ONE, yv.memptr(), &I_ONE,
         kron_arg.memptr(), &nm);
     kron_arg += .5 * chol_.get_inv();
@@ -339,7 +339,7 @@ void exp_family_w_disp::comp_stats_state_only
       if(compute_H){
         arma_dsyr(*H, X.unsafe_col(i), log_den_eval[2], p);
 
-        F77_CALL(daxpy)(
+        daxpy(
             &p, &log_den_eval[4], X.colptr(i), &I_ONE, d_X_d_disp, &I_ONE);
         *dd_disp += log_den_eval[5];
 

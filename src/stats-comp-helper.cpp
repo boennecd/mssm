@@ -129,17 +129,17 @@ private:
 
     /* compute the outer products which we need to add to the Hessian.
      * \nabla g \nabla g^\top */
-    F77_CALL(dsyr)(
+    dsyr(
         &C_L, &obs_grad_dim, &D_ONE, dg, &I_ONE,
-        hess_obs, &grad_dim, 1);
+        hess_obs, &grad_dim);
 
     /* next, we do the two outer products to the upper right block*/
-    F77_CALL(dsyr2)(
+    dsyr2(
         &C_L, &obs_grad_dim, &D_ONE, dg, &I_ONE, grad_obs, &I_ONE,
-        hess_obs, &grad_dim, 1);
+        hess_obs, &grad_dim);
 
     /* then the outer product in the lower left block matrix */
-    F77_CALL(dger)(
+    dger(
       &dstat.grad_dim, &obs_grad_dim, &D_ONE, grad_state, &I_ONE,
       dg, &I_ONE, hess_cross, &grad_dim);
 
@@ -149,16 +149,16 @@ private:
       double *y = hess_obs;
       for(int i = 0; i < obs_grad_dim;
           ++i, x += obs_grad_dim, y += grad_dim)
-        F77_CALL(daxpy)(
+        daxpy(
             &obs_grad_dim, &D_ONE, x, &I_ONE, y, &I_ONE);
     }
-    F77_CALL(daxpy)(
+    daxpy(
       &obs_grad_dim, &D_ONE, dg, &I_ONE, grad_obs, &I_ONE);
 
     /* subtract outer product of gradient from the Hessian */
-    F77_CALL(dsyr)(
+    dsyr(
         &C_L, &grad_dim, &D_M_ONE, stats, &I_ONE,
-        stats + grad_dim, &grad_dim, 1);
+        stats + grad_dim, &grad_dim);
 
     /* copy upper half to lower half. TODO: do this in a smarter way */
     {
@@ -173,7 +173,7 @@ private:
   {
     /* first add old stat */
     const double weight = std::exp(log_weight);
-    F77_CALL(daxpy)(
+    daxpy(
         &stat_dim, &weight, stats_old, &I_ONE, stats_new, &I_ONE);
 
     /* then compute the terms that is a function of the pair of the states */
@@ -194,7 +194,7 @@ private:
     std::fill(stat_out, stat_out + needed_size, 0.);
 
     /* first add old stat */
-    F77_CALL(daxpy)(
+    daxpy(
         &stat_dim, &D_ONE, stats_old, &I_ONE, stat_out, &I_ONE);
 
     /* then compute the terms that is a function of the pair of the states */
@@ -207,27 +207,27 @@ private:
       dstat.trans_dist->comp_stats_state_state(
         state_old, state_new, 1., tmp_mem, what);
       /* add gradient terms */
-      F77_CALL(daxpy)(
+      daxpy(
           &state_grad_dim, &D_ONE, tmp_mem, &I_ONE, grad_start, &I_ONE);
       /* add hessian terms */
       const double *t = tmp_mem + state_grad_dim;
             double *x = hess_start;
       for(int i = 0; i < state_grad_dim;
           ++i, t += state_grad_dim, x += grad_dim)
-        F77_CALL(daxpy)(
+        daxpy(
             &state_grad_dim, &D_ONE, t, &I_ONE, x, &I_ONE);
     }
 
     /* make rank-one update. Use dsyr and assume we update the upper part
      * later */
-    F77_CALL(dsyr)(
+    dsyr(
         &C_L, &grad_dim,
         &D_ONE, stat_out, &I_ONE,
-        stat_out + grad_dim, &grad_dim, 1);
+        stat_out + grad_dim, &grad_dim);
 
     /* add terms */
     const double weight = std::exp(log_weight);
-    F77_CALL(daxpy)(
+    daxpy(
         &stat_dim, &weight, stat_out, &I_ONE, stats_new, &I_ONE);
   }
 
