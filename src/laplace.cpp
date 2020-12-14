@@ -637,10 +637,9 @@ namespace {
   class get_nlopt_problem {
   public:
     nlopt_opt opt, opt_inner;
-    get_nlopt_problem(const unsigned n){
-      opt = nlopt_create(NLOPT_AUGLAG, n);
-      opt_inner = nlopt_create(NLOPT_LN_SBPLX, n);
-    }
+    get_nlopt_problem(const unsigned n):
+      opt      (nlopt_create(NLOPT_AUGLAG  , n)),
+      opt_inner(nlopt_create(NLOPT_LN_SBPLX, n)) { }
 
     ~get_nlopt_problem(){
       nlopt_destroy(opt_inner);
@@ -694,7 +693,8 @@ namespace {
 
       /* setup problem */
       get_nlopt_problem probs(outer_dim);
-      nlopt_opt &opt = probs.opt, &opt_inner = probs.opt_inner;
+      nlopt_opt &opt = probs.opt,
+          &opt_inner = probs.opt_inner;
       nlopt_set_ftol_abs(opt_inner, ftol_abs);
       nlopt_set_ftol_rel(opt_inner, ftol_rel);
       nlopt_set_maxeval(opt_inner, maxeval);

@@ -4,4 +4,7 @@ r: release
 cache: packages
 sudo: required
 dist: xenial
+env:
+  global:
+    - ISTRAVIS=1
 

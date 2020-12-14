@@ -1,9 +1,12 @@
 context("Testing manual page results")
 
 for(n_threads in c(1L, 4L)){
+  skip_on_cran()
   test_that("manual page for 'mssm' yields the same output", {
     skip_if_not_installed("Ecdat")
-    skip_on_cran()
+    if(n_threads > 1L)
+      skip_on_cran()
+    skip_if(Sys.getenv("ISTRAVIS", "No") != "No")
 
     # load data and fit glm model to get starting values
     data("Gasoline", package = "Ecdat")

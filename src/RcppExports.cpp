@@ -213,7 +213,7 @@ BEGIN_RCPP
 END_RCPP
 }
 
-RcppExport SEXP run_testthat_tests();
+RcppExport SEXP run_testthat_tests(SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
     {"_mssm_test_KD_note", (DL_FUNC) &_mssm_test_KD_note, 2},
@@ -226,7 +226,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_mssm_smoother_cpp", (DL_FUNC) &_mssm_smoother_cpp, 26},
     {"_mssm_t_dist_antithe_test", (DL_FUNC) &_mssm_t_dist_antithe_test, 4},
     {"_mssm_get_Q0", (DL_FUNC) &_mssm_get_Q0, 2},
-    {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 0},
+    {"run_testthat_tests", (DL_FUNC) &run_testthat_tests, 1},
     {NULL, NULL, 0}
 };
 
