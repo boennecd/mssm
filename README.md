@@ -2,7 +2,7 @@
 Multivariate State Space Models
 ===============================
 
-[![Build Status on Travis](https://travis-ci.org/boennecd/mssm.svg?branch=master,osx)](https://travis-ci.org/boennecd/mssm) [![](https://www.r-pkg.org/badges/version/mssm)](https://www.r-pkg.org/badges/version/mssm) [![CRAN RStudio mirror downloads](https://cranlogs.r-pkg.org/badges/mssm)](https://cran.r-project.org/package=mssm)
+[![R-CMD-check](https://github.com/boennecd/mssm/workflows/R-CMD-check/badge.svg)](https://github.com/boennecd/mssm/actions) [![](https://www.r-pkg.org/badges/version/mssm)](https://www.r-pkg.org/badges/version/mssm) [![CRAN RStudio mirror downloads](https://cranlogs.r-pkg.org/badges/mssm)](https://cran.r-project.org/package=mssm)
 
 This package provides methods to estimate models of the form
 
