@@ -4,7 +4,7 @@
 * Ubuntu 20.04 LTS with gcc 10.1.0
   R version 4.1.1 with valgrind
 * Ubuntu 20.04 LTS with gcc 10.1.0
-  R devel 2021-09-06 r80861 with LTO checks
+  R devel 2021-10-02 r81000 with LTO checks
 * Ubuntu 20.04 LTS with gcc 10.1.0
   R devel 2021-10-02 r81000
 * Github actions on windows-latest (release), macOS-latest (release), 
