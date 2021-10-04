@@ -6,6 +6,11 @@
 
 using namespace Rcpp;
 
+#ifdef RCPP_USE_GLOBAL_ROSTREAM
+Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
+Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
+#endif
+
 // test_KD_note
 Rcpp::List test_KD_note(const arma::mat& X, const arma::uword N_min);
 RcppExport SEXP _mssm_test_KD_note(SEXP XSEXP, SEXP N_minSEXP) {

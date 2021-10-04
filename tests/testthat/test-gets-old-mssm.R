@@ -338,7 +338,14 @@ test_that("gets the same with binomial data with weights", {
   out <- with(
     poisson_log, ll_func$pf_filter(cfix = cfix, disp = numeric(), F. = F., Q = Q))
   out <- prep_for_test(out)
-  expect_known_value(out, "binomial-logit-grouped-w-weights.RDS")
+
+  old_res <- readRDS("binomial-logit-grouped-w-weights.RDS")
+  expect_equal(out    [setdiff(names(out    ), "y")],
+               old_res[setdiff(names(old_res), "y")])
+
+  # there is some change in R devel's I() implementation around 2021-10-02 r81000
+  # Thus, I removed the class in the check
+  expect_equal(unclass(out$y), unclass(old_res$y))
 })
 
 test_that("gets the same with antithetic variables", {

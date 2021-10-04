@@ -1,11 +1,12 @@
 Package: mssm
 Type: Package
 Title: Multivariate State Space Models
-Version: 0.1.4
+Version: 0.1.5
 Authors@R: c(
   person("Benjamin", "Christoffersen", 
          email = "boennecd@gmail.com", 
-         role = c("cre", "aut")), 
+         role = c("cre", "aut"), 
+         comment = c(ORCID = "0000-0002-7182-1346")), 
   person("Anthony", "Williams", 
          role = c("cph")))
 Description: Provides methods to perform parameter estimation and 
@@ -17,6 +18,8 @@ Description: Provides methods to perform parameter estimation and
   <doi:10.1198/016214505000000349>, and the gradient and observed information
   matrix approximation suggested by Poyiadjis, Doucet, & Singh (2011) 
   <doi:10.1093/biomet/asq062>.
+BugReports: https://github.com/boennecd/mssm/issues
+URL: https://github.com/boennecd/mssm
 License: GPL-2
 Encoding: UTF-8
 LazyData: true
