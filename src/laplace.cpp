@@ -1,6 +1,6 @@
 #include "laplace.h"
 #include <functional>
-#include "nlopt.h"
+#include <nloptrAPI.h>
 #include <math.h>
 
 #ifdef MSSM_PROF
