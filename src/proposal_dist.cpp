@@ -1,5 +1,5 @@
 #include "proposal_dist.h"
-#include "nloptrAPI.h"
+#include <nloptrAPI.h>
 
 using cdist_vec = std::initializer_list<const cdist*>;
 
