@@ -41,7 +41,8 @@ std::vector<particle_cloud> PF
     new_cloud.ws_normalized = new_cloud.ws;
     double ess = normalize_log_weights(new_cloud.ws_normalized);
     if(trace > 0){
-      Rprintf("Effective sample size at %4d: %12.1f\n", i + 1L, ess);
+      Rprintf("Effective sample size at %4llu: %12.1f\n",
+              static_cast<unsigned long long>(i) + 1ULL, ess);
 
       const arma::vec cloud_mean = new_cloud.get_cloud_mean();
       if(cloud_mean.n_elem < 20L or trace > 2)

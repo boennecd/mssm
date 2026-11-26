@@ -1,25 +1,14 @@
-## Test environments
-* Ubuntu 20.04 LTS with gcc 10.1.0
-  R version 4.1.2
-* Ubuntu 20.04 LTS with gcc 10.1.0
-  R version 4.1.2 with valgrind
-* Ubuntu 20.04 LTS with gcc 10.1.0
-  R devel 2022-01-27 r81578 with LTO checks
-* Github actions on windows-latest (release), macOS-latest (release), 
-  ubuntu-20.04 (release), and ubuntu-20.04 (devel)
-* win-builder (devel, oldrelease, and release)
-* `rhub::check_for_cran()`
-* `rhub::check(platform = c("fedora-clang-devel", "macos-highsierra-release-cran"))`
-* `rhub::check_on_solaris()`
-  
+## New version submission
+
+CRAN archived mssm on 2024-01-12 after check issues remained open.
+Version 0.1.7 corrects C++ trace format warnings and allows for the rounding differences that caused the symmetric band matrix test to fail on Apple Silicon.
+The package now requires R 4.1.0 or later and uses the default C++ standard selected by R.
+
+## Test environment
+
+- Debian GNU/Linux 13 (x86_64), R 4.5.3, GCC and GNU Fortran 15.3.0.
+- Built the source tarball with `R CMD build` and checked it with `R CMD check --as-cran`. The external clock service was unavailable, so the check compared file timestamps with the local clock.
+
 ## R CMD check results
-The new version of this packages works with the new version of nloptr on CRAN.
-I.e. the errors on CRAN for this package are solved.
 
-There were no WARNINGs or ERRORs except on win-builder. The packages does not 
-build with R-oldrelease and R-release. The reasons is that they seem to use the 
-pre 2.0.0 version of nloptr.
-
-There is a NOTE about the package size in some cases.
-
-There are notes about (possibly) invalid URLs in some cases. The URLs are valid.
+0 errors, 0 warnings, and 1 NOTE. The incoming check recorded that mssm was previously archived.

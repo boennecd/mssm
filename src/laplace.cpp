@@ -516,7 +516,7 @@ namespace {
         return false;
       })();
       if(verbose){
-        Rprintf("It: %5d: Making Laplace approximation at Q\n", it_outer);
+        Rprintf("It: %5lu: Making Laplace approximation at Q\n", it_outer);
         Rcpp::Rcout << data.get_Q();
 
         if(has_disp)
@@ -556,7 +556,7 @@ namespace {
       }
 
       if(verbose)
-        Rprintf("It: %5d: %5d inner iterations\n",
+        Rprintf("It: %5lu: %5lu inner iterations\n",
                 it_outer, it_inner - it_inner_old);
 
       /* update values for modes and cfix */
@@ -625,9 +625,9 @@ namespace {
         if(ll > max_ll)
           max_ll = ll;
 
-        Rprintf("It: %5d: cfix is ", it_outer);
+        Rprintf("It: %5lu: cfix is ", it_outer);
         Rcpp::Rcout << data.get_cfix().t();
-        Rprintf("It: %5d: Log-likelihood approximation (current, max): %14.4f, %14.4f\n",
+        Rprintf("It: %5lu: Log-likelihood approximation (current, max): %14.4f, %14.4f\n",
                 it_outer, ll, max_ll);
       }
 
@@ -662,16 +662,15 @@ namespace {
       it_inner = it_outer = 0L;
       const bool verbose = data.ctrl.trace > 0L;
       if(verbose){
-        std::string msg =
-          "Estimating parameters with Laplace approximation. Settings are:\n";
-        msg += "ftol_rel        %17.10f\n";
-        msg += "ftol_abs        %17.10f\n";
-        msg += "ftol_rel-inner  %17.10f\n";
-        msg += "ftol_abs-inner  %17.10f\n";
-        msg += "maxeval         %6d\n";
-        msg += "maxeval-inner   %6d\n";
-        Rprintf(msg.c_str(), ftol_rel, ftol_abs, ftol_rel_inner,
-                ftol_abs_inner, maxeval, maxeval_inner);
+        Rprintf("Estimating parameters with Laplace approximation. Settings are:\n"
+                "ftol_rel        %17.10f\n"
+                "ftol_abs        %17.10f\n"
+                "ftol_rel-inner  %17.10f\n"
+                "ftol_abs-inner  %17.10f\n"
+                "maxeval         %6u\n"
+                "maxeval-inner   %6u\n",
+                ftol_rel, ftol_abs, ftol_rel_inner, ftol_abs_inner,
+                maxeval, maxeval_inner);
       }
 
       /* setup parameters */
