@@ -2,6 +2,7 @@
 
 * Correct integer formats in particle filter and Laplace trace output.
 * Require R 4.1.0 or later. Use the default C++ standard selected by R.
+* Fix thread pool compilation with C++20 and later.
 * Allow for floating-point rounding in the symmetric band matrix tests.
 
 # mssm 0.1.6

@@ -2,7 +2,7 @@
 
 CRAN archived mssm on 2024-01-12 after check issues remained open.
 Version 0.1.7 corrects C++ trace format warnings and allows for the rounding differences that caused the symmetric band matrix test to fail on Apple Silicon.
-The package now requires R 4.1.0 or later and uses the default C++ standard selected by R.
+The package now requires R 4.1.0 or later and builds with the default C++ standard selected by R, including C++20.
 
 ## Test environment
 
