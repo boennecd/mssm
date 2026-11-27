@@ -10,15 +10,15 @@ The external clock service was unavailable, so the check compared file timestamp
 
 - Debian GNU/Linux 13 (x86_64), R 4.5.3, GCC and GNU Fortran 15.3.0.
 
-The earlier standard hosted checks used `--no-manual --as-cran` with the incoming checks disabled.
+The standard hosted checks used `--no-manual --as-cran` with the incoming checks disabled.
 
-- Ubuntu 26.04.1 LTS (x86_64), R 4.5.3, R 4.6.2 and R-devel (2026-11-25 r90991), GCC and GNU Fortran 15.2.0.
+- Ubuntu 26.04.1 LTS (x86_64), R 4.5.3, R 4.6.2 and R-devel (2026-11-26 r90998), GCC and GNU Fortran 15.2.0.
 - macOS 26.7.2 (arm64), R 4.6.2, Apple Clang 21.0.0 and GNU Fortran 14.2.0.
 - Windows (x86_64, build 26100), R 4.6.2, GCC and GNU Fortran 14.3.0.
 
-### Memory checks on an earlier candidate
+### Instrumented checks
 
-These checks used R-devel (2026-11-25 r90991) on x86_64 Linux.
+These checks used R-devel (2026-11-25 r90991) on x86_64 Linux. Valgrind checked an earlier candidate. The sanitizer checks below used the revised candidate.
 
 - Fedora Linux 44, GCC and GNU Fortran 16.2.1. Valgrind 3.27.1 used origin tracking and full leak checking. R used `--no-manual --use-valgrind --no-stop-on-test-error`.
 - Fedora Linux 44, GCC and GNU Fortran 16.2.1. The GCC build used address, undefined behavior, and strict bounds sanitizers with leak detection disabled. R used `--no-manual --no-build-vignettes --as-cran`.
@@ -30,6 +30,6 @@ The standard checks reported 0 errors and 0 warnings. The Debian check reported 
 
 On the earlier candidate, Valgrind reported 0 memory errors and 0 bytes definitely or possibly lost. The examples and tests ran and the package check reported 0 errors, warnings, or NOTEs.
 
-Both Clang checks stopped during installation because the source omitted a C++ thread header. After adding the header, all C++ translation units passed a local C++20 syntax check with Clang 23.1.6 and libc++.
+On the earlier candidate, the Clang checks stopped at a missing C++ thread header. The Fedora GCC sanitizer check stopped while loading a prebuilt `nloptr` dependency.
 
-The Fedora GCC sanitizer check stopped during installation because the `nloptr` binary required an unavailable `libRlapack.so` library. The three sanitizer checks await a rerun on the revised candidate.
+All three sanitizer checks ran the examples and tests on the revised candidate. Each reported 0 errors, 0 warnings, and 0 NOTEs. The logs showed 0 sanitizer diagnostics.
