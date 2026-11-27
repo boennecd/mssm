@@ -381,7 +381,8 @@ inline void do_tests
   dense = arma::symmatu(dense);
   arma::mat dense_out = b_mat.get_dense();
 
-  expect_true(is_all_equal(dense, dense_out));
+  // Fused multiply-add can round differently in the banded and dense updates.
+  expect_true(is_all_aprx_equal(dense, dense_out));
 
   /* test that dot product are the same */
   for(unsigned i = 0; i < 5; ++i){

@@ -1,5 +1,6 @@
 #include "kd-tree.h"
 #include <numeric>
+#include <thread>
 
 using std::domain_error;
 using std::invalid_argument;

@@ -503,9 +503,9 @@ NULL
 #' @param n_threads integer greater than zero for the number of threads to use.
 #' @param covar_fac positive numeric scalar used to scale the covariance
 #' matrix in the proposal distribution.
-#' @param ftol_rel positive numeric scalar with convergence threshold passed
-#' to \code{\link{nloptr}} if the mode approximation method is used for the
-#' proposal distribution.
+#' @param ftol_rel Positive numeric scalar. The mode approximation for the
+#' proposal distribution passes this convergence threshold to
+#' \code{\link[nloptr]{nloptr}}.
 #' @param nu degrees of freedom to use for the multivariate
 #' \eqn{t}-distribution that is used as the proposal distribution. A
 #' multivariate normal distribution is used if \code{nu <= 2}.

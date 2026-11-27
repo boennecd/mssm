@@ -1,49 +1,51 @@
 
-Multivariate State Space Models
-===============================
+# Multivariate State Space Models
 
-[![R-CMD-check](https://github.com/boennecd/mssm/workflows/R-CMD-check/badge.svg)](https://github.com/boennecd/mssm/actions) [![](https://www.r-pkg.org/badges/version/mssm)](https://www.r-pkg.org/badges/version/mssm) [![CRAN RStudio mirror downloads](https://cranlogs.r-pkg.org/badges/mssm)](https://cran.r-project.org/package=mssm)
+[![R-CMD-check](https://github.com/boennecd/mssm/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/boennecd/mssm/actions/workflows/R-CMD-check.yaml) [![CRAN version](https://www.r-pkg.org/badges/version/mssm)](https://CRAN.R-project.org/package=mssm) [![CRAN downloads](https://cranlogs.r-pkg.org/badges/last-month/mssm)](https://cranlogs.r-pkg.org/)
 
-This package provides methods to estimate models of the form
+mssm estimates multivariate state space models of this form.
 
-![y\_{it} \\sim g(\\eta\_{it}),\\qquad i\\in I\_t](https://latex.codecogs.com/svg.latex?y_%7Bit%7D%20%5Csim%20g%28%5Ceta_%7Bit%7D%29%2C%5Cqquad%20i%5Cin%20I_t "y_{it} \sim g(\eta_{it}),\qquad i\in I_t")
+$$y_{it} \sim g(\eta_{it}),\qquad i\in I_t$$
 
-![\\eta\_{it} = \\vec\\gamma^\\top\\vec x\_{it} +\\vec\\beta\_t^\\top\\vec z\_{it}](https://latex.codecogs.com/svg.latex?%5Ceta_%7Bit%7D%20%3D%20%5Cvec%5Cgamma%5E%5Ctop%5Cvec%20x_%7Bit%7D%20%2B%5Cvec%5Cbeta_t%5E%5Ctop%5Cvec%20z_%7Bit%7D "\eta_{it} = \vec\gamma^\top\vec x_{it} +\vec\beta_t^\top\vec z_{it}")
+$$\eta_{it} = \vec\gamma^\top\vec x_{it} + \vec\beta_t^\top\vec z_{it}$$
 
-![\\vec\\beta\_t = F\\vec\\beta\_{t-1}+\\vec\\epsilon\_t, \\qquad \\vec\\epsilon\_t\\sim N(\\vec 0, Q)](https://latex.codecogs.com/svg.latex?%5Cvec%5Cbeta_t%20%3D%20F%5Cvec%5Cbeta_%7Bt-1%7D%2B%5Cvec%5Cepsilon_t%2C%20%5Cqquad%20%5Cvec%5Cepsilon_t%5Csim%20N%28%5Cvec%200%2C%20Q%29 "\vec\beta_t = F\vec\beta_{t-1}+\vec\epsilon_t, \qquad \vec\epsilon_t\sim N(\vec 0, Q)")
+$$\vec\beta_t = F\vec\beta_{t-1} + \vec\epsilon_t,\qquad \vec\epsilon_t\sim N(\vec 0, Q)$$
 
-where ![g](https://latex.codecogs.com/svg.latex?g "g") is simple distribution, we observe ![t=1,\\dots,T](https://latex.codecogs.com/svg.latex?t%3D1%2C%5Cdots%2CT "t=1,\dots,T") periods, and ![I\_t](https://latex.codecogs.com/svg.latex?I_t "I_t"), ![y\_{it}](https://latex.codecogs.com/svg.latex?y_%7Bit%7D "y_{it}"), ![\\vec x\_{it}](https://latex.codecogs.com/svg.latex?%5Cvec%20x_%7Bit%7D "\vec x_{it}"), and ![\\vec z\_{it}](https://latex.codecogs.com/svg.latex?%5Cvec%20z_%7Bit%7D "\vec z_{it}") are known. What is multivariate is ![\\vec y\_t = \\{y\_{it}\\}\_{i\\in I\_t}](https://latex.codecogs.com/svg.latex?%5Cvec%20y_t%20%3D%20%5C%7By_%7Bit%7D%5C%7D_%7Bi%5Cin%20I_t%7D "\vec y_t = \{y_{it}\}_{i\in I_t}") (though, ![\\vec \\beta\_t](https://latex.codecogs.com/svg.latex?%5Cvec%20%5Cbeta_t "\vec \beta_t") can also be multivariate) and this package is written to scale well in the cardinality of ![I\_t](https://latex.codecogs.com/svg.latex?I_t "I_t"). The package uses independent particle filters as suggested by Lin et al. (2005). This particular type of filter can be used in the method suggested by Poyiadjis, Doucet, and Singh (2011). I will show an example of how to use the package through the rest of the document and highlight some implementation details.
+Here $g$ is the observation distribution, and $t=1,\dots,T$ indexes the observed periods. At each period $t$, the index set $I_t$, outcomes $y_{it}$, and covariates $\vec x_{it}$ and $\vec z_{it}$ are known. The observation vector is $\vec y_t = \lbrace y_{it} \rbrace_{i\in I_t}$. The state $\vec\beta_t$ can also be multivariate. The package scales with the number of observations per period. It uses independent particle filters as in Lin et al. (2005) and approximates gradients and observed information as in Poyiadjis et al. (2011).
 
-The package can be installed from Github e.g., by calling
+## Installation
 
-``` r
-devtools::install_github("boennecd/mssm")
-```
+The package requires R 4.1.0 or later.
 
-or from CRAN by calling
+Install the current source from GitHub.
 
 ``` r
-install.packages("mssm")
+devtools::install_github(repo = "boennecd/mssm")
 ```
 
-Table of Contents
------------------
+Install the package from CRAN.
 
--   [Poisson Example](#poisson-example)
-    -   [Log-Likelihood Approximations](#log-likelihood-approximations)
-    -   [Antithetic Variables](#antithetic-variables)
-    -   [Parameter Estimation](#parameter-estimation)
-    -   [Faster Approximation](#faster-approximation)
-    -   [Approximate Observed Information Matrix](#approximate-observed-information-matrix)
--   [Supported Families](#supported-families)
--   [Fast Sum-Kernel Approximation](#fast-sum-kernel-approximation)
--   [Function Definitions](#function-definitions)
--   [References](#references)
+``` r
+install.packages(pkgs = "mssm")
+```
 
-Poisson Example
----------------
+## Table of Contents
 
-We simulate data as follows.
+- [Installation](#installation)
+- [Poisson Example](#poisson-example)
+  - [Log-Likelihood Approximations](#log-likelihood-approximations)
+  - [Antithetic Variables](#antithetic-variables)
+  - [Parameter Estimation](#parameter-estimation)
+  - [Faster Approximation](#faster-approximation)
+  - [Approximate Observed Information Matrix](#approximate-observed-information-matrix)
+- [Supported Families](#supported-families)
+- [Fast Sum-Kernel Approximation](#fast-sum-kernel-approximation)
+- [Function Definitions](#function-definitions)
+- [References](#references)
+
+## Poisson Example
+
+This example uses simulated Poisson counts to fit and assess a state space model.
 
 ``` r
 # simulate path of state variables 
@@ -195,7 +197,7 @@ logLik(glm_fit)
 
     ## 'log Lik.' -7485 (df=4)
 
-Next, we make a log-likelihood approximation with the implemented particle at the true parameters with the `mssm` function.
+Use the particle filter from `mssm()` to approximate the log-likelihood at the parameters used to simulate the data.
 
 ``` r
 library(mssm)
@@ -260,7 +262,7 @@ mssm_obj
     ## Number of parameters           11
     ## Number of observations       6242
 
-We get a much larger log-likelihood as expected. We can plot the predicted values of state variables from the filter distribution.
+The particle filter gives a higher log-likelihood than the generalized linear model in this example. Compare the predicted states and prediction intervals with the simulated states in the plots.
 
 ``` r
 # get predicted mean and prediction interval 
@@ -380,31 +382,37 @@ logLik(mssm_glm)
 
 ### Antithetic Variables
 
-One way to reduce the variance of the Monte Carlo estimate is to use [antithetic variables](https://en.wikipedia.org/wiki/Antithetic_variates). Two types of antithetic variables are implemented as in Durbin and Koopman (1997). That is, one balanced for location and two balanced for scale. This is currently only implemented with a t-distribution as the proposal distribution.
+One way to reduce the variance of the Monte Carlo estimate is to use [antithetic variables](https://en.wikipedia.org/wiki/Antithetic_variates). The package uses the method from Durbin and Koopman (1997) to generate one variable balanced for location and two balanced for scale. This method uses a t-distribution as the proposal distribution.
 
-We start by giving some details on the locations balanced variable. Suppose we use a t-distribution with ![\\nu](https://latex.codecogs.com/svg.latex?%5Cnu "\nu") degrees of freedom, a ![d](https://latex.codecogs.com/svg.latex?d "d") dimensional mean of ![\\mu](https://latex.codecogs.com/svg.latex?%5Cmu "\mu") and a scale matrix ![\\Sigma](https://latex.codecogs.com/svg.latex?%5CSigma "\Sigma"). We can then generate a sample by setting
+Use a t-distribution with $\nu$ degrees of freedom, a $d$-dimensional mean $\vec\mu$, and a scale matrix $\Sigma$ to generate a sample $\vec x$.
 
-![\\begin{aligned}  \\vec x &= \\vec\\mu + C \\frac{\\vec z}{\\sqrt{a / \\nu}} & \\Sigma &= CC^\\top \\\\ \\vec z &\\sim N(\\vec 0, I) & a &\\sim \\chi^2\_\\nu \\end{aligned}](https://latex.codecogs.com/svg.latex?%5Cbegin%7Baligned%7D%20%20%5Cvec%20x%20%26%3D%20%5Cvec%5Cmu%20%2B%20C%20%5Cfrac%7B%5Cvec%20z%7D%7B%5Csqrt%7Ba%20%2F%20%5Cnu%7D%7D%20%26%20%5CSigma%20%26%3D%20CC%5E%5Ctop%20%5C%5C%20%5Cvec%20z%20%26%5Csim%20N%28%5Cvec%200%2C%20I%29%20%26%20a%20%26%5Csim%20%5Cchi%5E2_%5Cnu%20%5Cend%7Baligned%7D "\begin{aligned}  \vec x &= \vec\mu + C \frac{\vec z}{\sqrt{a / \nu}} & \Sigma &= CC^\top \\ \vec z &\sim N(\vec 0, I) & a &\sim \chi^2_\nu \end{aligned}")
+$$\begin{aligned}
+\vec x &= \vec\mu + C \frac{\vec z}{\sqrt{a / \nu}} & \Sigma &= CC^\top \\
+\vec z &\sim N(\vec 0, I) & a &\sim \chi^2_\nu
+\end{aligned}$$
 
-Then the location balanced variable is
+The variable balanced for location is
 
-![\\widehat{\\vec x} = \\vec\\mu - C \\frac{\\vec z}{\\sqrt{a / \\nu}}](https://latex.codecogs.com/svg.latex?%5Cwidehat%7B%5Cvec%20x%7D%20%3D%20%5Cvec%5Cmu%20-%20C%20%5Cfrac%7B%5Cvec%20z%7D%7B%5Csqrt%7Ba%20%2F%20%5Cnu%7D%7D "\widehat{\vec x} = \vec\mu - C \frac{\vec z}{\sqrt{a / \nu}}")
+$$\widehat{\vec x} = \vec\mu - C \frac{\vec z}{\sqrt{a / \nu}}$$
 
-For the scaled balanced variables we use that
+The variables balanced for scale use this statistic.
 
-![u = \\frac{\\vec z^\\top\\vec z/ d}{a / \\nu} \\sim F(d, \\nu)](https://latex.codecogs.com/svg.latex?u%20%3D%20%5Cfrac%7B%5Cvec%20z%5E%5Ctop%5Cvec%20z%2F%20d%7D%7Ba%20%2F%20%5Cnu%7D%20%5Csim%20F%28d%2C%20%5Cnu%29 "u = \frac{\vec z^\top\vec z/ d}{a / \nu} \sim F(d, \nu)")
+$$u = \frac{\vec z^\top\vec z/ d}{a / \nu} \sim F(d, \nu)$$
 
-We then define the cumulative distribution function
+Let $Q$ be the cumulative distribution function of $U$.
 
-![k = P(U \\leq u) = Q(u)](https://latex.codecogs.com/svg.latex?k%20%3D%20P%28U%20%5Cleq%20u%29%20%3D%20Q%28u%29 "k = P(U \leq u) = Q(u)")
+$$k = P(U \leq u) = Q(u)$$
 
-and set
+Use its inverse to get the quantile at $1 - k$.
 
-![u' = Q^{-1}(1 - k)](https://latex.codecogs.com/svg.latex?u%27%20%3D%20Q%5E%7B-1%7D%281%20-%20k%29 "u' = Q^{-1}(1 - k)")
+$$u' = Q^{-1}(1 - k)$$
 
-Then the two scaled balanced variables are
+The two variables balanced for scale are
 
-![\\begin{aligned} \\widetilde{\\vec x}\_1 &= \\vec\\mu + \\sqrt{u'/u} \\cdot C \\frac{\\vec z}{\\sqrt{a / \\nu}} \\\\ \\widetilde{\\vec x}\_2 &= \\vec\\mu - \\sqrt{u'/u} \\cdot C \\frac{\\vec z}{\\sqrt{a / \\nu}} \\end{aligned}](https://latex.codecogs.com/svg.latex?%5Cbegin%7Baligned%7D%20%5Cwidetilde%7B%5Cvec%20x%7D_1%20%26%3D%20%5Cvec%5Cmu%20%2B%20%5Csqrt%7Bu%27%2Fu%7D%20%5Ccdot%20C%20%5Cfrac%7B%5Cvec%20z%7D%7B%5Csqrt%7Ba%20%2F%20%5Cnu%7D%7D%20%5C%5C%20%5Cwidetilde%7B%5Cvec%20x%7D_2%20%26%3D%20%5Cvec%5Cmu%20-%20%5Csqrt%7Bu%27%2Fu%7D%20%5Ccdot%20C%20%5Cfrac%7B%5Cvec%20z%7D%7B%5Csqrt%7Ba%20%2F%20%5Cnu%7D%7D%20%5Cend%7Baligned%7D "\begin{aligned} \widetilde{\vec x}_1 &= \vec\mu + \sqrt{u'/u} \cdot C \frac{\vec z}{\sqrt{a / \nu}} \\ \widetilde{\vec x}_2 &= \vec\mu - \sqrt{u'/u} \cdot C \frac{\vec z}{\sqrt{a / \nu}} \end{aligned}")
+$$\begin{aligned}
+\widetilde{\vec x}_1 &= \vec\mu + \sqrt{u'/u} \cdot C \frac{\vec z}{\sqrt{a / \nu}} \\
+\widetilde{\vec x}_2 &= \vec\mu - \sqrt{u'/u} \cdot C \frac{\vec z}{\sqrt{a / \nu}}
+\end{aligned}$$
 
 We will illustrate the reduction in variance of the log-likelihood estimate. To do so, we run the particle filter with and without antithetic variables multiple times below to get an estimate of the error of the approximation.
 
@@ -714,7 +722,7 @@ res_final$cfix
 
 ### Faster Approximation
 
-One drawback with the particle filter we use is that it has ![\\mathcal{O}(N^2)](https://latex.codecogs.com/svg.latex?%5Cmathcal%7BO%7D%28N%5E2%29 "\mathcal{O}(N^2)") computational complexity where ![N](https://latex.codecogs.com/svg.latex?N "N") is the number of particles. We can see this by changing the number of particles.
+One drawback with the particle filter we use is that it has $\mathcal{O}(N^2)$ computational complexity where $N$ is the number of particles. We can see this by changing the number of particles.
 
 ``` r
 local({
@@ -754,7 +762,7 @@ local({
     ##   800  973.96  974.70  996.01  975.4 1007.03 1038.61     3
     ##  1600 3268.12 3290.25 3304.28 3312.4 3322.36 3332.33     3
 
-A solution is to use the dual k-d tree method I cover later. The computational complexity is ![\\mathcal{O}(N \\log N)](https://latex.codecogs.com/svg.latex?%5Cmathcal%7BO%7D%28N%20%5Clog%20N%29 "\mathcal{O}(N \log N)") for this method which is somewhat indicated by the run times shown below.
+A solution is to use the dual k-d tree method I cover later. The computational complexity is $\mathcal{O}(N \log N)$ for this method which is somewhat indicated by the run times shown below.
 
 ``` r
 local({
@@ -797,15 +805,18 @@ local({
     ##   1600 1663.5 1693.8 1708.2 1724.1 1730.6 1737.1     3
     ##  12800 9243.3 9261.2 9272.7 9279.1 9287.5 9295.8     3
 
-The `aprx_eps` controls the size of the error. To be precise about what this value does then we need to some notation for the complete likelihood (the likelihood where we observe ![\\vec\\beta\_1,\\dots,\\vec\\beta\_T](https://latex.codecogs.com/svg.latex?%5Cvec%5Cbeta_1%2C%5Cdots%2C%5Cvec%5Cbeta_T "\vec\beta_1,\dots,\vec\beta_T")s). This is
+The `aprx_eps` argument controls the approximation error. The complete likelihood treats $\vec\beta_1,\dots,\vec\beta_T$ as observed.
 
-![L = \\mu\_1(\\vec \\beta\_1)g\_1(\\vec y\_1 \\mid \\vec \\beta\_1)\\prod\_{t=2}^Tf(\\vec\\beta\_t \\mid\\vec\\beta\_{t-1})g\_t(y\_t\\mid\\beta\_t)](https://latex.codecogs.com/svg.latex?L%20%3D%20%5Cmu_1%28%5Cvec%20%5Cbeta_1%29g_1%28%5Cvec%20y_1%20%5Cmid%20%5Cvec%20%5Cbeta_1%29%5Cprod_%7Bt%3D2%7D%5ETf%28%5Cvec%5Cbeta_t%20%5Cmid%5Cvec%5Cbeta_%7Bt-1%7D%29g_t%28y_t%5Cmid%5Cbeta_t%29 "L = \mu_1(\vec \beta_1)g_1(\vec y_1 \mid \vec \beta_1)\prod_{t=2}^Tf(\vec\beta_t \mid\vec\beta_{t-1})g_t(y_t\mid\beta_t)")
+$$L = \mu_1(\vec\beta_1) g_1(\vec y_1 \mid \vec\beta_1)
+    \prod_{t=2}^T \big[ f(\vec\beta_t \mid \vec\beta_{t-1}) g_t(\vec y_t \mid \vec\beta_t) \big]$$
 
-where ![g\_t](https://latex.codecogs.com/svg.latex?g_t "g_t") is conditional distribution ![\\vec y\_t](https://latex.codecogs.com/svg.latex?%5Cvec%20y_t "\vec y_t") given ![\\vec\\beta\_t](https://latex.codecogs.com/svg.latex?%5Cvec%5Cbeta_t "\vec\beta_t"), ![f](https://latex.codecogs.com/svg.latex?f "f") is the conditional distribution of ![\\vec\\beta\_t](https://latex.codecogs.com/svg.latex?%5Cvec%5Cbeta_t "\vec\beta_t") given ![\\vec\\beta\_{t-1}](https://latex.codecogs.com/svg.latex?%5Cvec%5Cbeta_%7Bt-1%7D "\vec\beta_{t-1}"), and ![\\mu](https://latex.codecogs.com/svg.latex?%5Cmu "\mu") is the time-invariant distribution of ![\\vec\\beta\_t](https://latex.codecogs.com/svg.latex?%5Cvec%5Cbeta_t "\vec\beta_t"). Let ![w\_t^{(j)}](https://latex.codecogs.com/svg.latex?w_t%5E%7B%28j%29%7D "w_t^{(j)}") be the weight of particle ![j](https://latex.codecogs.com/svg.latex?j "j") at time ![t](https://latex.codecogs.com/svg.latex?t "t") and ![\\vec \\beta\_t^{(j)}](https://latex.codecogs.com/svg.latex?%5Cvec%20%5Cbeta_t%5E%7B%28j%29%7D "\vec \beta_t^{(j)}") be the ![j](https://latex.codecogs.com/svg.latex?j "j")th particle at time ![t](https://latex.codecogs.com/svg.latex?t "t"). Then we ensure the error in our evaluation of terms ![w\_{t-1}^{(j)}f(\\vec\\beta\_t^{(i)} \\mid \\vec\\beta\_{t-1}^{(j)})](https://latex.codecogs.com/svg.latex?w_%7Bt-1%7D%5E%7B%28j%29%7Df%28%5Cvec%5Cbeta_t%5E%7B%28i%29%7D%20%5Cmid%20%5Cvec%5Cbeta_%7Bt-1%7D%5E%7B%28j%29%7D%29 "w_{t-1}^{(j)}f(\vec\beta_t^{(i)} \mid \vec\beta_{t-1}^{(j)})") never exceeds
+Here $g_t$ is the conditional distribution of $\vec y_t$ given $\vec\beta_t$. The transition distribution is $f$, and $\mu_1$ is the initial distribution.
 
-![w\_{t-1}^{(j)} \\frac{u - l}{(u + l)/2}](https://latex.codecogs.com/svg.latex?w_%7Bt-1%7D%5E%7B%28j%29%7D%20%5Cfrac%7Bu%20-%20l%7D%7B%28u%20%2B%20l%29%2F2%7D "w_{t-1}^{(j)} \frac{u - l}{(u + l)/2}")
+Let $w_t^{(j)}$ be the weight of particle $j$ at time $t$. Use $\vec\beta_t^{(j)}$ for particle $j$ at time $t$. The error in the approximation of $w_{t-1}^{(j)}f(\vec\beta_t^{(i)} \mid \vec\beta_{t-1}^{(j)})$ has this upper bound.
 
- where ![u](https://latex.codecogs.com/svg.latex?u "u") and ![l](https://latex.codecogs.com/svg.latex?l "l") are respectively an upper and lower bound of ![f(\\vec\\beta\_t^{(i)} \\mid \\vec\\beta\_{t-1}^{(j)})](https://latex.codecogs.com/svg.latex?f%28%5Cvec%5Cbeta_t%5E%7B%28i%29%7D%20%5Cmid%20%5Cvec%5Cbeta_%7Bt-1%7D%5E%7B%28j%29%7D%29 "f(\vec\beta_t^{(i)} \mid \vec\beta_{t-1}^{(j)})"). The question is how big the error is. Thus, we consider the error in the log-likelihood approximation at the true parameters.
+$$w_{t-1}^{(j)} \frac{u - l}{(u + l)/2}$$
+
+The values $u$ and $l$ are upper and lower bounds on $f(\vec\beta_t^{(i)} \mid \vec\beta_{t-1}^{(j)})$. Compare the log-likelihood estimates at the parameters used to simulate the data.
 
 ``` r
 ll_compare <- local({
@@ -1095,16 +1106,17 @@ The following families are supported:
 Fast Sum-Kernel Approximation
 -----------------------------
 
-This package contains a simple implementation of the dual-tree method like the one suggested by Gray and Moore (2003) and shown in Klaas et al. (2006). The problem we want to solve is the sum-kernel problem in Klaas et al. (2006). Particularly, we consider the situation where we have ![1,\\dots,N\_q](https://latex.codecogs.com/svg.latex?1%2C%5Cdots%2CN_q "1,\dots,N_q") query particles denoted by ![\\{\\vec Y\_i\\}\_{i=1,\\dots,N\_q}](https://latex.codecogs.com/svg.latex?%5C%7B%5Cvec%20Y_i%5C%7D_%7Bi%3D1%2C%5Cdots%2CN_q%7D "\{\vec Y_i\}_{i=1,\dots,N_q}") and ![1,\\dots,N\_s](https://latex.codecogs.com/svg.latex?1%2C%5Cdots%2CN_s "1,\dots,N_s") source particles denoted by ![\\{\\vec X\_j\\}\_{j=1,\\dots,N\_s}](https://latex.codecogs.com/svg.latex?%5C%7B%5Cvec%20X_j%5C%7D_%7Bj%3D1%2C%5Cdots%2CN_s%7D "\{\vec X_j\}_{j=1,\dots,N_s}"). For each query particle, we want to compute the weights
+The package uses the dual-tree method from Gray and Moore (2003) and Klaas et al. (2006) to approximate sums of weighted kernel values. Let $\lbrace \vec Y_i \rbrace_{i=1,\dots,N_q}$ be the query particles and $\lbrace \vec X_j \rbrace_{j=1,\dots,N_s}$ be the source particles. The normalized weight for each query particle is
 
-![W\_i = \\frac{\\tilde W\_i}{\\sum\_{k = 1}^{N\_q} \\tilde W\_i},\\qquad \\tilde W\_i = \\sum\_{j=1}^{N\_s} \\bar W\_j K(\\vec Y\_i, \\vec X\_j)](https://latex.codecogs.com/svg.latex?W_i%20%3D%20%5Cfrac%7B%5Ctilde%20W_i%7D%7B%5Csum_%7Bk%20%3D%201%7D%5E%7BN_q%7D%20%5Ctilde%20W_i%7D%2C%5Cqquad%20%5Ctilde%20W_i%20%3D%20%5Csum_%7Bj%3D1%7D%5E%7BN_s%7D%20%5Cbar%20W_j%20K%28%5Cvec%20Y_i%2C%20%5Cvec%20X_j%29 "W_i = \frac{\tilde W_i}{\sum_{k = 1}^{N_q} \tilde W_i},\qquad \tilde W_i = \sum_{j=1}^{N_s} \bar W_j K(\vec Y_i, \vec X_j)")
+$$W_i = \frac{\tilde W_i}{\sum_{k = 1}^{N_q} \tilde W_k},\qquad
+\tilde W_i = \sum_{j=1}^{N_s} \bar W_j K(\vec Y_i, \vec X_j)$$
 
-where each source particle has an associated weight ![\\bar W\_j](https://latex.codecogs.com/svg.latex?%5Cbar%20W_j "\bar W_j") and ![K](https://latex.codecogs.com/svg.latex?K "K") is a kernel. Computing the above is ![\\mathcal{O}(N\_sN\_q)](https://latex.codecogs.com/svg.latex?%5Cmathcal%7BO%7D%28N_sN_q%29 "\mathcal{O}(N_sN_q)") which is major bottleneck if ![N\_s](https://latex.codecogs.com/svg.latex?N_s "N_s") and ![N\_q](https://latex.codecogs.com/svg.latex?N_q "N_q") is large. However, one can use a [k-d tree](https://en.wikipedia.org/wiki/K-d_tree) for the query particles and source particles and exploit that:
+Each source particle has a weight $\bar W_j$, and $K$ is a kernel. Direct evaluation takes $\mathcal{O}(N_sN_q)$ operations. The method uses a [k-d tree](https://en.wikipedia.org/wiki/K-d_tree) for each set of particles.
 
--   ![W\_j K(\\vec Y\_i, \\vec X\_j)](https://latex.codecogs.com/svg.latex?W_j%20K%28%5Cvec%20Y_i%2C%20%5Cvec%20X_j%29 "W_j K(\vec Y_i, \vec X_j)") is almost zero for some pairs of nodes in the two k-d trees.
--   ![K(\\cdot, \\vec X\_j)](https://latex.codecogs.com/svg.latex?K%28%5Ccdot%2C%20%5Cvec%20X_j%29 "K(\cdot, \vec X_j)") is almost identical for some nodes in the k-d tree for the source particles.
+- $\bar W_j K(\vec Y_i, \vec X_j)$ is close to zero for some pairs of nodes in the two k-d trees.
+- $K(\cdot, \vec X_j)$ varies little within some nodes of the source tree.
 
-Thus, a substantial amount of computation can be skipped or approximated with e.g., the centroid in the source node with only a minor loss of precision. The dual-tree approximation method is ![\\mathcal{O}(N\_s\\log N\_s)](https://latex.codecogs.com/svg.latex?%5Cmathcal%7BO%7D%28N_s%5Clog%20N_s%29 "\mathcal{O}(N_s\log N_s)") and ![\\mathcal{O}(N\_q\\log N\_q)](https://latex.codecogs.com/svg.latex?%5Cmathcal%7BO%7D%28N_q%5Clog%20N_q%29 "\mathcal{O}(N_q\log N_q)"). We start by defining a function to simulate the source and query particles (we will let the two sets be identical for simplicity). Further, we plot one draw of simulated points and illustrate the leafs in the k-d tree.
+Thus, a substantial amount of computation can be skipped or approximated with e.g., the centroid in the source node with only a minor loss of precision. The dual-tree approximation method is $\mathcal{O}(N_s\log N_s)$ and $\mathcal{O}(N_q\log N_q)$. We start by defining a function to simulate the source and query particles (we will let the two sets be identical for simplicity). Further, we plot one draw of simulated points and illustrate the leafs in the k-d tree.
 
 ``` r
 ######
@@ -1161,7 +1173,7 @@ invisible(lapply(borders, function(b)
 
 ![](man/figures/README-sim_func-1.png)
 
-Next, we compute the run-times for the previous examples and compare the approximations of the un-normalized log weights, ![\\log \\tilde W\_i](https://latex.codecogs.com/svg.latex?%5Clog%20%5Ctilde%20W_i "\log \tilde W_i"), and normalized weights, ![W\_i](https://latex.codecogs.com/svg.latex?W_i "W_i"). The `n_threads` sets the number of threads to use in the methods.
+Next, we compute the run-times for the previous examples and compare the approximations of the un-normalized log weights, $\log \tilde W_i$, and normalized weights, $W_i$. The `n_threads` sets the number of threads to use in the methods.
 
 ``` r
 # run-times
@@ -1224,7 +1236,7 @@ hist((o1 - o2)/ abs((o1 + o2) / 2), breaks = 50, main = "",
 
 ![](man/figures/README-comp_run_times-2.png)
 
-Finally, we compare the run-times as function of ![N = N\_s = N\_q](https://latex.codecogs.com/svg.latex?N%20%3D%20N_s%20%3D%20N_q "N = N_s = N_q"). The dashed line is "naive" method, the continuous line is the dual-tree method, and the dotted line is dual-tree method using 1 thread.
+Finally, we compare the run-times as function of $N = N_s = N_q$. The dashed line is "naive" method, the continuous line is the dual-tree method, and the dotted line is dual-tree method using 1 thread.
 
 ``` r
 Ns <- 2^(7:14)
@@ -1564,7 +1576,7 @@ Durbin, J., and S. J. Koopman. 1997. “Monte Carlo Maximum Likelihood Estimatio
 
 Gray, Alexander G., and Andrew W. Moore. 2003. “Rapid Evaluation of Multiple Density Models.” In *AISTATS*.
 
-Klaas, Mike, Mark Briers, Nando de Freitas, Arnaud Doucet, Simon Maskell, and Dustin Lang. 2006. “Fast Particle Smoothing: If I Had a Million Particles.” In *Proceedings of the 23rd International Conference on Machine Learning*, 481–88. ICML ’06. New York, NY, USA: ACM. <https://doi.acm.org/10.1145/1143844.1143905>.
+Klaas, Mike, Mark Briers, Nando de Freitas, Arnaud Doucet, Simon Maskell, and Dustin Lang. 2006. “Fast Particle Smoothing: If I Had a Million Particles.” In *Proceedings of the 23rd International Conference on Machine Learning*, 481–88. ICML ’06. New York, NY, USA: ACM. <https://ora.ox.ac.uk/objects/uuid:c5f8a112-b0b5-4f07-95b4-52f811fcdbeb>.
 
 Lin, Ming T, Junni L Zhang, Qiansheng Cheng, and Rong Chen. 2005. “Independent Particle Filters.” *Journal of the American Statistical Association* 100 (472). Taylor & Francis: 1412–21. <https://doi.org/10.1198/016214505000000349>.
 

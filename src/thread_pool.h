@@ -33,6 +33,7 @@
 #ifndef THREAD_POOL_H
 #define THREAD_POOL_H
 
+#include <atomic>
 #include <deque>
 #include <future>
 #include <memory>
@@ -42,7 +43,9 @@
 #include <mutex>
 #include <condition_variable>
 #include <queue>
+#include <thread>
 #include <type_traits>
+#include <vector>
 
 /*
  Listing 6.6 A thread-safe queue with fine-grained locking
@@ -210,10 +213,9 @@ public:
   const bool has_threads = thread_count > 1L;
 
   template<typename FunctionType>
-  std::future<typename std::result_of<FunctionType()>::type>
-  submit(FunctionType f)
+  auto submit(FunctionType f) -> std::future<decltype(f())>
   {
-    typedef typename std::result_of<FunctionType()>::type result_type;
+    using result_type = decltype(f());
 
     std::packaged_task<result_type()> task(std::move(f));
     std::future<result_type> res(task.get_future());

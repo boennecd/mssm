@@ -57,7 +57,7 @@ std::unique_ptr<cdist> problem_data::get_obs_dist(const arma::uword ti) const {
   arma::mat x = X.cols(indices), z = Z.cols(indices);
 
   if(ctrl.trace > 2L){
-    Rprintf("Time %5d\n", ti + 1L);
+    Rprintf("Time %5llu\n", static_cast<unsigned long long>(ti) + 1ULL);
     Rcpp::Rcout << "----------\n"
                 << "Y\n" << y.t()
                 << "Weights\n" << ws_.t()

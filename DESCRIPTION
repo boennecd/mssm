@@ -1,7 +1,7 @@
 Package: mssm
 Type: Package
 Title: Multivariate State Space Models
-Version: 0.1.6
+Version: 0.1.7
 Authors@R: c(
   person("Benjamin", "Christoffersen", 
          email = "boennecd@gmail.com", 
@@ -24,7 +24,7 @@ License: GPL-2
 Encoding: UTF-8
 LazyData: true
 Depends: 
-    R (>= 3.5.0), 
+    R (>= 4.1.0),
     stats, 
     graphics
 LinkingTo: 
@@ -36,7 +36,6 @@ Imports:
     Rcpp, 
     nloptr (>= 1.2.0)
 RoxygenNote: 6.1.1
-SystemRequirements: C++11
 Suggests: 
     testthat,
     Ecdat

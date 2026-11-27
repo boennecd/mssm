@@ -19,9 +19,9 @@ mssm_control(N_part = 1000L, n_threads = 1L, covar_fac = 1.2,
 \item{covar_fac}{positive numeric scalar used to scale the covariance
 matrix in the proposal distribution.}
 
-\item{ftol_rel}{positive numeric scalar with convergence threshold passed
-to \code{\link{nloptr}} if the mode approximation method is used for the
-proposal distribution.}
+\item{ftol_rel}{Positive numeric scalar. The mode approximation for the
+proposal distribution passes this convergence threshold to
+\code{\link[nloptr]{nloptr}}.}
 
 \item{nu}{degrees of freedom to use for the multivariate
 \eqn{t}-distribution that is used as the proposal distribution. A
