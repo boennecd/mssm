@@ -23,7 +23,7 @@ Install the current source from GitHub.
 devtools::install_github(repo = "boennecd/mssm")
 ```
 
-When the package is available on CRAN, install the CRAN release with this command.
+Install the package from CRAN.
 
 ``` r
 install.packages(pkgs = "mssm")
