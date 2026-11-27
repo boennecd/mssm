@@ -61,12 +61,14 @@ jobs:
           token: ${{ secrets.RHUB_TOKEN }}
           job-config: ${{ matrix.config.job-config }}
       - name: Install the OpenBLAS runtime required by Fedora R binaries
-        if: matrix.config.label == 'gcc-asan'
+        if: matrix.config.name == 'gcc-asan'
         run: dnf install -y openblas-threads
       - uses: r-hub/actions/setup-deps@v1
         with:
           token: ${{ secrets.RHUB_TOKEN }}
           job-config: ${{ matrix.config.job-config }}
+          # Build nloptr against Fedora's R because the binary requires libRlapack.so.
+          extra-packages: ${{ matrix.config.name == 'gcc-asan' && 'any::rcmdcheck,nloptr=?source&reinstall' || 'any::rcmdcheck' }}
       - uses: r-hub/actions/run-check@v1
         with:
           token: ${{ secrets.RHUB_TOKEN }}

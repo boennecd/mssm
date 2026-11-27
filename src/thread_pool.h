@@ -33,6 +33,7 @@
 #ifndef THREAD_POOL_H
 #define THREAD_POOL_H
 
+#include <atomic>
 #include <deque>
 #include <future>
 #include <memory>
@@ -42,7 +43,9 @@
 #include <mutex>
 #include <condition_variable>
 #include <queue>
+#include <thread>
 #include <type_traits>
+#include <vector>
 
 /*
  Listing 6.6 A thread-safe queue with fine-grained locking

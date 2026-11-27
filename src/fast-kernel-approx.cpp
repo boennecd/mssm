@@ -1,6 +1,7 @@
 #include "fast-kernel-approx.h"
 #include <limits>
 #include <cmath>
+#include <thread>
 #include <utility>
 #include "utils.h"
 #include <functional>
